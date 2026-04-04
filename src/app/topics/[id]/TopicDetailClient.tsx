@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, Edit3, Pin, Heart, Trash2,
-  Save, Tag,
+  Save, Tag, FileDown,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -14,6 +14,7 @@ import BlockEditor from '@/components/editor/BlockEditor';
 import { useAuth } from '@/contexts/AuthContext';
 import { topicRepository } from '@/lib/repositories/topicRepository';
 import { useToast } from '@/components/ui/Toast';
+import { exportToPdf } from '@/lib/exportPdf';
 import type { Topic, TopicBlock } from '@/types';
 
 export default function TopicDetailClient({ id: propId }: { id: string }) {
@@ -172,6 +173,17 @@ export default function TopicDetailClient({ id: propId }: { id: string }) {
               </h1>
             )}
           </div>
+
+          {!isEditing && (
+            <button
+              onClick={() => exportToPdf(topic.title, topic.blocks)}
+              className="p-2 rounded-lg transition-colors cursor-pointer"
+              style={{ color: 'var(--text-muted)' }}
+              title="Exporter en PDF"
+            >
+              <FileDown size={16} />
+            </button>
+          )}
 
           {isOwner && (
             <div className="flex items-center gap-1.5 shrink-0">

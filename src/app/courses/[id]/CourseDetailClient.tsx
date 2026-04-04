@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
-  ArrowLeft, Edit3, Save, Trash2, GraduationCap,
+  ArrowLeft, Edit3, Save, Trash2, GraduationCap, FileDown,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -13,6 +13,7 @@ import BlockEditor from '@/components/editor/BlockEditor';
 import { useAuth } from '@/contexts/AuthContext';
 import { courseRepository } from '@/lib/repositories/courseRepository';
 import { useToast } from '@/components/ui/Toast';
+import { exportToPdf } from '@/lib/exportPdf';
 import type { CoursePage, TopicBlock } from '@/types';
 
 export default function CourseDetailClient({ id: propId }: { id: string }) {
@@ -158,6 +159,17 @@ export default function CourseDetailClient({ id: propId }: { id: string }) {
               </>
             )}
           </div>
+
+          {!isEditing && (
+            <button
+              onClick={() => exportToPdf(page.title, page.blocks, folder ? `${folder.icon || ''} ${folder.title}`.trim() : undefined)}
+              className="p-2 rounded-lg transition-colors cursor-pointer"
+              style={{ color: 'var(--text-muted)' }}
+              title="Exporter en PDF"
+            >
+              <FileDown size={16} />
+            </button>
+          )}
 
           {isAdmin && (
             <div className="flex items-center gap-1.5 shrink-0">

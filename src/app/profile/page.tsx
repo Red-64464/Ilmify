@@ -18,6 +18,8 @@ import AuthGuard from '@/components/layout/AuthGuard';
 import { topicRepository } from '@/lib/repositories/topicRepository';
 import { bookRepository } from '@/lib/repositories/bookRepository';
 import { flashcardRepository } from '@/lib/repositories/flashcardRepository';
+import { courseRepository } from '@/lib/repositories/courseRepository';
+import { computeBadges } from '@/data/badges';
 
 const menuItems = [
   { icon: Heart, label: 'Favoris', desc: 'Gérer vos favoris', href: '/favorites' },
@@ -51,16 +53,33 @@ export default function ProfilePage() {
   const [booksRead, setBooksRead] = useState(0);
   const [totalBooks, setTotalBooks] = useState(0);
   const [flashcardCount, setFlashcardCount] = useState(0);
+  const [coursePageCount, setCoursePageCount] = useState(0);
+  const [favoriteCount, setFavoriteCount] = useState(0);
 
   useEffect(() => {
     if (!user) return;
-    topicRepository.getByUser(user.id).then((t) => setTopicCount(t.length)).catch(() => {});
+    topicRepository.getByUser(user.id).then((t) => {
+      setTopicCount(t.length);
+      setFavoriteCount(t.filter(tp => tp.isFavorite).length);
+    }).catch(() => {});
     bookRepository.getAll().then((bks) => {
       setTotalBooks(bks.length);
       setBooksRead(bks.filter((b) => b.status === 'read').length);
     }).catch(() => {});
     flashcardRepository.getAllDecks().then((d) => setFlashcardCount(d.reduce((a, dk) => a + dk.cardCount, 0))).catch(() => {});
+    courseRepository.getAllPages().then((p) => setCoursePageCount(p.length)).catch(() => {});
   }, [user]);
+
+  const userBadges = useMemo(() => {
+    return computeBadges({
+      topicCount,
+      booksRead,
+      totalBooks,
+      flashcardCount,
+      coursePageCount,
+      favoriteCount,
+    });
+  }, [topicCount, booksRead, totalBooks, flashcardCount, coursePageCount, favoriteCount]);
 
   const stats = useMemo(() => {
     return [
@@ -301,6 +320,67 @@ export default function ProfilePage() {
         transition={{ duration: 0.3, delay: 0.15 }}
         className="mb-8"
       >
+        {/* Badges / Achievements */}
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-base">🏅</span>
+            <h3 className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+              Badges ({userBadges.filter(b => b.unlocked).length}/{userBadges.length})
+            </h3>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {userBadges.map((badge, i) => (
+              <motion.div
+                key={badge.id}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.25, delay: 0.1 + i * 0.03 }}
+              >
+                <Card className="p-3 relative overflow-hidden">
+                  <div className="flex items-start gap-2.5">
+                    <div
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg"
+                      style={{
+                        background: badge.unlocked ? `${badge.color}20` : 'rgba(255,255,255,0.03)',
+                        opacity: badge.unlocked ? 1 : 0.4,
+                      }}
+                    >
+                      {badge.icon}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4
+                        className="text-xs font-semibold truncate"
+                        style={{ color: badge.unlocked ? badge.color : 'var(--text-muted)' }}
+                      >
+                        {badge.title}
+                      </h4>
+                      <p className="text-[10px] leading-tight mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                        {badge.description}
+                      </p>
+                      {!badge.unlocked && (
+                        <div className="mt-1.5 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                          <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{ width: `${badge.progress * 100}%`, background: badge.color }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {badge.unlocked && (
+                    <div
+                      className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full"
+                      style={{ background: badge.color }}
+                    >
+                      <Check size={10} style={{ color: '#fff' }} />
+                    </div>
+                  )}
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+
         <div className="flex items-center gap-2 mb-3">
           <Palette size={16} style={{ color: 'var(--text-secondary)' }} />
           <h3 className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>

@@ -3,29 +3,37 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Plus, Type, Heading2, Heading3, Quote, List, ListOrdered,
+  Plus, Type, Heading1, Heading2, Quote, List, ListOrdered,
   AlertCircle, Lightbulb, Bell, BookOpen, BookMarked,
   Image, Link2, Video, FileText, HelpCircle, Table2, Minus,
   GripVertical, Trash2, ChevronUp, ChevronDown,
   Upload, PlusCircle, MinusCircle, Columns, Rows,
+  Hand, BookType, CheckSquare, Music, ScrollText, Clock, AlertTriangle,
 } from 'lucide-react';
 import type { TopicBlock, BlockType } from '@/types';
 import ImageCropper from '@/components/ui/ImageCropper';
 
 // Block type definitions with metadata
 const BLOCK_TYPES: { type: BlockType; icon: React.ElementType; label: string; shortcut: string; color: string }[] = [
-  { type: 'paragraph', icon: Type, label: 'Paragraphe', shortcut: '/text', color: 'var(--text-secondary)' },
+  { type: 'heading1', icon: Heading1, label: 'Titre H1', shortcut: '/h1', color: 'var(--text-primary)' },
   { type: 'heading2', icon: Heading2, label: 'Titre H2', shortcut: '/h2', color: 'var(--text-primary)' },
-  { type: 'heading3', icon: Heading3, label: 'Sous-titre H3', shortcut: '/h3', color: 'var(--text-primary)' },
+  { type: 'paragraph', icon: Type, label: 'Paragraphe', shortcut: '/text', color: 'var(--text-secondary)' },
   { type: 'quote', icon: Quote, label: 'Citation', shortcut: '/quote', color: '#d4ad4a' },
   { type: 'bullet-list', icon: List, label: 'Liste à puces', shortcut: '/list', color: 'var(--accent)' },
   { type: 'numbered-list', icon: ListOrdered, label: 'Liste numérotée', shortcut: '/numbered', color: 'var(--accent)' },
+  { type: 'checklist', icon: CheckSquare, label: 'Checklist', shortcut: '/checklist', color: '#22c55e' },
   { type: 'callout', icon: AlertCircle, label: 'Important', shortcut: '/important', color: '#d4ad4a' },
+  { type: 'warning', icon: AlertTriangle, label: 'Avertissement', shortcut: '/warning', color: '#ef4444' },
   { type: 'reflection', icon: Lightbulb, label: 'Réflexion', shortcut: '/reflection', color: '#56e2cc' },
   { type: 'reminder', icon: Bell, label: 'Rappel', shortcut: '/reminder', color: '#f59e0b' },
-  { type: 'source', icon: BookOpen, label: 'Source / Référence', shortcut: '/source', color: '#6366f1' },
+  { type: 'definition', icon: BookType, label: 'Définition', shortcut: '/definition', color: '#a78bfa' },
+  { type: 'dua', icon: Hand, label: 'Dua / Invocation', shortcut: '/dua', color: '#34d399' },
   { type: 'hadith', icon: BookMarked, label: 'Hadith', shortcut: '/hadith', color: 'var(--accent)' },
   { type: 'verse', icon: BookOpen, label: 'Verset', shortcut: '/verse', color: '#d4ad4a' },
+  { type: 'source', icon: BookOpen, label: 'Source / Référence', shortcut: '/source', color: '#6366f1' },
+  { type: 'poem', icon: ScrollText, label: 'Poème / Matn', shortcut: '/poem', color: '#e879f9' },
+  { type: 'timeline', icon: Clock, label: 'Chronologie', shortcut: '/timeline', color: '#06b6d4' },
+  { type: 'audio', icon: Music, label: 'Audio', shortcut: '/audio', color: '#f472b6' },
   { type: 'image', icon: Image, label: 'Image', shortcut: '/image', color: '#ec4899' },
   { type: 'link', icon: Link2, label: 'Lien', shortcut: '/link', color: '#3b82f6' },
   { type: 'youtube', icon: Video, label: 'YouTube', shortcut: '/youtube', color: '#ef4444' },
@@ -322,7 +330,7 @@ function EditableBlock({
         e.preventDefault();
         onDelete();
       }
-      if (e.key === 'Enter' && !e.shiftKey && block.type !== 'bullet-list' && block.type !== 'numbered-list') {
+      if (e.key === 'Enter' && !e.shiftKey && block.type !== 'bullet-list' && block.type !== 'numbered-list' && block.type !== 'checklist' && block.type !== 'poem' && block.type !== 'timeline') {
         e.preventDefault();
         onAddBelow('paragraph');
       }
@@ -332,6 +340,12 @@ function EditableBlock({
 
   const getBlockStyle = (): { wrapper: React.CSSProperties; textarea: React.CSSProperties; placeholder: string } => {
     switch (block.type) {
+      case 'heading1':
+        return {
+          wrapper: {},
+          textarea: { fontSize: '1.75rem', fontWeight: 800, lineHeight: 1.2, fontFamily: 'var(--font-heading)' },
+          placeholder: 'Titre principal...',
+        };
       case 'heading2':
         return {
           wrapper: {},
@@ -460,6 +474,78 @@ function EditableBlock({
           },
           textarea: {},
           placeholder: 'Question\n---\nRéponse',
+        };
+      case 'warning':
+        return {
+          wrapper: {
+            background: 'rgba(239, 68, 68, 0.06)',
+            borderRadius: '0.75rem',
+            padding: '1rem',
+            border: '1px solid rgba(239, 68, 68, 0.12)',
+          },
+          textarea: {},
+          placeholder: 'Avertissement / Mise en garde...',
+        };
+      case 'dua':
+        return {
+          wrapper: {
+            background: 'rgba(52, 211, 153, 0.06)',
+            borderRadius: '0.75rem',
+            padding: '1rem',
+            borderLeft: '3px solid #34d399',
+          },
+          textarea: {},
+          placeholder: "Texte de l'invocation...",
+        };
+      case 'definition':
+        return {
+          wrapper: {
+            background: 'rgba(167, 139, 250, 0.06)',
+            borderRadius: '0.75rem',
+            padding: '1rem',
+            border: '1px solid rgba(167, 139, 250, 0.12)',
+          },
+          textarea: {},
+          placeholder: 'Terme\n---\nDéfinition',
+        };
+      case 'checklist':
+        return {
+          wrapper: { paddingLeft: '0.5rem' },
+          textarea: {},
+          placeholder: 'Élément (un par ligne, préfixer ✓ pour cocher)...',
+        };
+      case 'audio':
+        return {
+          wrapper: {
+            background: 'rgba(244, 114, 182, 0.06)',
+            borderRadius: '0.75rem',
+            padding: '1rem',
+            border: '1px solid rgba(244, 114, 182, 0.12)',
+          },
+          textarea: { display: 'none' },
+          placeholder: '',
+        };
+      case 'poem':
+        return {
+          wrapper: {
+            background: 'rgba(232, 121, 249, 0.06)',
+            borderRadius: '0.75rem',
+            padding: '1rem',
+            borderLeft: '3px solid #e879f9',
+          },
+          textarea: { fontStyle: 'italic', textAlign: 'center' as const },
+          placeholder: 'Vers du poème (un par ligne)...',
+        };
+      case 'timeline':
+        return {
+          wrapper: {
+            background: 'rgba(6, 182, 212, 0.06)',
+            borderRadius: '0.75rem',
+            padding: '1rem',
+            border: '1px solid rgba(6, 182, 212, 0.12)',
+          },
+          textarea: {},
+          placeholder: 'Date — Événement (un par ligne)',
         };
       case 'divider':
         return {
@@ -700,6 +786,84 @@ function EditableBlock({
           </div>
         )}
 
+        {/* Audio file picker */}
+        {block.type === 'audio' && (
+          <div className="mt-2 space-y-2">
+            {block.metadata?.dataUrl && (
+              <audio controls className="w-full" style={{ height: '40px' }}>
+                <source src={block.metadata.dataUrl} />
+              </audio>
+            )}
+            <label
+              className="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors text-sm"
+              style={{
+                background: 'rgba(244, 114, 182, 0.08)',
+                border: '1px dashed rgba(244, 114, 182, 0.25)',
+                color: '#f472b6',
+              }}
+            >
+              <Upload size={14} />
+              <span>{block.metadata?.dataUrl ? 'Changer l\'audio' : 'Choisir un fichier audio'}</span>
+              <input
+                type="file"
+                accept="audio/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                      onUpdate({
+                        content: file.name,
+                        metadata: {
+                          ...block.metadata,
+                          dataUrl: ev.target?.result as string,
+                          fileName: file.name,
+                        },
+                      });
+                    };
+                    reader.readAsDataURL(file);
+                  }
+                }}
+              />
+            </label>
+          </div>
+        )}
+
+        {/* Dua metadata inputs */}
+        {block.type === 'dua' && (
+          <div className="mt-2 space-y-2">
+            <input
+              type="text"
+              placeholder="Texte arabe de l'invocation..."
+              value={block.metadata?.arabic || ''}
+              onChange={(e) =>
+                onUpdate({ metadata: { ...block.metadata, arabic: e.target.value } })
+              }
+              className="w-full bg-transparent outline-none text-base text-right font-arabic placeholder:text-[var(--text-muted)]"
+              style={{ color: '#34d399' }}
+              dir="rtl"
+            />
+            <input
+              type="text"
+              placeholder="Source (ex: Sahih Muslim)..."
+              value={block.metadata?.source || ''}
+              onChange={(e) =>
+                onUpdate({ metadata: { ...block.metadata, source: e.target.value } })
+              }
+              className="w-full bg-transparent outline-none text-xs mt-2 placeholder:text-[var(--text-muted)]"
+              style={{ color: 'var(--text-muted)' }}
+            />
+          </div>
+        )}
+
+        {/* Definition metadata */}
+        {block.type === 'definition' && block.content.includes('---') === false && (
+          <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
+            Séparez le terme et la définition par ---
+          </p>
+        )}
+
         {/* Table editor */}
         {block.type === 'table' && (
           <TableEditor block={block} onUpdate={onUpdate} />
@@ -764,31 +928,48 @@ function EditableBlock({
   );
 }
 
-// Helper to auto-detect URLs in text and render them as clickable links
+// Helper to render inline formatting: URLs as clickable links, ==text== as highlights
 function TextWithLinks({ text, style }: { text: string; style?: React.CSSProperties }) {
-  const urlRegex = /(https?:\/\/[^\s<]+)/g;
-  const parts = text.split(urlRegex);
+  // Split by highlights first, then by URLs
+  const combinedRegex = /(==.+?==|https?:\/\/[^\s<]+)/g;
+  const parts = text.split(combinedRegex);
   if (parts.length === 1) {
     return <span style={style}>{text}</span>;
   }
   return (
     <span style={style}>
-      {parts.map((part, i) =>
-        urlRegex.test(part) ? (
-          <a
-            key={i}
-            href={part}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ color: '#60a5fa', textDecoration: 'underline' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {part}
-          </a>
-        ) : (
-          <span key={i}>{part}</span>
-        )
-      )}
+      {parts.map((part, i) => {
+        if (/^==.+==$/.test(part)) {
+          return (
+            <mark
+              key={i}
+              style={{
+                background: 'rgba(212, 173, 74, 0.18)',
+                color: 'inherit',
+                borderRadius: '3px',
+                padding: '1px 4px',
+              }}
+            >
+              {part.slice(2, -2)}
+            </mark>
+          );
+        }
+        if (/^https?:\/\//.test(part)) {
+          return (
+            <a
+              key={i}
+              href={part}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: '#60a5fa', textDecoration: 'underline' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {part}
+            </a>
+          );
+        }
+        return <span key={i}>{part}</span>;
+      })}
     </span>
   );
 }
@@ -796,16 +977,22 @@ function TextWithLinks({ text, style }: { text: string; style?: React.CSSPropert
 // Read-only block renderer
 function ReadOnlyBlock({ block }: { block: TopicBlock }) {
   switch (block.type) {
+    case 'heading1':
+      return (
+        <h1 className="text-2xl sm:text-3xl font-extrabold font-heading tracking-tight mt-10 mb-4" style={{ color: 'var(--text-primary)' }}>
+          <TextWithLinks text={block.content} />
+        </h1>
+      );
     case 'heading2':
       return (
         <h2 className="text-xl sm:text-2xl font-bold font-heading tracking-tight mt-8 mb-3" style={{ color: 'var(--text-primary)' }}>
-          {block.content}
+          <TextWithLinks text={block.content} />
         </h2>
       );
     case 'heading3':
       return (
         <h3 className="text-lg font-semibold tracking-tight mt-6 mb-2" style={{ color: 'var(--text-primary)' }}>
-          {block.content}
+          <TextWithLinks text={block.content} />
         </h3>
       );
     case 'paragraph':
@@ -824,7 +1011,7 @@ function ReadOnlyBlock({ block }: { block: TopicBlock }) {
           }}
         >
           <p className="text-sm italic leading-[1.9]" style={{ color: '#d4ad4a' }}>
-            {block.content}
+            <TextWithLinks text={block.content} />
           </p>
         </blockquote>
       );
@@ -833,7 +1020,7 @@ function ReadOnlyBlock({ block }: { block: TopicBlock }) {
         <ul className="my-3 space-y-1.5 pl-5">
           {block.content.split('\n').filter(Boolean).map((item, i) => (
             <li key={i} className="text-sm leading-[1.8] list-disc" style={{ color: 'var(--text-secondary)' }}>
-              {item}
+              <TextWithLinks text={item} />
             </li>
           ))}
         </ul>
@@ -843,7 +1030,7 @@ function ReadOnlyBlock({ block }: { block: TopicBlock }) {
         <ol className="my-3 space-y-1.5 pl-5">
           {block.content.split('\n').filter(Boolean).map((item, i) => (
             <li key={i} className="text-sm leading-[1.8] list-decimal" style={{ color: 'var(--text-secondary)' }}>
-              {item}
+              <TextWithLinks text={item} />
             </li>
           ))}
         </ol>
@@ -960,11 +1147,11 @@ function ReadOnlyBlock({ block }: { block: TopicBlock }) {
           <BookOpen size={16} style={{ color: '#6366f1' }} className="shrink-0 mt-0.5" />
           <div>
             <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
-              {block.content}
+              <TextWithLinks text={block.content} />
             </p>
             {block.metadata?.reference && (
               <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                {block.metadata.reference}
+                <TextWithLinks text={block.metadata.reference} />
               </p>
             )}
           </div>
@@ -1157,6 +1344,187 @@ function ReadOnlyBlock({ block }: { block: TopicBlock }) {
         </div>
       );
     }
+    case 'warning':
+      return (
+        <div
+          className="my-4 rounded-xl p-4 flex items-start gap-3"
+          style={{
+            background: 'rgba(239, 68, 68, 0.06)',
+            border: '1px solid rgba(239, 68, 68, 0.12)',
+          }}
+        >
+          <AlertTriangle size={18} style={{ color: '#ef4444' }} className="shrink-0 mt-0.5" />
+          <p className="text-sm leading-[1.8]" style={{ color: 'var(--text-primary)' }}>
+            <TextWithLinks text={block.content} />
+          </p>
+        </div>
+      );
+    case 'dua':
+      return (
+        <div
+          className="my-4 rounded-xl p-4"
+          style={{
+            background: 'rgba(52, 211, 153, 0.06)',
+            borderLeft: '3px solid #34d399',
+          }}
+        >
+          <div className="flex items-center gap-1.5 mb-2">
+            <Hand size={14} style={{ color: '#34d399' }} />
+            <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: '#34d399' }}>
+              Dua / Invocation
+            </span>
+          </div>
+          {block.metadata?.arabic && (
+            <p className="text-lg font-arabic text-right leading-[2] mb-3" style={{ color: '#34d399' }} dir="rtl">
+              {block.metadata.arabic}
+            </p>
+          )}
+          <p className="text-sm leading-[1.9]" style={{ color: 'var(--text-primary)' }}>
+            <TextWithLinks text={block.content} />
+          </p>
+          {block.metadata?.source && (
+            <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+              — {block.metadata.source}
+            </p>
+          )}
+        </div>
+      );
+    case 'definition': {
+      const defParts = block.content.split('---');
+      return (
+        <div
+          className="my-4 rounded-xl p-4"
+          style={{
+            background: 'rgba(167, 139, 250, 0.06)',
+            border: '1px solid rgba(167, 139, 250, 0.12)',
+          }}
+        >
+          <div className="flex items-center gap-1.5 mb-2">
+            <BookType size={14} style={{ color: '#a78bfa' }} />
+            <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: '#a78bfa' }}>
+              Définition
+            </span>
+          </div>
+          <p className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+            {defParts[0]?.trim()}
+          </p>
+          {defParts[1] && (
+            <p className="text-sm leading-[1.8]" style={{ color: 'var(--text-secondary)' }}>
+              <TextWithLinks text={defParts[1].trim()} />
+            </p>
+          )}
+        </div>
+      );
+    }
+    case 'checklist':
+      return (
+        <div className="my-3 space-y-1.5 pl-1">
+          {block.content.split('\n').filter(Boolean).map((item, i) => {
+            const checked = item.startsWith('✓ ') || item.startsWith('✔ ');
+            const text = checked ? item.slice(2) : item;
+            return (
+              <div key={i} className="flex items-start gap-2">
+                <div
+                  className="mt-1 h-4 w-4 rounded flex-shrink-0 flex items-center justify-center"
+                  style={{
+                    border: checked ? 'none' : '1.5px solid var(--text-muted)',
+                    background: checked ? '#22c55e' : 'transparent',
+                  }}
+                >
+                  {checked && <span className="text-[10px] text-white">✓</span>}
+                </div>
+                <span
+                  className="text-sm leading-[1.8]"
+                  style={{
+                    color: checked ? 'var(--text-muted)' : 'var(--text-secondary)',
+                    textDecoration: checked ? 'line-through' : 'none',
+                  }}
+                >
+                  <TextWithLinks text={text} />
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      );
+    case 'audio':
+      return (
+        <div className="my-3">
+          {block.metadata?.dataUrl ? (
+            <div className="rounded-xl p-3" style={{ background: 'rgba(244, 114, 182, 0.06)', border: '1px solid rgba(244, 114, 182, 0.12)' }}>
+              <div className="flex items-center gap-2 mb-2">
+                <Music size={14} style={{ color: '#f472b6' }} />
+                <span className="text-xs font-medium" style={{ color: '#f472b6' }}>
+                  {block.metadata.fileName || 'Audio'}
+                </span>
+              </div>
+              <audio controls className="w-full" style={{ height: '36px' }}>
+                <source src={block.metadata.dataUrl} />
+              </audio>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 rounded-lg p-3 text-sm" style={{ background: 'rgba(244, 114, 182, 0.06)', border: '1px solid rgba(244, 114, 182, 0.12)', color: '#f472b6' }}>
+              <Music size={16} />
+              <span>{block.content || 'Fichier audio'}</span>
+            </div>
+          )}
+        </div>
+      );
+    case 'poem':
+      return (
+        <div
+          className="my-4 rounded-xl p-4"
+          style={{
+            background: 'rgba(232, 121, 249, 0.06)',
+            borderLeft: '3px solid #e879f9',
+          }}
+        >
+          <div className="flex items-center gap-1.5 mb-2">
+            <ScrollText size={14} style={{ color: '#e879f9' }} />
+            <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: '#e879f9' }}>
+              Poème
+            </span>
+          </div>
+          <div className="space-y-1">
+            {block.content.split('\n').filter(Boolean).map((line, i) => (
+              <p key={i} className="text-sm italic text-center leading-[1.9]" style={{ color: 'var(--text-primary)' }}>
+                {line}
+              </p>
+            ))}
+          </div>
+          {block.metadata?.source && (
+            <p className="text-xs mt-3 text-center" style={{ color: 'var(--text-muted)' }}>
+              — {block.metadata.source}
+            </p>
+          )}
+        </div>
+      );
+    case 'timeline':
+      return (
+        <div className="my-4 pl-4" style={{ borderLeft: '2px solid rgba(6, 182, 212, 0.3)' }}>
+          {block.content.split('\n').filter(Boolean).map((line, i) => {
+            const sep = line.indexOf('—');
+            const date = sep > -1 ? line.slice(0, sep).trim() : '';
+            const event = sep > -1 ? line.slice(sep + 1).trim() : line;
+            return (
+              <div key={i} className="relative mb-4 last:mb-0 pl-4">
+                <div
+                  className="absolute -left-[1.3rem] top-1.5 h-2.5 w-2.5 rounded-full"
+                  style={{ background: '#06b6d4', border: '2px solid var(--bg-base)' }}
+                />
+                {date && (
+                  <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#06b6d4' }}>
+                    {date}
+                  </span>
+                )}
+                <p className="text-sm leading-[1.7]" style={{ color: 'var(--text-primary)' }}>
+                  <TextWithLinks text={event} />
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      );
     case 'divider':
       return (
         <div className="separator-ornament my-6">
@@ -1292,8 +1660,9 @@ export default function BlockEditor({ blocks, onChange, readOnly = false }: Bloc
       const text = e.clipboardData.getData('text/plain');
       if (!text) return;
 
-      // Only auto-format if paste has multiple lines or markdown-like syntax
-      const hasFormatting = text.includes('\n') || /^(#{1,3}\s|[-*+]\s|\d+[.)]\s|>\s|https?:\/\/|[-*_]{3,})/.test(text.trim());
+      // Only auto-format if paste has multiple lines with markdown-like syntax
+      // Single-line URLs should paste as plain text in the current block
+      const hasFormatting = text.includes('\n') && /^(#{1,3}\s|[-*+]\s|\d+[.)]\s|>\s|[-*_]{3,})/m.test(text.trim());
       if (!hasFormatting) return;
 
       e.preventDefault();

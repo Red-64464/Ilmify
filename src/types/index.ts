@@ -146,7 +146,7 @@ export interface DailyReminder {
 
 export type SearchResult = {
   id: string;
-  type: 'theme' | 'content' | 'quiz' | 'flashcard' | 'book' | 'passage';
+  type: 'theme' | 'content' | 'quiz' | 'flashcard' | 'book' | 'passage' | 'topic' | 'course';
   title: string;
   description: string;
   themeId?: string;
@@ -183,11 +183,14 @@ export interface SignupData {
 // Topic types
 
 export type BlockType =
-  | 'paragraph' | 'heading2' | 'heading3'
+  | 'paragraph' | 'heading1' | 'heading2'
   | 'quote' | 'bullet-list' | 'numbered-list'
   | 'callout' | 'reflection' | 'reminder' | 'source'
-  | 'hadith' | 'verse' | 'image' | 'link' | 'youtube'
-  | 'pdf' | 'qa' | 'table' | 'divider';
+  | 'hadith' | 'verse' | 'dua' | 'definition'
+  | 'checklist' | 'audio' | 'poem' | 'timeline' | 'warning'
+  | 'image' | 'link' | 'youtube'
+  | 'pdf' | 'qa' | 'table' | 'divider'
+  | 'heading3';
 
 export interface TopicBlock {
   id: string;

@@ -46,6 +46,8 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
+        <link rel="icon" href="/logo.png" type="image/png" />
+        <link rel="apple-touch-icon" href="/logo.png" />
         <link
           rel="preconnect"
           href="https://fonts.googleapis.com"
@@ -63,6 +65,11 @@ export default function RootLayout({
       </head>
       <body className="pattern-bg min-h-full flex flex-col">
         <AppShell>{children}</AppShell>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js')})}`,
+          }}
+        />
       </body>
     </html>
   );
