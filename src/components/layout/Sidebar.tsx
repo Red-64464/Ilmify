@@ -4,28 +4,30 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Home,
-  Compass,
-  Search,
+  FileText,
+  GraduationCap,
   BookOpen,
   User,
   Brain,
   Layers,
   Heart,
   Settings,
+  Compass,
 } from 'lucide-react';
 
 const mainNav = [
   { href: '/', label: 'Home', icon: Home },
-  { href: '/explore', label: 'Explore', icon: Compass },
-  { href: '/search', label: 'Search', icon: Search },
-  { href: '/library', label: 'Library', icon: BookOpen },
-  { href: '/profile', label: 'Profile', icon: User },
+  { href: '/topics', label: 'Mes Topics', icon: FileText },
+  { href: '/courses', label: 'Cours', icon: GraduationCap },
+  { href: '/library', label: 'Bibliothèque', icon: BookOpen },
+  { href: '/profile', label: 'Profil', icon: User },
 ] as const;
 
 const secondaryNav = [
+  { href: '/explore', label: 'Explorer (Thèmes)', icon: Compass },
   { href: '/quiz', label: 'Quiz', icon: Brain },
   { href: '/flashcards', label: 'Flashcards', icon: Layers },
-  { href: '/favorites', label: 'Favorites', icon: Heart },
+  { href: '/favorites', label: 'Favoris', icon: Heart },
   { href: '/admin', label: 'Admin', icon: Settings },
 ] as const;
 

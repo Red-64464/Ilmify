@@ -3,14 +3,14 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Home, Compass, Search, BookOpen, User } from 'lucide-react';
+import { Home, FileText, GraduationCap, BookOpen, User } from 'lucide-react';
 
 const navItems = [
   { href: '/', label: 'Home', icon: Home },
-  { href: '/explore', label: 'Explore', icon: Compass },
-  { href: '/search', label: 'Search', icon: Search },
+  { href: '/topics', label: 'Mes Topics', icon: FileText },
+  { href: '/courses', label: 'Cours', icon: GraduationCap },
   { href: '/library', label: 'Library', icon: BookOpen },
-  { href: '/profile', label: 'Profile', icon: User },
+  { href: '/profile', label: 'Profil', icon: User },
 ] as const;
 
 export default function BottomNav() {
