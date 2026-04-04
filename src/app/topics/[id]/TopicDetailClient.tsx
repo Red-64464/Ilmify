@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, Edit3, Pin, Heart, Trash2,
@@ -16,9 +16,11 @@ import { topicRepository } from '@/lib/repositories/topicRepository';
 import { useToast } from '@/components/ui/Toast';
 import type { Topic, TopicBlock } from '@/types';
 
-export default function TopicDetailClient({ id }: { id: string }) {
+export default function TopicDetailClient({ id: propId }: { id: string }) {
   const { user } = useAuth();
   const router = useRouter();
+  const params = useParams();
+  const id = (params?.id as string) || propId;
   const { toast } = useToast();
   const [topic, setTopic] = useState<Topic | null>(() => {
     if (typeof window === 'undefined') return null;
