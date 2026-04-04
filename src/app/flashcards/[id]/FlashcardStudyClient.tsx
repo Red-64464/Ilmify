@@ -16,12 +16,21 @@ import type { FlashcardDeck, Flashcard } from '@/types';
 export default function FlashcardStudyClient({ id: propId }: { id: string }) {
   const { isLoading: authLoading } = useAuth();
   const params = useParams();
-  const id = (params?.id as string) || propId;
+  const paramId = (params?.id as string) || propId;
+  const [id, setId] = useState(paramId);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [deck, setDeck] = useState<FlashcardDeck | null>(null);
   const [cards, setCards] = useState<Flashcard[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!id || id === '_placeholder') {
+      const segments = window.location.pathname.split('/').filter(Boolean);
+      const urlId = segments[segments.length - 1];
+      if (urlId && urlId !== '_placeholder') setId(urlId);
+    }
+  }, [id]);
 
   useEffect(() => {
     if (authLoading) return;

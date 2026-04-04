@@ -19,7 +19,8 @@ export default function CourseDetailClient({ id: propId }: { id: string }) {
   const { isAdmin, user, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const params = useParams();
-  const id = (params?.id as string) || propId;
+  const paramId = (params?.id as string) || propId;
+  const [id, setId] = useState(paramId);
   const { toast } = useToast();
   const [page, setPage] = useState<CoursePage | null>(null);
   const [loading, setLoading] = useState(true);
@@ -28,6 +29,15 @@ export default function CourseDetailClient({ id: propId }: { id: string }) {
   const [editBlocks, setEditBlocks] = useState<TopicBlock[]>([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [folder, setFolder] = useState<{ id: string; title: string; icon?: string } | null>(null);
+
+  useEffect(() => {
+    // In static export, useParams() may return '_placeholder'. Extract real ID from URL.
+    if (!id || id === '_placeholder') {
+      const segments = window.location.pathname.split('/').filter(Boolean);
+      const urlId = segments[segments.length - 1];
+      if (urlId && urlId !== '_placeholder') setId(urlId);
+    }
+  }, [id]);
 
   useEffect(() => {
     if (authLoading) return;

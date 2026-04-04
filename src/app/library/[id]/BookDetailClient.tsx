@@ -27,11 +27,20 @@ const fadeUp = {
 export default function BookDetailClient({ id: propId }: { id: string }) {
   const { user, isLoading: authLoading } = useAuth();
   const params = useParams();
-  const id = (params?.id as string) || propId;
+  const paramId = (params?.id as string) || propId;
+  const [id, setId] = useState(paramId);
   const [refreshKey, setRefreshKey] = useState(0);
   const [book, setBook] = useState<Book | null>(null);
   const [passages, setPassages] = useState<BookPassage[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!id || id === '_placeholder') {
+      const segments = window.location.pathname.split('/').filter(Boolean);
+      const urlId = segments[segments.length - 1];
+      if (urlId && urlId !== '_placeholder') setId(urlId);
+    }
+  }, [id]);
 
   useEffect(() => {
     if (authLoading) return;

@@ -20,7 +20,8 @@ export default function TopicDetailClient({ id: propId }: { id: string }) {
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const params = useParams();
-  const id = (params?.id as string) || propId;
+  const paramId = (params?.id as string) || propId;
+  const [id, setId] = useState(paramId);
   const { toast } = useToast();
   const [topic, setTopic] = useState<Topic | null>(null);
   const [loading, setLoading] = useState(true);
@@ -28,6 +29,14 @@ export default function TopicDetailClient({ id: propId }: { id: string }) {
   const [editTitle, setEditTitle] = useState('');
   const [editBlocks, setEditBlocks] = useState<TopicBlock[]>([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  useEffect(() => {
+    if (!id || id === '_placeholder') {
+      const segments = window.location.pathname.split('/').filter(Boolean);
+      const urlId = segments[segments.length - 1];
+      if (urlId && urlId !== '_placeholder') setId(urlId);
+    }
+  }, [id]);
 
   useEffect(() => {
     if (authLoading) return;
