@@ -1,16 +1,17 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   User, Star, Brain, Layers, BookOpen, Settings,
   Info, Shield, Heart, LogOut, GraduationCap,
+  Camera, Edit3, Lock, Save, X, Check,
 } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
-import EmptyState from '@/components/ui/EmptyState';
+import Modal from '@/components/ui/Modal';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthGuard from '@/components/layout/AuthGuard';
 import { themes } from '@/data/themes';
@@ -26,8 +27,23 @@ const menuItems = [
 ];
 
 export default function ProfilePage() {
-  const { user, isAdmin, logout } = useAuth();
+  const { user, isAdmin, logout, updateUser, updatePassword } = useAuth();
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Edit profile state
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [editDisplayName, setEditDisplayName] = useState('');
+  const [editUsername, setEditUsername] = useState('');
+  const [editError, setEditError] = useState('');
+
+  // Change password state
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
 
   const stats = useMemo(() => {
     const themesExplored = themes.filter((t) => t.progress && t.progress > 0).length;
@@ -52,6 +68,66 @@ export default function ProfilePage() {
     router.push('/');
   };
 
+  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        updateUser({ avatarUrl: ev.target?.result as string });
+      } catch { /* ignore */ }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const openEditProfile = () => {
+    if (!user) return;
+    setEditDisplayName(user.displayName);
+    setEditUsername(user.username);
+    setEditError('');
+    setShowEditProfile(true);
+  };
+
+  const handleSaveProfile = () => {
+    if (!editDisplayName.trim() || !editUsername.trim()) {
+      setEditError('Tous les champs sont requis');
+      return;
+    }
+    try {
+      updateUser({ displayName: editDisplayName.trim(), username: editUsername.trim() });
+      setShowEditProfile(false);
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : 'Erreur');
+    }
+  };
+
+  const handleChangePassword = () => {
+    setPasswordError('');
+    setPasswordSuccess(false);
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      setPasswordError('Tous les champs sont requis');
+      return;
+    }
+    if (newPassword.length < 4) {
+      setPasswordError('Le nouveau mot de passe doit faire au moins 4 caractères');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Les mots de passe ne correspondent pas');
+      return;
+    }
+    try {
+      updatePassword(oldPassword, newPassword);
+      setPasswordSuccess(true);
+      setOldPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setTimeout(() => setShowChangePassword(false), 1200);
+    } catch (err) {
+      setPasswordError(err instanceof Error ? err.message : 'Erreur');
+    }
+  };
+
   if (!user) {
     return null;
   }
@@ -66,11 +142,37 @@ export default function ProfilePage() {
         transition={{ duration: 0.4 }}
         className="text-center mb-10"
       >
-        <div
-          className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full"
-          style={{ background: 'rgba(46,158,140,0.25)', border: '2px solid rgba(46,158,140,0.4)' }}
-        >
-          <User size={36} style={{ color: 'var(--text-secondary)' }} />
+        <div className="relative inline-block mb-4">
+          <div
+            className="mx-auto flex h-24 w-24 items-center justify-center rounded-full overflow-hidden"
+            style={{ background: 'rgba(46,158,140,0.25)', border: '2px solid rgba(46,158,140,0.4)' }}
+          >
+            {user.avatarUrl ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src={user.avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+            ) : (
+              <User size={40} style={{ color: 'var(--text-secondary)' }} />
+            )}
+          </div>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full cursor-pointer transition-transform hover:scale-110"
+            style={{
+              background: 'linear-gradient(135deg, #2e9e8c, #1a7a6b)',
+              boxShadow: '0 2px 8px rgba(46,158,140,0.3)',
+              border: '2px solid var(--bg-primary)',
+            }}
+            title="Changer la photo"
+          >
+            <Camera size={14} style={{ color: '#fff' }} />
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleAvatarUpload}
+          />
         </div>
         <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
           {user.displayName}
@@ -82,6 +184,33 @@ export default function ProfilePage() {
             Administrateur
           </Badge>
         )}
+
+        {/* Edit & Password buttons */}
+        <div className="flex items-center justify-center gap-2 mt-4">
+          <Button
+            variant="secondary"
+            size="sm"
+            iconLeft={<Edit3 size={14} />}
+            onClick={openEditProfile}
+          >
+            Modifier le profil
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            iconLeft={<Lock size={14} />}
+            onClick={() => {
+              setPasswordError('');
+              setPasswordSuccess(false);
+              setOldPassword('');
+              setNewPassword('');
+              setConfirmPassword('');
+              setShowChangePassword(true);
+            }}
+          >
+            Mot de passe
+          </Button>
+        </div>
       </motion.div>
 
       {/* Admin shortcuts */}
@@ -202,6 +331,160 @@ export default function ProfilePage() {
           Se déconnecter
         </Button>
       </motion.div>
+
+      {/* Edit Profile Modal */}
+      <Modal
+        isOpen={showEditProfile}
+        onClose={() => setShowEditProfile(false)}
+        title="Modifier le profil"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+              Nom d&apos;affichage
+            </label>
+            <input
+              type="text"
+              value={editDisplayName}
+              onChange={(e) => setEditDisplayName(e.target.value)}
+              className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all"
+              style={{
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border-light)',
+                color: 'var(--text-primary)',
+              }}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+              Nom d&apos;utilisateur
+            </label>
+            <input
+              type="text"
+              value={editUsername}
+              onChange={(e) => setEditUsername(e.target.value)}
+              className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all"
+              style={{
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border-light)',
+                color: 'var(--text-primary)',
+              }}
+            />
+          </div>
+          <AnimatePresence>
+            {editError && (
+              <motion.p
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="text-xs"
+                style={{ color: '#f87171' }}
+              >
+                {editError}
+              </motion.p>
+            )}
+          </AnimatePresence>
+          <div className="flex gap-2">
+            <Button variant="secondary" size="md" onClick={() => setShowEditProfile(false)} className="flex-1">
+              Annuler
+            </Button>
+            <Button variant="primary" size="md" iconLeft={<Save size={14} />} onClick={handleSaveProfile} className="flex-1">
+              Enregistrer
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Change Password Modal */}
+      <Modal
+        isOpen={showChangePassword}
+        onClose={() => setShowChangePassword(false)}
+        title="Changer le mot de passe"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+              Ancien mot de passe
+            </label>
+            <input
+              type="password"
+              value={oldPassword}
+              onChange={(e) => setOldPassword(e.target.value)}
+              className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all"
+              style={{
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border-light)',
+                color: 'var(--text-primary)',
+              }}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+              Nouveau mot de passe
+            </label>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all"
+              style={{
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border-light)',
+                color: 'var(--text-primary)',
+              }}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+              Confirmer le mot de passe
+            </label>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all"
+              style={{
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border-light)',
+                color: 'var(--text-primary)',
+              }}
+            />
+          </div>
+          <AnimatePresence>
+            {passwordError && (
+              <motion.p
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="text-xs"
+                style={{ color: '#f87171' }}
+              >
+                {passwordError}
+              </motion.p>
+            )}
+            {passwordSuccess && (
+              <motion.div
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="flex items-center gap-2 text-xs"
+                style={{ color: '#3aaa60' }}
+              >
+                <Check size={14} />
+                Mot de passe modifié avec succès
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <div className="flex gap-2">
+            <Button variant="secondary" size="md" onClick={() => setShowChangePassword(false)} className="flex-1">
+              Annuler
+            </Button>
+            <Button variant="primary" size="md" iconLeft={<Lock size={14} />} onClick={handleChangePassword} className="flex-1">
+              Changer
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
     </AuthGuard>
   );

@@ -12,6 +12,9 @@ interface AuthContextValue {
   login: (credentials: AuthCredentials) => Promise<void>;
   signup: (data: SignupData) => Promise<void>;
   logout: () => Promise<void>;
+  updateUser: (updates: { displayName?: string; username?: string; avatarUrl?: string }) => User;
+  updatePassword: (oldPassword: string, newPassword: string) => void;
+  refreshUser: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -54,10 +57,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSession(null);
   }, []);
 
+  const updateUser = useCallback((updates: { displayName?: string; username?: string; avatarUrl?: string }) => {
+    if (!user) throw new Error('Non connecté');
+    const updated = authService.updateUser(user.id, updates);
+    setUser(updated);
+    return updated;
+  }, [user]);
+
+  const updatePassword = useCallback((oldPassword: string, newPassword: string) => {
+    if (!user) throw new Error('Non connecté');
+    authService.updatePassword(user.id, oldPassword, newPassword);
+  }, [user]);
+
+  const refreshUser = useCallback(() => {
+    setUser(authService.getUser());
+  }, []);
+
   const isAdmin = user?.role === 'admin';
 
   return (
-    <AuthContext.Provider value={{ user, session, isLoading, isAdmin, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, session, isLoading, isAdmin, login, signup, logout, updateUser, updatePassword, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

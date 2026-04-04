@@ -43,14 +43,20 @@ export default function TopicDetailClient({ id: propId }: { id: string }) {
 
   const handleSave = useCallback(() => {
     if (!topic) return;
+    // Deep clone blocks to avoid stale references
+    const blocksToSave = JSON.parse(JSON.stringify(editBlocks)) as TopicBlock[];
     const updated = topicRepository.update(topic.id, {
       title: editTitle,
-      blocks: editBlocks,
+      blocks: blocksToSave,
     });
     if (updated) {
       setTopic(updated);
+      setEditBlocks(updated.blocks);
+      setEditTitle(updated.title);
       setIsEditing(false);
       toast('success', 'Topic sauvegardé');
+    } else {
+      toast('error', 'Erreur lors de la sauvegarde');
     }
   }, [topic, editTitle, editBlocks, toast]);
 
@@ -156,7 +162,11 @@ export default function TopicDetailClient({ id: propId }: { id: string }) {
                   >
                     <Heart size={16} fill={topic.isFavorite ? '#d4ad4a' : 'none'} />
                   </button>
-                  <Button variant="secondary" size="sm" iconLeft={<Edit3 size={14} />} onClick={() => setIsEditing(true)}>
+                  <Button variant="secondary" size="sm" iconLeft={<Edit3 size={14} />} onClick={() => {
+                    setEditTitle(topic.title);
+                    setEditBlocks(JSON.parse(JSON.stringify(topic.blocks)));
+                    setIsEditing(true);
+                  }}>
                     Modifier
                   </Button>
                   <button

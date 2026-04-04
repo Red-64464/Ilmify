@@ -65,7 +65,7 @@ export default function TopicsPage() {
     setShowCreateModal(false);
     setNewTitle('');
     setNewCategory('');
-    window.location.href = `/topics/${topic.id}`;
+    router.push(`/topics/${topic.id}`);
   }, [user, newTitle, newCategory]);
 
   const handleAction = useCallback(

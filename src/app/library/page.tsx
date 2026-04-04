@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
-import { BookOpen, Star, Plus } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { BookOpen, Star, Plus, Upload, Smile } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import Card from '@/components/ui/Card';
 import SearchInput from '@/components/ui/SearchInput';
@@ -33,6 +33,8 @@ const categoryColors: Record<string, 'gold' | 'green' | 'teal' | 'blue' | 'defau
   Fiqh: 'blue',
 };
 
+const BOOK_EMOJIS = ['📖', '📚', '📕', '📗', '📘', '📙', '📓', '📔', '🕌', '🕋', '☪️', '🌙', '⭐', '🤲', '📿', '🎓', '✨', '💡', '🌟', '🏆'];
+
 const stagger = {
   hidden: {},
   visible: { transition: { staggerChildren: 0.06 } },
@@ -51,7 +53,11 @@ export default function LibraryPage() {
   const [newTitle, setNewTitle] = useState('');
   const [newAuthor, setNewAuthor] = useState('');
   const [newCategory, setNewCategory] = useState('');
+  const [newCoverUrl, setNewCoverUrl] = useState('');
+  const [newEmoji, setNewEmoji] = useState('');
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const coverInputRef = useRef<HTMLInputElement>(null);
 
   const books = useMemo(() => bookRepository.getAll(), [refreshKey]);
 
@@ -69,8 +75,9 @@ export default function LibraryPage() {
   const handleAddBook = useCallback(() => {
     if (!newTitle.trim() || !newAuthor.trim()) return;
     bookRepository.create({
-      title: newTitle.trim(),
+      title: `${newEmoji ? newEmoji + ' ' : ''}${newTitle.trim()}`,
       author: newAuthor.trim(),
+      coverUrl: newCoverUrl || undefined,
       description: '',
       category: newCategory || 'Autre',
       language: 'fr',
@@ -81,8 +88,20 @@ export default function LibraryPage() {
     setNewTitle('');
     setNewAuthor('');
     setNewCategory('');
+    setNewCoverUrl('');
+    setNewEmoji('');
     setRefreshKey((k) => k + 1);
-  }, [newTitle, newAuthor, newCategory]);
+  }, [newTitle, newAuthor, newCategory, newCoverUrl, newEmoji]);
+
+  const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setNewCoverUrl(ev.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
 
   return (
     <AuthGuard>
@@ -130,12 +149,17 @@ export default function LibraryPage() {
                 <Card glowColor="gold" className="p-5 h-full">
                   <div className="flex items-start gap-3 mb-4">
                     <div
-                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
+                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl overflow-hidden"
                       style={{
                         background: 'linear-gradient(135deg, rgba(196,154,61,0.12), rgba(196,154,61,0.05))',
                       }}
                     >
-                      <BookOpen size={20} style={{ color: '#d4ad4a' }} />
+                      {book.coverUrl ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img src={book.coverUrl} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <BookOpen size={20} style={{ color: '#d4ad4a' }} />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3
@@ -210,6 +234,107 @@ export default function LibraryPage() {
         title="Ajouter un livre"
       >
         <div className="space-y-4">
+          {/* Cover image upload */}
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+              Couverture (optionnel)
+            </label>
+            <div className="flex items-center gap-3">
+              <div
+                className="h-16 w-12 rounded-lg overflow-hidden flex items-center justify-center shrink-0"
+                style={{
+                  background: 'var(--bg-secondary)',
+                  border: '1px dashed var(--border-light)',
+                }}
+              >
+                {newCoverUrl ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={newCoverUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <BookOpen size={16} style={{ color: 'var(--text-muted)' }} />
+                )}
+              </div>
+              <button
+                onClick={() => coverInputRef.current?.click()}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs cursor-pointer transition-colors"
+                style={{
+                  background: 'rgba(196,154,61,0.08)',
+                  border: '1px dashed rgba(196,154,61,0.25)',
+                  color: '#d4ad4a',
+                }}
+              >
+                <Upload size={12} />
+                {newCoverUrl ? 'Changer' : 'Ajouter une photo'}
+              </button>
+              <input
+                ref={coverInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleCoverUpload}
+              />
+            </div>
+          </div>
+
+          {/* Emoji picker */}
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+              Emoji (optionnel)
+            </label>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm cursor-pointer transition-colors"
+                style={{
+                  background: newEmoji ? 'rgba(196,154,61,0.1)' : 'var(--bg-secondary)',
+                  border: `1px solid ${newEmoji ? 'rgba(196,154,61,0.2)' : 'var(--border-light)'}`,
+                  color: 'var(--text-primary)',
+                }}
+              >
+                {newEmoji || <Smile size={14} style={{ color: 'var(--text-muted)' }} />}
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  {newEmoji ? 'Changer' : 'Choisir'}
+                </span>
+              </button>
+              {newEmoji && (
+                <button
+                  onClick={() => setNewEmoji('')}
+                  className="text-xs cursor-pointer"
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  Retirer
+                </button>
+              )}
+            </div>
+            <AnimatePresence>
+              {showEmojiPicker && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mt-2 flex flex-wrap gap-1.5"
+                >
+                  {BOOK_EMOJIS.map((emoji) => (
+                    <button
+                      key={emoji}
+                      onClick={() => {
+                        setNewEmoji(emoji);
+                        setShowEmojiPicker(false);
+                      }}
+                      className="h-9 w-9 flex items-center justify-center rounded-lg text-lg cursor-pointer transition-all hover:scale-110"
+                      style={{
+                        background: newEmoji === emoji ? 'rgba(196,154,61,0.15)' : 'rgba(255,255,255,0.04)',
+                        border: newEmoji === emoji ? '1px solid rgba(196,154,61,0.2)' : '1px solid transparent',
+                      }}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
           <div>
             <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
               Titre

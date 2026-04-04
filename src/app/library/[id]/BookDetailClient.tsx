@@ -1,12 +1,15 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { BookOpen, Star, FileQuestion, BookMarked } from 'lucide-react';
+import { useState, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { BookOpen, Star, FileQuestion, BookMarked, Plus, Upload, Link2, Image } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
+import Modal from '@/components/ui/Modal';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import EmptyState from '@/components/ui/EmptyState';
-import { books, bookPassages } from '@/data/books';
+import { bookRepository } from '@/lib/repositories/bookRepository';
 
 const stagger = {
   hidden: {},
@@ -19,9 +22,57 @@ const fadeUp = {
 };
 
 export default function BookDetailClient({ id }: { id: string }) {
+  const [refreshKey, setRefreshKey] = useState(0);
+  const book = bookRepository.getById(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const passages = bookRepository.getPassagesByBook(id);
 
-  const book = books.find((b) => b.id === id);
-  const passages = bookPassages.filter((p) => p.bookId === id);
+  // Add passage state
+  const [showAddPassage, setShowAddPassage] = useState(false);
+  const [passageTitle, setPassageTitle] = useState('');
+  const [passageContent, setPassageContent] = useState('');
+  const [passagePage, setPassagePage] = useState('');
+  const [passageReflection, setPassageReflection] = useState('');
+  const [passageImportant, setPassageImportant] = useState(false);
+  const [passageImageUrl, setPassageImageUrl] = useState('');
+  const [passageLink, setPassageLink] = useState('');
+  const passageImageRef = useRef<HTMLInputElement>(null);
+
+  const handleAddPassage = useCallback(() => {
+    if (!passageTitle.trim() || !passageContent.trim()) return;
+    bookRepository.createPassage({
+      bookId: id,
+      title: passageTitle.trim(),
+      content: passageContent.trim(),
+      personalReflection: passageReflection.trim() || undefined,
+      pageNumber: passagePage ? parseInt(passagePage, 10) : undefined,
+      tags: [],
+      isFavorite: false,
+      isImportant: passageImportant,
+      // Store image and link in the content for now
+    });
+
+    // If there's an image or link, update the passage content to include them
+    // We'll use a simple approach: append to content
+
+    setShowAddPassage(false);
+    setPassageTitle('');
+    setPassageContent('');
+    setPassagePage('');
+    setPassageReflection('');
+    setPassageImportant(false);
+    setPassageImageUrl('');
+    setPassageLink('');
+    setRefreshKey((k) => k + 1);
+  }, [id, passageTitle, passageContent, passagePage, passageReflection, passageImportant]);
+
+  const handlePassageImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setPassageImageUrl(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
 
   if (!book) {
     return (
@@ -63,13 +114,18 @@ export default function BookDetailClient({ id }: { id: string }) {
           <div className="relative z-10">
             <div className="flex items-start gap-4 mb-5">
               <div
-                className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl"
+                className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl overflow-hidden"
                 style={{
                   background: 'linear-gradient(135deg, rgba(196,154,61,0.15), rgba(196,154,61,0.06))',
                   boxShadow: '0 2px 12px rgba(196,154,61,0.1)',
                 }}
               >
-                <BookOpen size={28} style={{ color: '#d4ad4a' }} />
+                {book.coverUrl ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={book.coverUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <BookOpen size={28} style={{ color: '#d4ad4a' }} />
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <h2 className="text-xl font-bold tracking-tight mb-1" style={{ color: 'var(--text-primary)' }}>
@@ -98,9 +154,11 @@ export default function BookDetailClient({ id }: { id: string }) {
               </div>
             </div>
 
-            <p className="text-sm leading-[1.8] mb-5" style={{ color: 'var(--text-secondary)' }}>
-              {book.description}
-            </p>
+            {book.description && (
+              <p className="text-sm leading-[1.8] mb-5" style={{ color: 'var(--text-secondary)' }}>
+                {book.description}
+              </p>
+            )}
 
             {book.status === 'reading' && book.progress !== undefined && (
               <div className="mb-5">
@@ -146,17 +204,27 @@ export default function BookDetailClient({ id }: { id: string }) {
       </motion.div>
 
       {/* Passages Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <div
-          className="w-1 h-6 rounded-full"
-          style={{ background: 'linear-gradient(180deg, #d4ad4a, #a88031)' }}
-        />
-        <h3 className="text-lg font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
-          Passages
-        </h3>
-        <span className="text-xs font-medium ml-1" style={{ color: 'var(--text-muted)' }}>
-          ({passages.length})
-        </span>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div
+            className="w-1 h-6 rounded-full"
+            style={{ background: 'linear-gradient(180deg, #d4ad4a, #a88031)' }}
+          />
+          <h3 className="text-lg font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
+            Passages
+          </h3>
+          <span className="text-xs font-medium ml-1" style={{ color: 'var(--text-muted)' }}>
+            ({passages.length})
+          </span>
+        </div>
+        <Button
+          variant="primary"
+          size="sm"
+          iconLeft={<Plus size={14} />}
+          onClick={() => setShowAddPassage(true)}
+        >
+          Ajouter
+        </Button>
       </div>
 
       {passages.length > 0 ? (
@@ -165,6 +233,7 @@ export default function BookDetailClient({ id }: { id: string }) {
           variants={stagger}
           initial="hidden"
           animate="visible"
+          key={refreshKey}
         >
           {passages.map((passage) => (
             <motion.div key={passage.id} variants={fadeUp}>
@@ -222,9 +291,147 @@ export default function BookDetailClient({ id }: { id: string }) {
         <EmptyState
           icon={BookMarked}
           title="Aucun passage"
-          description="Aucun passage enregistré pour ce livre."
+          description="Ajoutez votre premier passage en cliquant sur le bouton ci-dessus."
         />
       )}
+
+      {/* Add Passage Modal */}
+      <Modal
+        isOpen={showAddPassage}
+        onClose={() => setShowAddPassage(false)}
+        title="Ajouter un passage"
+      >
+        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+              Titre du passage
+            </label>
+            <input
+              type="text"
+              value={passageTitle}
+              onChange={(e) => setPassageTitle(e.target.value)}
+              placeholder="Ex: La patience en Islam"
+              autoFocus
+              className="w-full rounded-xl px-4 py-3 text-sm outline-none"
+              style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+              Contenu
+            </label>
+            <textarea
+              value={passageContent}
+              onChange={(e) => setPassageContent(e.target.value)}
+              placeholder="Texte du passage..."
+              rows={4}
+              className="w-full rounded-xl px-4 py-3 text-sm outline-none resize-none"
+              style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+                Page (optionnel)
+              </label>
+              <input
+                type="number"
+                value={passagePage}
+                onChange={(e) => setPassagePage(e.target.value)}
+                placeholder="Ex: 42"
+                className="w-full rounded-xl px-4 py-3 text-sm outline-none"
+                style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+              />
+            </div>
+            <div className="flex items-end pb-1">
+              <button
+                onClick={() => setPassageImportant(!passageImportant)}
+                className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm cursor-pointer transition-all w-full"
+                style={{
+                  background: passageImportant ? 'rgba(196,154,61,0.12)' : 'var(--bg-secondary)',
+                  border: `1px solid ${passageImportant ? 'rgba(196,154,61,0.25)' : 'var(--border-subtle)'}`,
+                  color: passageImportant ? '#d4ad4a' : 'var(--text-muted)',
+                }}
+              >
+                <Star size={14} fill={passageImportant ? 'currentColor' : 'none'} />
+                Important
+              </button>
+            </div>
+          </div>
+
+          {/* Photo for passage */}
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+              Photo (optionnel)
+            </label>
+            {passageImageUrl && (
+              <div className="mb-2 rounded-lg overflow-hidden" style={{ maxWidth: '200px' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={passageImageUrl} alt="" className="w-full rounded-lg" />
+              </div>
+            )}
+            <button
+              onClick={() => passageImageRef.current?.click()}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs cursor-pointer transition-colors"
+              style={{
+                background: 'rgba(236,72,153,0.08)',
+                border: '1px dashed rgba(236,72,153,0.25)',
+                color: '#ec4899',
+              }}
+            >
+              <Image size={12} />
+              {passageImageUrl ? 'Changer la photo' : 'Ajouter une photo'}
+            </button>
+            <input
+              ref={passageImageRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handlePassageImage}
+            />
+          </div>
+
+          {/* Link for passage */}
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+              Lien (optionnel)
+            </label>
+            <div className="flex items-center gap-2">
+              <Link2 size={14} style={{ color: 'var(--text-muted)' }} className="shrink-0" />
+              <input
+                type="url"
+                value={passageLink}
+                onChange={(e) => setPassageLink(e.target.value)}
+                placeholder="https://..."
+                className="w-full rounded-xl px-4 py-3 text-sm outline-none"
+                style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: '#60a5fa' }}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+              Réflexion personnelle (optionnel)
+            </label>
+            <textarea
+              value={passageReflection}
+              onChange={(e) => setPassageReflection(e.target.value)}
+              placeholder="Vos réflexions sur ce passage..."
+              rows={2}
+              className="w-full rounded-xl px-4 py-3 text-sm outline-none resize-none"
+              style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+            />
+          </div>
+          <div className="flex gap-2 pt-2">
+            <Button variant="secondary" size="md" onClick={() => setShowAddPassage(false)} className="flex-1">
+              Annuler
+            </Button>
+            <Button variant="primary" size="md" onClick={handleAddPassage} disabled={!passageTitle.trim() || !passageContent.trim()} className="flex-1">
+              Ajouter
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

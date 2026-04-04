@@ -575,9 +575,33 @@ function EditableBlock({
         {block.type === 'image' && (
           <div className="mt-2 space-y-2">
             {block.metadata?.dataUrl && (
-              <div className="rounded-lg overflow-hidden">
+              <div className="rounded-lg overflow-hidden" style={{ maxWidth: block.metadata?.width || '100%' }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={block.metadata.dataUrl} alt={block.content || 'Image'} className="max-w-full rounded-lg" />
+                <img src={block.metadata.dataUrl} alt={block.content || 'Image'} className="w-full rounded-lg" />
+              </div>
+            )}
+            {block.metadata?.dataUrl && (
+              <div className="flex items-center gap-2">
+                <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Taille:</span>
+                <input
+                  type="range"
+                  min={100}
+                  max={800}
+                  value={parseInt(block.metadata?.width || '800', 10)}
+                  onChange={(e) =>
+                    onUpdate({
+                      metadata: {
+                        ...block.metadata,
+                        width: `${e.target.value}px`,
+                      },
+                    })
+                  }
+                  className="flex-1 accent-[#2e9e8c]"
+                  style={{ height: '4px' }}
+                />
+                <span className="text-[10px] w-10 text-right" style={{ color: 'var(--text-muted)' }}>
+                  {block.metadata?.width || '100%'}
+                </span>
               </div>
             )}
             <label
@@ -725,6 +749,35 @@ function EditableBlock({
   );
 }
 
+// Helper to auto-detect URLs in text and render them as clickable links
+function TextWithLinks({ text, style }: { text: string; style?: React.CSSProperties }) {
+  const urlRegex = /(https?:\/\/[^\s<]+)/g;
+  const parts = text.split(urlRegex);
+  if (parts.length === 1) {
+    return <span style={style}>{text}</span>;
+  }
+  return (
+    <span style={style}>
+      {parts.map((part, i) =>
+        urlRegex.test(part) ? (
+          <a
+            key={i}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: '#60a5fa', textDecoration: 'underline' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {part}
+          </a>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </span>
+  );
+}
+
 // Read-only block renderer
 function ReadOnlyBlock({ block }: { block: TopicBlock }) {
   switch (block.type) {
@@ -743,7 +796,7 @@ function ReadOnlyBlock({ block }: { block: TopicBlock }) {
     case 'paragraph':
       return block.content ? (
         <p className="text-sm leading-[1.9] mb-3" style={{ color: 'var(--text-secondary)' }}>
-          {block.content}
+          <TextWithLinks text={block.content} />
         </p>
       ) : null;
     case 'quote':
@@ -791,7 +844,7 @@ function ReadOnlyBlock({ block }: { block: TopicBlock }) {
         >
           <AlertCircle size={18} style={{ color: '#d4ad4a' }} className="shrink-0 mt-0.5" />
           <p className="text-sm leading-[1.8]" style={{ color: 'var(--text-primary)' }}>
-            {block.content}
+            <TextWithLinks text={block.content} />
           </p>
         </div>
       );
@@ -806,7 +859,7 @@ function ReadOnlyBlock({ block }: { block: TopicBlock }) {
         >
           <Lightbulb size={18} style={{ color: '#56e2cc' }} className="shrink-0 mt-0.5" />
           <p className="text-sm leading-[1.8]" style={{ color: 'var(--text-primary)' }}>
-            {block.content}
+            <TextWithLinks text={block.content} />
           </p>
         </div>
       );
@@ -821,7 +874,7 @@ function ReadOnlyBlock({ block }: { block: TopicBlock }) {
         >
           <Bell size={18} style={{ color: '#f59e0b' }} className="shrink-0 mt-0.5" />
           <p className="text-sm leading-[1.8]" style={{ color: 'var(--text-primary)' }}>
-            {block.content}
+            <TextWithLinks text={block.content} />
           </p>
         </div>
       );
@@ -841,7 +894,7 @@ function ReadOnlyBlock({ block }: { block: TopicBlock }) {
             </span>
           </div>
           <p className="text-sm leading-[1.9]" style={{ color: 'var(--text-primary)' }}>
-            {block.content}
+            <TextWithLinks text={block.content} />
           </p>
           {block.metadata?.source && (
             <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
@@ -871,7 +924,7 @@ function ReadOnlyBlock({ block }: { block: TopicBlock }) {
             </p>
           )}
           <p className="text-sm leading-[1.9]" style={{ color: 'var(--text-primary)' }}>
-            {block.content}
+            <TextWithLinks text={block.content} />
           </p>
           {block.metadata?.source && (
             <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
@@ -908,33 +961,91 @@ function ReadOnlyBlock({ block }: { block: TopicBlock }) {
           href={block.content}
           target="_blank"
           rel="noopener noreferrer"
-          className="my-3 flex items-center gap-2 rounded-lg p-3 text-sm transition-colors"
+          className="my-3 flex items-center gap-2 rounded-lg p-3 text-sm transition-colors hover:opacity-80"
           style={{
             background: 'rgba(59, 130, 246, 0.06)',
             border: '1px solid rgba(59, 130, 246, 0.12)',
             color: '#60a5fa',
+            cursor: 'pointer',
+            textDecoration: 'none',
           }}
         >
-          <Link2 size={16} />
-          <span className="truncate">{block.content}</span>
+          <Link2 size={16} className="shrink-0" />
+          <span className="truncate underline">{block.metadata?.title || block.content}</span>
         </a>
       );
-    case 'youtube':
+    case 'youtube': {
+      // Extract video ID for embed
+      const ytMatch = block.content.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+      const videoId = ytMatch?.[1];
       return (
         <div className="my-4">
-          <div
-            className="flex items-center gap-2 rounded-lg p-3 text-sm"
-            style={{
-              background: 'rgba(239, 68, 68, 0.06)',
-              border: '1px solid rgba(239, 68, 68, 0.12)',
-              color: '#f87171',
-            }}
-          >
-            <Video size={16} />
-            <span className="truncate">{block.content}</span>
-          </div>
+          {videoId ? (
+            <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(239, 68, 68, 0.12)' }}>
+              <iframe
+                src={`https://www.youtube.com/embed/${videoId}`}
+                className="w-full aspect-video"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                title="YouTube video"
+              />
+            </div>
+          ) : (
+            <a
+              href={block.content}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 rounded-lg p-3 text-sm hover:opacity-80 transition-colors"
+              style={{
+                background: 'rgba(239, 68, 68, 0.06)',
+                border: '1px solid rgba(239, 68, 68, 0.12)',
+                color: '#f87171',
+                cursor: 'pointer',
+                textDecoration: 'none',
+              }}
+            >
+              <Video size={16} className="shrink-0" />
+              <span className="truncate underline">{block.content}</span>
+            </a>
+          )}
         </div>
       );
+    }
+    case 'image': {
+      const imgWidth = block.metadata?.width || '100%';
+      return (
+        <div className="my-4">
+          {block.metadata?.dataUrl ? (
+            <div className="rounded-xl overflow-hidden" style={{ maxWidth: imgWidth }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={block.metadata.dataUrl}
+                alt={block.content || 'Image'}
+                className="w-full h-auto rounded-xl"
+                style={{ display: 'block' }}
+              />
+              {block.content && block.content !== block.metadata?.fileName && (
+                <p className="text-xs mt-1.5 text-center" style={{ color: 'var(--text-muted)' }}>
+                  {block.content}
+                </p>
+              )}
+            </div>
+          ) : block.content ? (
+            <div
+              className="flex items-center gap-2 rounded-lg p-3 text-sm"
+              style={{
+                background: 'rgba(236, 72, 153, 0.06)',
+                border: '1px solid rgba(236, 72, 153, 0.12)',
+                color: '#ec4899',
+              }}
+            >
+              <Image size={16} />
+              <span className="truncate">{block.content}</span>
+            </div>
+          ) : null}
+        </div>
+      );
+    }
     case 'pdf':
       return (
         <div className="my-3">

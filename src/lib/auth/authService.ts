@@ -152,6 +152,89 @@ export class LocalAuthService implements IAuthService {
     const user = this.getUser();
     return user?.role === 'admin';
   }
+
+  // --- User management methods ---
+
+  getAllUsers(): User[] {
+    return getStoredUsers().map(({ passwordHash: _pw, ...u }) => u);
+  }
+
+  updateUser(userId: string, updates: { displayName?: string; username?: string; avatarUrl?: string }): User {
+    const users = getStoredUsers();
+    const idx = users.findIndex((u) => u.id === userId);
+    if (idx === -1) throw new Error('Utilisateur introuvable');
+
+    if (updates.username && updates.username !== users[idx].username) {
+      if (users.some((u) => u.username === updates.username && u.id !== userId)) {
+        throw new Error('Ce nom d\'utilisateur est déjà pris');
+      }
+    }
+
+    users[idx] = { ...users[idx], ...updates };
+    saveUsers(users);
+
+    const { passwordHash: _pw, ...safeUser } = users[idx];
+
+    // Update current user in localStorage if it's the logged-in user
+    const currentUser = this.getUser();
+    if (currentUser && currentUser.id === userId) {
+      localStorage.setItem(STORAGE_KEYS.currentUser, JSON.stringify(safeUser));
+    }
+
+    return safeUser;
+  }
+
+  updatePassword(userId: string, oldPassword: string, newPassword: string): void {
+    const users = getStoredUsers();
+    const idx = users.findIndex((u) => u.id === userId);
+    if (idx === -1) throw new Error('Utilisateur introuvable');
+
+    if (users[idx].passwordHash !== simpleHash(oldPassword)) {
+      throw new Error('Ancien mot de passe incorrect');
+    }
+
+    users[idx].passwordHash = simpleHash(newPassword);
+    saveUsers(users);
+  }
+
+  deleteUser(userId: string): void {
+    const users = getStoredUsers().filter((u) => u.id !== userId);
+    saveUsers(users);
+  }
+
+  createUserAdmin(data: SignupData & { role?: 'admin' | 'user' }): User {
+    const users = getStoredUsers();
+    if (users.some((u) => u.username === data.username)) {
+      throw new Error('Ce nom d\'utilisateur est déjà pris');
+    }
+
+    const newUser: StoredUser = {
+      id: `user-${generateId()}`,
+      username: data.username,
+      displayName: data.displayName,
+      role: data.role || 'user',
+      createdAt: new Date().toISOString(),
+      passwordHash: simpleHash(data.password),
+    };
+
+    users.push(newUser);
+    saveUsers(users);
+
+    const { passwordHash: _pw, ...safeUser } = newUser;
+    return safeUser;
+  }
+
+  updateUserRole(userId: string, role: 'admin' | 'user'): User {
+    const users = getStoredUsers();
+    const idx = users.findIndex((u) => u.id === userId);
+    if (idx === -1) throw new Error('Utilisateur introuvable');
+
+    users[idx].role = role;
+    saveUsers(users);
+
+    const { passwordHash: _pw, ...safeUser } = users[idx];
+    return safeUser;
+  }
 }
 
 // Singleton instance
