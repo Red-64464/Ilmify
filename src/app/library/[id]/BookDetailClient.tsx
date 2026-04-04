@@ -3,7 +3,6 @@
 import { motion } from 'framer-motion';
 import { BookOpen, Star, FileQuestion, BookMarked } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
-import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import EmptyState from '@/components/ui/EmptyState';
@@ -16,7 +15,7 @@ const stagger = {
 
 const fadeUp = {
   hidden: { opacity: 0, y: 14 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] } },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] as const } },
 };
 
 export default function BookDetailClient({ id }: { id: string }) {
@@ -45,7 +44,7 @@ export default function BookDetailClient({ id }: { id: string }) {
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] as const }}
       >
         <div
           className="relative overflow-hidden rounded-2xl p-6 sm:p-7 mb-8"
