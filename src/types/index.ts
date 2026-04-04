@@ -151,3 +151,110 @@ export type SearchResult = {
   description: string;
   themeId?: string;
 };
+
+// Auth & User types
+
+export interface User {
+  id: string;
+  username: string;
+  displayName: string;
+  role: 'admin' | 'user';
+  createdAt: string;
+  avatarUrl?: string;
+}
+
+export interface Session {
+  userId: string;
+  token: string;
+  expiresAt: string;
+}
+
+export interface AuthCredentials {
+  username: string;
+  password: string;
+}
+
+export interface SignupData {
+  username: string;
+  password: string;
+  displayName: string;
+}
+
+// Topic types
+
+export type BlockType =
+  | 'paragraph' | 'heading2' | 'heading3'
+  | 'quote' | 'bullet-list' | 'numbered-list'
+  | 'callout' | 'reflection' | 'reminder' | 'source'
+  | 'hadith' | 'verse' | 'image' | 'link' | 'youtube'
+  | 'pdf' | 'qa' | 'table' | 'divider';
+
+export interface TopicBlock {
+  id: string;
+  type: BlockType;
+  content: string;
+  metadata?: Record<string, string>;
+  order: number;
+}
+
+export interface Topic {
+  id: string;
+  userId: string;
+  title: string;
+  icon?: string;
+  coverImage?: string;
+  blocks: TopicBlock[];
+  tags: string[];
+  category?: string;
+  isPinned: boolean;
+  isFavorite: boolean;
+  isArchived: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Course types
+
+export interface CourseFolder {
+  id: string;
+  title: string;
+  description?: string;
+  icon?: string;
+  parentId?: string;
+  order: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CoursePage {
+  id: string;
+  folderId: string;
+  title: string;
+  description?: string;
+  blocks: TopicBlock[];
+  tags: string[];
+  icon?: string;
+  coverImage?: string;
+  order: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Activity & Settings types
+
+export interface RecentActivity {
+  id: string;
+  userId: string;
+  type: 'topic' | 'book' | 'passage' | 'course';
+  itemId: string;
+  title: string;
+  action: 'created' | 'updated' | 'viewed';
+  timestamp: string;
+}
+
+export interface UserSettings {
+  userId: string;
+  textSize: 'small' | 'medium' | 'large';
+  theme: 'dark' | 'light';
+  language: 'fr' | 'en' | 'ar';
+}
