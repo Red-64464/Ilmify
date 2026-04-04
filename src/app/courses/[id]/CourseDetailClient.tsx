@@ -20,6 +20,7 @@ export default function CourseDetailClient({ id }: { id: string }) {
   const router = useRouter();
   const { toast } = useToast();
   const [page, setPage] = useState<CoursePage | null>(null);
+  const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editBlocks, setEditBlocks] = useState<TopicBlock[]>([]);
@@ -27,6 +28,7 @@ export default function CourseDetailClient({ id }: { id: string }) {
   const [folder, setFolder] = useState<{ id: string; title: string; icon?: string } | null>(null);
 
   useEffect(() => {
+    setLoading(true);
     courseRepository.getPageById(id).then((p) => {
       setPage(p);
       if (p) {
@@ -34,7 +36,7 @@ export default function CourseDetailClient({ id }: { id: string }) {
         setEditBlocks(p.blocks);
         courseRepository.getFolderById(p.folderId).then(setFolder).catch(() => {});
       }
-    }).catch(() => {});
+    }).catch(() => {}).finally(() => setLoading(false));
   }, [id]);
 
   const handleSave = useCallback(async () => {
@@ -65,7 +67,7 @@ export default function CourseDetailClient({ id }: { id: string }) {
     }
   }, [page, toast, router]);
 
-  if (!page) {
+  if (loading) {
     return (
       <div className="pb-10">
         <div className="flex items-center gap-3 py-5">
@@ -77,6 +79,23 @@ export default function CourseDetailClient({ id }: { id: string }) {
             <ArrowLeft size={18} style={{ color: 'var(--text-secondary)' }} />
           </button>
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Chargement...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!page) {
+    return (
+      <div className="pb-10">
+        <div className="flex items-center gap-3 py-5">
+          <button
+            onClick={() => router.push('/courses')}
+            className="flex h-10 w-10 items-center justify-center rounded-xl cursor-pointer"
+            style={{ background: 'var(--bg-card)', boxShadow: 'var(--shadow-card)' }}
+          >
+            <ArrowLeft size={18} style={{ color: 'var(--text-secondary)' }} />
+          </button>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Page introuvable ou accès refusé</p>
         </div>
       </div>
     );

@@ -11,6 +11,24 @@
   to = "/topics/_placeholder.html"
   status = 200
 
+# Rewrite dynamic course routes to the placeholder page
+[[redirects]]
+  from = "/courses/*"
+  to = "/courses/_placeholder.html"
+  status = 200
+
+# Rewrite dynamic library routes to the placeholder page
+[[redirects]]
+  from = "/library/*"
+  to = "/library/_placeholder.html"
+  status = 200
+
+# Rewrite dynamic flashcard routes to the placeholder page
+[[redirects]]
+  from = "/flashcards/*"
+  to = "/flashcards/_placeholder.html"
+  status = 200
+
 # Serve Next.js generated 404 page for missing routes
 [[redirects]]
   from = "/*"

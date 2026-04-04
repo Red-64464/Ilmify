@@ -38,8 +38,7 @@ export default function BookDetailClient({ id }: { id: string }) {
     ]).then(([b, p]) => {
       setBook(b);
       setPassages(p);
-      setLoading(false);
-    });
+    }).catch(() => {}).finally(() => setLoading(false));
   }, [id, refreshKey]);
 
   // Add passage state

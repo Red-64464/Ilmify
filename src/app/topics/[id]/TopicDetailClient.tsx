@@ -23,19 +23,21 @@ export default function TopicDetailClient({ id: propId }: { id: string }) {
   const id = (params?.id as string) || propId;
   const { toast } = useToast();
   const [topic, setTopic] = useState<Topic | null>(null);
+  const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editBlocks, setEditBlocks] = useState<TopicBlock[]>([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   useEffect(() => {
+    setLoading(true);
     topicRepository.getById(id).then((t) => {
       setTopic(t);
       if (t) {
         setEditTitle(t.title);
         setEditBlocks(t.blocks);
       }
-    }).catch(() => { /* loading failed */ });
+    }).catch(() => {}).finally(() => setLoading(false));
   }, [id]);
 
   const isOwner = user && topic && user.id === topic.userId;
@@ -89,7 +91,7 @@ export default function TopicDetailClient({ id: propId }: { id: string }) {
     } catch { /* ignore */ }
   }, [topic]);
 
-  if (!topic) {
+  if (loading) {
     return (
       <div className="pb-10">
         <div className="flex items-center gap-3 py-5">
@@ -101,6 +103,23 @@ export default function TopicDetailClient({ id: propId }: { id: string }) {
             <ArrowLeft size={18} style={{ color: 'var(--text-secondary)' }} />
           </button>
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Chargement...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!topic) {
+    return (
+      <div className="pb-10">
+        <div className="flex items-center gap-3 py-5">
+          <button
+            onClick={() => router.push('/topics')}
+            className="flex h-10 w-10 items-center justify-center rounded-xl cursor-pointer"
+            style={{ background: 'var(--bg-card)', boxShadow: 'var(--shadow-card)' }}
+          >
+            <ArrowLeft size={18} style={{ color: 'var(--text-secondary)' }} />
+          </button>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Topic introuvable ou accès refusé</p>
         </div>
       </div>
     );
