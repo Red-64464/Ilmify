@@ -20,6 +20,7 @@ export default function FlashcardStudyClient({ id }: { id: string }) {
   if (!deck || cards.length === 0) {
     return (
       <div className="pb-10">
+        <PageHeader title="Deck introuvable" backButton />
         <EmptyState
           icon={FileQuestion}
           title="Deck introuvable"
