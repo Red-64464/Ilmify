@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
@@ -19,28 +19,27 @@ export default function CourseDetailClient({ id }: { id: string }) {
   const { isAdmin } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const [page, setPage] = useState<CoursePage | null>(() => {
-    if (typeof window === 'undefined') return null;
-    return courseRepository.getPageById(id);
-  });
+  const [page, setPage] = useState<CoursePage | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [editTitle, setEditTitle] = useState(() => {
-    if (typeof window === 'undefined') return '';
-    const p = courseRepository.getPageById(id);
-    return p?.title || '';
-  });
-  const [editBlocks, setEditBlocks] = useState<TopicBlock[]>(() => {
-    if (typeof window === 'undefined') return [];
-    const p = courseRepository.getPageById(id);
-    return p?.blocks || [];
-  });
+  const [editTitle, setEditTitle] = useState('');
+  const [editBlocks, setEditBlocks] = useState<TopicBlock[]>([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [folder, setFolder] = useState<{ id: string; title: string; icon?: string } | null>(null);
 
-  const folder = page ? courseRepository.getFolderById(page.folderId) : null;
+  useEffect(() => {
+    courseRepository.getPageById(id).then((p) => {
+      setPage(p);
+      if (p) {
+        setEditTitle(p.title);
+        setEditBlocks(p.blocks);
+        courseRepository.getFolderById(p.folderId).then(setFolder);
+      }
+    });
+  }, [id]);
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     if (!page) return;
-    const updated = courseRepository.updatePage(page.id, {
+    const updated = await courseRepository.updatePage(page.id, {
       title: editTitle,
       blocks: editBlocks,
     });
@@ -51,9 +50,9 @@ export default function CourseDetailClient({ id }: { id: string }) {
     }
   }, [page, editTitle, editBlocks, toast]);
 
-  const handleDelete = useCallback(() => {
+  const handleDelete = useCallback(async () => {
     if (!page) return;
-    courseRepository.deletePage(page.id);
+    await courseRepository.deletePage(page.id);
     toast('success', 'Page de cours supprimée');
     router.push('/courses');
   }, [page, toast, router]);

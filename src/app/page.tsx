@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -56,23 +56,22 @@ export default function HomePage() {
   const daily = useMemo(() => getDailyReminder(), []);
   const [search, setSearch] = useState('');
 
-  const recentTopics = useMemo(() => {
-    if (typeof window === 'undefined' || !user) return [];
-    const topics = topicRepository.getByUser(user.id).slice(0, 4);
-    return topics.map((t) => ({ id: t.id, title: t.title, updatedAt: t.updatedAt, icon: t.icon }));
+  const [recentTopics, setRecentTopics] = useState<{ id: string; title: string; updatedAt: string; icon?: string }[]>([]);
+  const [readingBooks, setReadingBooks] = useState<{ id: string; title: string; author: string; progress?: number }[]>([]);
+  const [featuredCourses, setFeaturedCourses] = useState<{ id: string; title: string; description?: string; icon?: string }[]>([]);
+
+  useEffect(() => {
+    if (!user) return;
+    topicRepository.getByUser(user.id).then((topics) => {
+      setRecentTopics(topics.slice(0, 4).map((t) => ({ id: t.id, title: t.title, updatedAt: t.updatedAt, icon: t.icon })));
+    });
+    bookRepository.getAll().then((bks) => {
+      setReadingBooks(bks.filter((b) => b.status === 'reading').map((b) => ({ id: b.id, title: b.title, author: b.author, progress: b.progress })));
+    });
+    courseRepository.getAllPages().then((courses) => {
+      setFeaturedCourses(courses.slice(0, 3).map((c) => ({ id: c.id, title: c.title, description: c.description, icon: c.icon })));
+    });
   }, [user]);
-
-  const readingBooks = useMemo(() => {
-    if (typeof window === 'undefined') return [];
-    const bks = bookRepository.getAll().filter((b) => b.status === 'reading');
-    return bks.map((b) => ({ id: b.id, title: b.title, author: b.author, progress: b.progress }));
-  }, []);
-
-  const featuredCourses = useMemo(() => {
-    if (typeof window === 'undefined') return [];
-    const courses = courseRepository.getAllPages().slice(0, 3);
-    return courses.map((c) => ({ id: c.id, title: c.title, description: c.description, icon: c.icon }));
-  }, []);
 
   const DailyIcon = daily ? typeIcons[daily.type] || Star : Star;
 

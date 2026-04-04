@@ -1,8 +1,8 @@
-import { books } from '@/data/books';
 import BookDetailClient from './BookDetailClient';
 
+// Data is now in Supabase - use placeholder for static export
 export function generateStaticParams() {
-  return books.map((book) => ({ id: book.id }));
+  return [{ id: '_placeholder' }];
 }
 
 export default async function BookDetailPage({

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Layers, BookOpen, Plus, Trash2, Upload, Smile, Edit3, FileJson } from 'lucide-react';
@@ -12,7 +12,9 @@ import Modal from '@/components/ui/Modal';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import EmptyState from '@/components/ui/EmptyState';
 import AuthGuard from '@/components/layout/AuthGuard';
+import { useAuth } from '@/contexts/AuthContext';
 import { flashcardRepository } from '@/lib/repositories/flashcardRepository';
+import type { FlashcardDeck } from '@/types';
 
 const DECK_EMOJIS = ['🧠', '📚', '📖', '✨', '🌙', '⭐', '🕌', '🕋', '☪️', '🤲', '📿', '🎓', '💡', '🌟', '🏆', '📝', '🔬', '💎', '🌍', '🎯'];
 
@@ -22,6 +24,7 @@ const DECK_COLORS = [
 ];
 
 export default function FlashcardsPage() {
+  const { user } = useAuth();
   const [expandedDeck, setExpandedDeck] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [showAddDeck, setShowAddDeck] = useState(false);
@@ -55,11 +58,15 @@ export default function FlashcardsPage() {
   const [editTitle, setEditTitle] = useState('');
   const [showEditEmoji, setShowEditEmoji] = useState(false);
 
-  const decks = useMemo(() => flashcardRepository.getAllDecks(), [refreshKey]);
+  const [decks, setDecks] = useState<FlashcardDeck[]>([]);
 
-  const handleAddDeck = useCallback(() => {
-    if (!newTitle.trim()) return;
-    flashcardRepository.createDeck({
+  useEffect(() => {
+    flashcardRepository.getAllDecks().then(setDecks);
+  }, [refreshKey]);
+
+  const handleAddDeck = useCallback(async () => {
+    if (!newTitle.trim() || !user) return;
+    await flashcardRepository.createDeck(user.id, {
       title: `${newEmoji ? newEmoji + ' ' : ''}${newTitle.trim()}`,
       description: newDesc.trim(),
       color: newColor,
@@ -74,17 +81,17 @@ export default function FlashcardsPage() {
     setNewIcon('');
     setNewTags('');
     setRefreshKey((k) => k + 1);
-  }, [newTitle, newDesc, newColor, newEmoji, newIcon, newTags]);
+  }, [user, newTitle, newDesc, newColor, newEmoji, newIcon, newTags]);
 
-  const handleDeleteDeck = useCallback((deckId: string) => {
+  const handleDeleteDeck = useCallback(async (deckId: string) => {
     if (!confirm('Supprimer ce deck et toutes ses cartes ?')) return;
-    flashcardRepository.deleteDeck(deckId);
+    await flashcardRepository.deleteDeck(deckId);
     setRefreshKey((k) => k + 1);
   }, []);
 
-  const handleAddCard = useCallback(() => {
-    if (!cardFront.trim() || !cardBack.trim() || !showAddCard) return;
-    flashcardRepository.createCard({
+  const handleAddCard = useCallback(async () => {
+    if (!cardFront.trim() || !cardBack.trim() || !showAddCard || !user) return;
+    await flashcardRepository.createCard(user.id, {
       deckId: showAddCard,
       front: cardFront.trim(),
       back: cardBack.trim(),
@@ -96,7 +103,7 @@ export default function FlashcardsPage() {
     setCardDifficulty('medium');
     setShowAddCard(null);
     setRefreshKey((k) => k + 1);
-  }, [cardFront, cardBack, cardDifficulty, showAddCard]);
+  }, [user, cardFront, cardBack, cardDifficulty, showAddCard]);
 
   const handleImportJson = useCallback(() => {
     if (!importJson.trim() || !showImport) return;
@@ -136,20 +143,19 @@ export default function FlashcardsPage() {
     reader.readAsText(file);
   }, []);
 
-  const handleEditDeck = useCallback(() => {
+  const handleEditDeck = useCallback(async () => {
     if (!showEditDeck) return;
     const updates: Record<string, string> = {};
     if (editTitle.trim()) updates.title = editTitle.trim();
     if (editColor) updates.color = editColor;
     if (editEmoji) {
-      const deck = flashcardRepository.getDeckById(showEditDeck);
+      const deck = await flashcardRepository.getDeckById(showEditDeck);
       if (deck) {
-        // Replace or prepend emoji
         const titleWithoutEmoji = deck.title.replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}]\s*/u, '');
         updates.title = `${editEmoji} ${editTitle.trim() || titleWithoutEmoji}`;
       }
     }
-    flashcardRepository.updateDeck(showEditDeck, updates);
+    await flashcardRepository.updateDeck(showEditDeck, updates);
     setShowEditDeck(null);
     setEditEmoji('');
     setEditColor('');
@@ -157,8 +163,8 @@ export default function FlashcardsPage() {
     setRefreshKey((k) => k + 1);
   }, [showEditDeck, editEmoji, editColor, editTitle]);
 
-  const openEditDeck = useCallback((deckId: string) => {
-    const deck = flashcardRepository.getDeckById(deckId);
+  const openEditDeck = useCallback(async (deckId: string) => {
+    const deck = await flashcardRepository.getDeckById(deckId);
     if (!deck) return;
     setShowEditDeck(deckId);
     setEditTitle(deck.title);

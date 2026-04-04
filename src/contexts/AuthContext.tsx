@@ -1,8 +1,9 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { User, Session, AuthCredentials, SignupData } from '@/types';
-import { authService } from '@/lib/auth/authService';
+import { authService, setCachedAuth } from '@/lib/auth/authService';
+import { supabase } from '@/lib/supabase/client';
 
 interface AuthContextValue {
   user: User | null;
@@ -12,7 +13,7 @@ interface AuthContextValue {
   login: (credentials: AuthCredentials) => Promise<void>;
   signup: (data: SignupData) => Promise<void>;
   logout: () => Promise<void>;
-  updateUser: (updates: { displayName?: string; username?: string; avatarUrl?: string }) => User;
+  updateUser: (updates: { displayName?: string; username?: string; avatarUrl?: string }) => void;
   updatePassword: (oldPassword: string, newPassword: string) => void;
   refreshUser: () => void;
 }
@@ -26,18 +27,82 @@ export function useAuth(): AuthContextValue {
 }
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(() => {
-    if (typeof window === 'undefined') return null;
-    return authService.getUser();
-  });
-  const [session, setSession] = useState<Session | null>(() => {
-    if (typeof window === 'undefined') return null;
-    return authService.getSession();
-  });
-  const [isLoading] = useState(() => {
-    // Initialized synchronously from local storage
-    return false;
-  });
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Listen to Supabase auth state changes
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(async ({ data: { session: supaSession } }) => {
+      if (supaSession?.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', supaSession.user.id)
+          .single();
+
+        if (profile) {
+          const u: User = {
+            id: profile.id,
+            username: profile.username,
+            displayName: profile.display_name,
+            role: profile.role as 'admin' | 'user',
+            createdAt: profile.created_at,
+            avatarUrl: profile.avatar_url || undefined,
+          };
+          const s: Session = {
+            userId: supaSession.user.id,
+            token: supaSession.access_token,
+            expiresAt: new Date(supaSession.expires_at! * 1000).toISOString(),
+          };
+          setUser(u);
+          setSession(s);
+          setCachedAuth(u, s);
+        }
+      }
+      setIsLoading(false);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, supaSession) => {
+      if (event === 'SIGNED_OUT' || !supaSession) {
+        setUser(null);
+        setSession(null);
+        setCachedAuth(null, null);
+        return;
+      }
+
+      if (supaSession?.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', supaSession.user.id)
+          .single();
+
+        if (profile) {
+          const u: User = {
+            id: profile.id,
+            username: profile.username,
+            displayName: profile.display_name,
+            role: profile.role as 'admin' | 'user',
+            createdAt: profile.created_at,
+            avatarUrl: profile.avatar_url || undefined,
+          };
+          const s: Session = {
+            userId: supaSession.user.id,
+            token: supaSession.access_token,
+            expiresAt: new Date(supaSession.expires_at! * 1000).toISOString(),
+          };
+          setUser(u);
+          setSession(s);
+          setCachedAuth(u, s);
+        }
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const login = useCallback(async (credentials: AuthCredentials) => {
     const result = await authService.login(credentials);
@@ -59,19 +124,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateUser = useCallback((updates: { displayName?: string; username?: string; avatarUrl?: string }) => {
     if (!user) throw new Error('Non connecté');
-    const updated = authService.updateUser(user.id, updates);
+    // Optimistic update
+    const updated = { ...user, ...updates };
     setUser(updated);
-    return updated;
-  }, [user]);
+    setCachedAuth(updated, session);
+    // Fire async
+    authService.updateUserAsync(user.id, updates).then((u) => {
+      setUser(u);
+      setCachedAuth(u, session);
+    });
+  }, [user, session]);
 
-  const updatePassword = useCallback((oldPassword: string, newPassword: string) => {
+  const updatePassword = useCallback((_oldPassword: string, newPassword: string) => {
     if (!user) throw new Error('Non connecté');
-    authService.updatePassword(user.id, oldPassword, newPassword);
+    authService.updatePasswordAsync(newPassword);
   }, [user]);
 
-  const refreshUser = useCallback(() => {
-    setUser(authService.getUser());
-  }, []);
+  const refreshUser = useCallback(async () => {
+    const { data: { session: supaSession } } = await supabase.auth.getSession();
+    if (supaSession?.user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', supaSession.user.id)
+        .single();
+      if (profile) {
+        const u: User = {
+          id: profile.id,
+          username: profile.username,
+          displayName: profile.display_name,
+          role: profile.role as 'admin' | 'user',
+          createdAt: profile.created_at,
+          avatarUrl: profile.avatar_url || undefined,
+        };
+        setUser(u);
+        setCachedAuth(u, session);
+      }
+    }
+  }, [session]);
 
   const isAdmin = user?.role === 'admin';
 

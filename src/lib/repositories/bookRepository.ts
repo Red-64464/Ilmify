@@ -1,162 +1,231 @@
 import type { Book, BookPassage } from '@/types';
-import { books as defaultBooks, bookPassages as defaultPassages } from '@/data/books';
+import { supabase } from '@/lib/supabase/client';
 
-const BOOKS_KEY = 'ilmify-books';
-const PASSAGES_KEY = 'ilmify-passages';
-
-function generateId(prefix: string): string {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+function rowToBook(row: Record<string, unknown>): Book {
+  return {
+    id: row.id as string,
+    title: row.title as string,
+    author: row.author as string,
+    coverUrl: (row.cover_url as string) || undefined,
+    description: row.description as string,
+    category: row.category as string,
+    language: row.language as string,
+    isbn: (row.isbn as string) || undefined,
+    status: row.status as Book['status'],
+    progress: (row.progress as number) || undefined,
+    rating: (row.rating as number) || undefined,
+    tags: (row.tags as string[]) || [],
+    personalNotes: (row.personal_notes as string) || undefined,
+    passageCount: (row.passage_count as number) || 0,
+    startedAt: (row.started_at as string) || undefined,
+    finishedAt: (row.finished_at as string) || undefined,
+    addedAt: row.added_at as string,
+  };
 }
 
-function getAllBooks(): Book[] {
-  if (typeof window === 'undefined') return defaultBooks;
-  const stored = localStorage.getItem(BOOKS_KEY);
-  if (!stored) {
-    localStorage.setItem(BOOKS_KEY, JSON.stringify(defaultBooks));
-    return defaultBooks;
-  }
-  return JSON.parse(stored);
-}
-
-function saveBooks(books: Book[]): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(BOOKS_KEY, JSON.stringify(books));
-}
-
-function getAllPassages(): BookPassage[] {
-  if (typeof window === 'undefined') return defaultPassages;
-  const stored = localStorage.getItem(PASSAGES_KEY);
-  if (!stored) {
-    localStorage.setItem(PASSAGES_KEY, JSON.stringify(defaultPassages));
-    return defaultPassages;
-  }
-  return JSON.parse(stored);
-}
-
-function savePassages(passages: BookPassage[]): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(PASSAGES_KEY, JSON.stringify(passages));
+function rowToPassage(row: Record<string, unknown>): BookPassage {
+  return {
+    id: row.id as string,
+    bookId: row.book_id as string,
+    title: row.title as string,
+    content: row.content as string,
+    personalReflection: (row.personal_reflection as string) || undefined,
+    pageNumber: (row.page_number as number) || undefined,
+    tags: (row.tags as string[]) || [],
+    isFavorite: row.is_favorite as boolean,
+    isImportant: (row.is_important as boolean) || undefined,
+    themeId: (row.theme_id as string) || undefined,
+    addedAt: row.added_at as string,
+  };
 }
 
 export const bookRepository = {
   // Books
-  getAll(): Book[] {
-    return getAllBooks();
+  async getAll(): Promise<Book[]> {
+    const { data, error } = await supabase
+      .from('books')
+      .select('*')
+      .order('added_at', { ascending: false });
+    if (error) throw new Error(error.message);
+    return (data || []).map(rowToBook);
   },
 
-  getById(id: string): Book | null {
-    return getAllBooks().find((b) => b.id === id) || null;
+  async getById(id: string): Promise<Book | null> {
+    const { data, error } = await supabase
+      .from('books')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error) return null;
+    return rowToBook(data);
   },
 
-  create(data: Omit<Book, 'id' | 'addedAt'>): Book {
-    const book: Book = {
-      ...data,
-      id: generateId('book'),
-      addedAt: new Date().toISOString(),
-    };
-    const all = getAllBooks();
-    all.push(book);
-    saveBooks(all);
-    return book;
+  async create(userId: string, data: Omit<Book, 'id' | 'addedAt'>): Promise<Book> {
+    const { data: row, error } = await supabase
+      .from('books')
+      .insert({
+        user_id: userId,
+        title: data.title,
+        author: data.author,
+        cover_url: data.coverUrl || null,
+        description: data.description,
+        category: data.category,
+        language: data.language,
+        isbn: data.isbn || null,
+        status: data.status,
+        progress: data.progress || null,
+        rating: data.rating || null,
+        tags: data.tags,
+        personal_notes: data.personalNotes || null,
+        passage_count: data.passageCount || 0,
+        started_at: data.startedAt || null,
+        finished_at: data.finishedAt || null,
+      })
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return rowToBook(row);
   },
 
-  update(id: string, updates: Partial<Omit<Book, 'id'>>): Book | null {
-    const all = getAllBooks();
-    const index = all.findIndex((b) => b.id === id);
-    if (index === -1) return null;
-    all[index] = { ...all[index], ...updates };
-    saveBooks(all);
-    return all[index];
+  async update(id: string, updates: Partial<Omit<Book, 'id'>>): Promise<Book | null> {
+    const dbUpdates: Record<string, unknown> = {};
+    if (updates.title !== undefined) dbUpdates.title = updates.title;
+    if (updates.author !== undefined) dbUpdates.author = updates.author;
+    if (updates.coverUrl !== undefined) dbUpdates.cover_url = updates.coverUrl || null;
+    if (updates.description !== undefined) dbUpdates.description = updates.description;
+    if (updates.category !== undefined) dbUpdates.category = updates.category;
+    if (updates.language !== undefined) dbUpdates.language = updates.language;
+    if (updates.isbn !== undefined) dbUpdates.isbn = updates.isbn || null;
+    if (updates.status !== undefined) dbUpdates.status = updates.status;
+    if (updates.progress !== undefined) dbUpdates.progress = updates.progress;
+    if (updates.rating !== undefined) dbUpdates.rating = updates.rating;
+    if (updates.tags !== undefined) dbUpdates.tags = updates.tags;
+    if (updates.personalNotes !== undefined) dbUpdates.personal_notes = updates.personalNotes;
+    if (updates.passageCount !== undefined) dbUpdates.passage_count = updates.passageCount;
+    if (updates.startedAt !== undefined) dbUpdates.started_at = updates.startedAt;
+    if (updates.finishedAt !== undefined) dbUpdates.finished_at = updates.finishedAt;
+
+    const { data, error } = await supabase
+      .from('books')
+      .update(dbUpdates)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) return null;
+    return rowToBook(data);
   },
 
-  delete(id: string): boolean {
-    const books = getAllBooks().filter((b) => b.id !== id);
-    saveBooks(books);
-    // Also delete associated passages
-    const passages = getAllPassages().filter((p) => p.bookId !== id);
-    savePassages(passages);
-    return true;
+  async delete(id: string): Promise<boolean> {
+    const { error } = await supabase.from('books').delete().eq('id', id);
+    return !error;
   },
 
-  search(query: string): Book[] {
+  async search(query: string): Promise<Book[]> {
     if (!query.trim()) return this.getAll();
-    const q = query.toLowerCase();
-    return this.getAll().filter(
-      (b) =>
-        b.title.toLowerCase().includes(q) ||
-        b.author.toLowerCase().includes(q) ||
-        b.category.toLowerCase().includes(q) ||
-        b.tags.some((t) => t.toLowerCase().includes(q))
-    );
+    const q = `%${query}%`;
+    const { data, error } = await supabase
+      .from('books')
+      .select('*')
+      .or(`title.ilike.${q},author.ilike.${q},category.ilike.${q}`)
+      .order('added_at', { ascending: false });
+    if (error) throw new Error(error.message);
+    return (data || []).map(rowToBook);
   },
 
   // Passages
-  getPassagesByBook(bookId: string): BookPassage[] {
-    return getAllPassages()
-      .filter((p) => p.bookId === bookId)
-      .sort((a, b) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime());
+  async getPassagesByBook(bookId: string): Promise<BookPassage[]> {
+    const { data, error } = await supabase
+      .from('book_passages')
+      .select('*')
+      .eq('book_id', bookId)
+      .order('added_at', { ascending: false });
+    if (error) throw new Error(error.message);
+    return (data || []).map(rowToPassage);
   },
 
-  getPassageById(id: string): BookPassage | null {
-    return getAllPassages().find((p) => p.id === id) || null;
+  async getPassageById(id: string): Promise<BookPassage | null> {
+    const { data, error } = await supabase
+      .from('book_passages')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error) return null;
+    return rowToPassage(data);
   },
 
-  createPassage(data: Omit<BookPassage, 'id' | 'addedAt'>): BookPassage {
-    const passage: BookPassage = {
-      ...data,
-      id: generateId('passage'),
-      addedAt: new Date().toISOString(),
-    };
-    const all = getAllPassages();
-    all.push(passage);
-    savePassages(all);
-    
-    // Update passage count in book
-    const books = getAllBooks();
-    const bookIndex = books.findIndex((b) => b.id === data.bookId);
-    if (bookIndex !== -1) {
-      books[bookIndex].passageCount = (books[bookIndex].passageCount || 0) + 1;
-      saveBooks(books);
+  async createPassage(userId: string, data: Omit<BookPassage, 'id' | 'addedAt'>): Promise<BookPassage> {
+    const { data: row, error } = await supabase
+      .from('book_passages')
+      .insert({
+        book_id: data.bookId,
+        user_id: userId,
+        title: data.title,
+        content: data.content,
+        personal_reflection: data.personalReflection || null,
+        page_number: data.pageNumber || null,
+        tags: data.tags,
+        is_favorite: data.isFavorite,
+        is_important: data.isImportant || false,
+        theme_id: data.themeId || null,
+      })
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+
+    // Update passage count
+    await supabase.rpc('', {}).catch(() => {});
+    const { count } = await supabase
+      .from('book_passages')
+      .select('*', { count: 'exact', head: true })
+      .eq('book_id', data.bookId);
+    await supabase.from('books').update({ passage_count: count || 0 }).eq('id', data.bookId);
+
+    return rowToPassage(row);
+  },
+
+  async updatePassage(id: string, updates: Partial<Omit<BookPassage, 'id'>>): Promise<BookPassage | null> {
+    const dbUpdates: Record<string, unknown> = {};
+    if (updates.title !== undefined) dbUpdates.title = updates.title;
+    if (updates.content !== undefined) dbUpdates.content = updates.content;
+    if (updates.personalReflection !== undefined) dbUpdates.personal_reflection = updates.personalReflection;
+    if (updates.pageNumber !== undefined) dbUpdates.page_number = updates.pageNumber;
+    if (updates.tags !== undefined) dbUpdates.tags = updates.tags;
+    if (updates.isFavorite !== undefined) dbUpdates.is_favorite = updates.isFavorite;
+    if (updates.isImportant !== undefined) dbUpdates.is_important = updates.isImportant;
+
+    const { data, error } = await supabase
+      .from('book_passages')
+      .update(dbUpdates)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) return null;
+    return rowToPassage(data);
+  },
+
+  async deletePassage(id: string): Promise<boolean> {
+    const passage = await this.getPassageById(id);
+    const { error } = await supabase.from('book_passages').delete().eq('id', id);
+    if (error) return false;
+
+    if (passage) {
+      const { count } = await supabase
+        .from('book_passages')
+        .select('*', { count: 'exact', head: true })
+        .eq('book_id', passage.bookId);
+      await supabase.from('books').update({ passage_count: count || 0 }).eq('id', passage.bookId);
     }
-    
-    return passage;
-  },
-
-  updatePassage(id: string, updates: Partial<Omit<BookPassage, 'id'>>): BookPassage | null {
-    const all = getAllPassages();
-    const index = all.findIndex((p) => p.id === id);
-    if (index === -1) return null;
-    all[index] = { ...all[index], ...updates };
-    savePassages(all);
-    return all[index];
-  },
-
-  deletePassage(id: string): boolean {
-    const passages = getAllPassages();
-    const passage = passages.find((p) => p.id === id);
-    if (!passage) return false;
-    
-    savePassages(passages.filter((p) => p.id !== id));
-    
-    // Update passage count in book
-    const books = getAllBooks();
-    const bookIndex = books.findIndex((b) => b.id === passage.bookId);
-    if (bookIndex !== -1 && books[bookIndex].passageCount) {
-      books[bookIndex].passageCount = Math.max(0, (books[bookIndex].passageCount || 1) - 1);
-      saveBooks(books);
-    }
-    
     return true;
   },
 
-  togglePassageFavorite(id: string): BookPassage | null {
-    const passage = this.getPassageById(id);
+  async togglePassageFavorite(id: string): Promise<BookPassage | null> {
+    const passage = await this.getPassageById(id);
     if (!passage) return null;
     return this.updatePassage(id, { isFavorite: !passage.isFavorite });
   },
 
-  togglePassageImportant(id: string): BookPassage | null {
-    const passage = this.getPassageById(id);
+  async togglePassageImportant(id: string): Promise<BookPassage | null> {
+    const passage = await this.getPassageById(id);
     if (!passage) return null;
     return this.updatePassage(id, { isImportant: !passage.isImportant });
   },

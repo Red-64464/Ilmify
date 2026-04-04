@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
@@ -17,6 +17,7 @@ import EmptyState from '@/components/ui/EmptyState';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthGuard from '@/components/layout/AuthGuard';
 import { courseRepository } from '@/lib/repositories/courseRepository';
+import type { CourseFolder, CoursePage } from '@/types';
 
 const stagger = {
   hidden: {},
@@ -29,7 +30,7 @@ const fadeUp = {
 };
 
 export default function CoursesPage() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   const router = useRouter();
   const [search, setSearch] = useState('');
   const [showCreateFolder, setShowCreateFolder] = useState(false);
@@ -39,18 +40,23 @@ export default function CoursesPage() {
   const [newPageTitle, setNewPageTitle] = useState('');
   const [newPageFolder, setNewPageFolder] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
+  const [folders, setFolders] = useState<CourseFolder[]>([]);
+  const [allPages, setAllPages] = useState<CoursePage[]>([]);
+  const [filteredPages, setFilteredPages] = useState<CoursePage[]>([]);
 
-  const folders = useMemo(() => courseRepository.getFolders(), [refreshKey]);
-  const allPages = useMemo(() => courseRepository.getAllPages(), [refreshKey]);
+  useEffect(() => {
+    courseRepository.getFolders().then(setFolders);
+    courseRepository.getAllPages().then(setAllPages);
+  }, [refreshKey]);
 
-  const filteredPages = useMemo(() => {
-    if (!search) return [];
-    return courseRepository.searchPages(search);
+  useEffect(() => {
+    if (!search) { setFilteredPages([]); return; }
+    courseRepository.searchPages(search).then(setFilteredPages);
   }, [search, refreshKey]);
 
-  const handleCreateFolder = useCallback(() => {
-    if (!newFolderTitle.trim()) return;
-    courseRepository.createFolder({
+  const handleCreateFolder = useCallback(async () => {
+    if (!newFolderTitle.trim() || !user) return;
+    await courseRepository.createFolder(user.id, {
       title: newFolderTitle.trim(),
       description: newFolderDesc.trim() || undefined,
       icon: '📁',
@@ -62,9 +68,9 @@ export default function CoursesPage() {
     setRefreshKey((k) => k + 1);
   }, [newFolderTitle, newFolderDesc, folders.length]);
 
-  const handleCreatePage = useCallback(() => {
-    if (!newPageTitle.trim() || !newPageFolder) return;
-    const page = courseRepository.createPage({
+  const handleCreatePage = useCallback(async () => {
+    if (!newPageTitle.trim() || !newPageFolder || !user) return;
+    const page = await courseRepository.createPage(user.id, {
       folderId: newPageFolder,
       title: newPageTitle.trim(),
       blocks: [courseRepository.createDefaultBlock()],
@@ -77,8 +83,8 @@ export default function CoursesPage() {
     router.push(`/courses/${page.id}`);
   }, [newPageTitle, newPageFolder, allPages, router]);
 
-  const handleDeleteFolder = useCallback((id: string) => {
-    courseRepository.deleteFolder(id);
+  const handleDeleteFolder = useCallback(async (id: string) => {
+    await courseRepository.deleteFolder(id);
     setRefreshKey((k) => k + 1);
   }, []);
 

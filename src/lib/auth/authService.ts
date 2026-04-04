@@ -1,6 +1,7 @@
 import type { User, Session, AuthCredentials, SignupData } from '@/types';
+import { supabase } from '@/lib/supabase/client';
 
-// Auth service interface - abstracted for future Supabase migration
+// Auth service interface
 export interface IAuthService {
   login(credentials: AuthCredentials): Promise<{ user: User; session: Session }>;
   signup(data: SignupData): Promise<{ user: User; session: Session }>;
@@ -10,232 +11,273 @@ export interface IAuthService {
   isAdmin(): boolean;
 }
 
-const STORAGE_KEYS = {
-  users: 'ilmify-users',
-  session: 'ilmify-session',
-  currentUser: 'ilmify-current-user',
-} as const;
+// Cache for sync access (populated by AuthContext listener)
+let cachedUser: User | null = null;
+let cachedSession: Session | null = null;
 
-function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+export function setCachedAuth(user: User | null, session: Session | null) {
+  cachedUser = user;
+  cachedSession = session;
 }
 
-function generateToken(): string {
-  return `tok_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+function profileToUser(profile: {
+  id: string;
+  username: string;
+  display_name: string;
+  role: string;
+  avatar_url: string | null;
+  created_at: string;
+}): User {
+  return {
+    id: profile.id,
+    username: profile.username,
+    displayName: profile.display_name,
+    role: profile.role as 'admin' | 'user',
+    createdAt: profile.created_at,
+    avatarUrl: profile.avatar_url || undefined,
+  };
 }
 
-interface StoredUser extends User {
-  passwordHash: string;
-}
-
-// Simple hash for LOCAL MOCK ONLY - NOT for production use.
-// This is intentionally simple as data lives in localStorage.
-// When migrating to Supabase, use Supabase Auth which handles password hashing securely.
-function simpleHash(str: string): string {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return `hash_${Math.abs(hash).toString(36)}`;
-}
-
-function getStoredUsers(): StoredUser[] {
-  if (typeof window === 'undefined') return [];
-  const stored = localStorage.getItem(STORAGE_KEYS.users);
-  if (!stored) {
-    // Seed admin user
-    const adminUser: StoredUser = {
-      id: 'user-admin',
-      username: 'admin',
-      displayName: 'Administrateur',
-      role: 'admin',
-      createdAt: new Date().toISOString(),
-      passwordHash: simpleHash('admin'),
-    };
-    localStorage.setItem(STORAGE_KEYS.users, JSON.stringify([adminUser]));
-    return [adminUser];
-  }
-  return JSON.parse(stored);
-}
-
-function saveUsers(users: StoredUser[]): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(STORAGE_KEYS.users, JSON.stringify(users));
-}
-
-export class LocalAuthService implements IAuthService {
+export class SupabaseAuthService implements IAuthService {
   async login(credentials: AuthCredentials): Promise<{ user: User; session: Session }> {
-    const users = getStoredUsers();
-    const user = users.find(
-      (u) => u.username === credentials.username && u.passwordHash === simpleHash(credentials.password)
-    );
+    // Supabase Auth uses email — we use username@ilmify.app as convention
+    const email = `${credentials.username}@ilmify.app`;
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password: credentials.password,
+    });
 
-    if (!user) {
+    if (error || !data.user || !data.session) {
       throw new Error('Nom d\'utilisateur ou mot de passe incorrect');
     }
 
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', data.user.id)
+      .single();
+
+    if (profileError || !profile) {
+      throw new Error('Profil introuvable');
+    }
+
+    const user = profileToUser(profile);
     const session: Session = {
-      userId: user.id,
-      token: generateToken(),
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
+      userId: data.user.id,
+      token: data.session.access_token,
+      expiresAt: new Date(data.session.expires_at! * 1000).toISOString(),
     };
 
-    const { passwordHash: _pw, ...safeUser } = user;
-    
-    localStorage.setItem(STORAGE_KEYS.session, JSON.stringify(session));
-    localStorage.setItem(STORAGE_KEYS.currentUser, JSON.stringify(safeUser));
-
-    return { user: safeUser, session };
+    setCachedAuth(user, session);
+    return { user, session };
   }
 
   async signup(data: SignupData): Promise<{ user: User; session: Session }> {
-    const users = getStoredUsers();
-    
-    if (users.some((u) => u.username === data.username)) {
-      throw new Error('Ce nom d\'utilisateur est déjà pris');
+    const email = `${data.username}@ilmify.app`;
+    const { data: authData, error } = await supabase.auth.signUp({
+      email,
+      password: data.password,
+      options: {
+        data: {
+          username: data.username,
+          display_name: data.displayName,
+        },
+      },
+    });
+
+    if (error) {
+      if (error.message.includes('already registered')) {
+        throw new Error('Ce nom d\'utilisateur est déjà pris');
+      }
+      throw new Error(error.message);
     }
 
-    const newUser: StoredUser = {
-      id: `user-${generateId()}`,
+    if (!authData.user || !authData.session) {
+      throw new Error('Erreur lors de l\'inscription');
+    }
+
+    // Profile is auto-created by trigger, fetch it
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', authData.user.id)
+      .single();
+
+    const user: User = profile ? profileToUser(profile) : {
+      id: authData.user.id,
       username: data.username,
       displayName: data.displayName,
       role: 'user',
       createdAt: new Date().toISOString(),
-      passwordHash: simpleHash(data.password),
     };
-
-    users.push(newUser);
-    saveUsers(users);
 
     const session: Session = {
-      userId: newUser.id,
-      token: generateToken(),
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      userId: authData.user.id,
+      token: authData.session.access_token,
+      expiresAt: new Date(authData.session.expires_at! * 1000).toISOString(),
     };
 
-    const { passwordHash: _pw, ...safeUser } = newUser;
-
-    localStorage.setItem(STORAGE_KEYS.session, JSON.stringify(session));
-    localStorage.setItem(STORAGE_KEYS.currentUser, JSON.stringify(safeUser));
-
-    return { user: safeUser, session };
+    setCachedAuth(user, session);
+    return { user, session };
   }
 
   async logout(): Promise<void> {
-    localStorage.removeItem(STORAGE_KEYS.session);
-    localStorage.removeItem(STORAGE_KEYS.currentUser);
+    await supabase.auth.signOut();
+    setCachedAuth(null, null);
   }
 
   getSession(): Session | null {
-    if (typeof window === 'undefined') return null;
-    const stored = localStorage.getItem(STORAGE_KEYS.session);
-    if (!stored) return null;
-    const session: Session = JSON.parse(stored);
-    if (new Date(session.expiresAt) < new Date()) {
-      this.logout();
-      return null;
-    }
-    return session;
+    return cachedSession;
   }
 
   getUser(): User | null {
-    if (typeof window === 'undefined') return null;
-    const session = this.getSession();
-    if (!session) return null;
-    const stored = localStorage.getItem(STORAGE_KEYS.currentUser);
-    return stored ? JSON.parse(stored) : null;
+    return cachedUser;
   }
 
   isAdmin(): boolean {
-    const user = this.getUser();
-    return user?.role === 'admin';
+    return cachedUser?.role === 'admin';
   }
 
   // --- User management methods ---
 
+  async getAllUsersAsync(): Promise<User[]> {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw new Error(error.message);
+    return (data || []).map(profileToUser);
+  }
+
+  // Sync wrapper for backward compat (returns cached or empty)
   getAllUsers(): User[] {
-    return getStoredUsers().map(({ passwordHash: _pw, ...u }) => u);
+    return [];
+  }
+
+  async updateUserAsync(userId: string, updates: { displayName?: string; username?: string; avatarUrl?: string }): Promise<User> {
+    const dbUpdates: Record<string, string> = {};
+    if (updates.displayName !== undefined) dbUpdates.display_name = updates.displayName;
+    if (updates.username !== undefined) dbUpdates.username = updates.username;
+    if (updates.avatarUrl !== undefined) dbUpdates.avatar_url = updates.avatarUrl;
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(dbUpdates)
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      if (error.message.includes('unique') || error.message.includes('duplicate')) {
+        throw new Error('Ce nom d\'utilisateur est déjà pris');
+      }
+      throw new Error(error.message);
+    }
+
+    const user = profileToUser(data);
+    if (cachedUser && cachedUser.id === userId) {
+      setCachedAuth(user, cachedSession);
+    }
+    return user;
   }
 
   updateUser(userId: string, updates: { displayName?: string; username?: string; avatarUrl?: string }): User {
-    const users = getStoredUsers();
-    const idx = users.findIndex((u) => u.id === userId);
-    if (idx === -1) throw new Error('Utilisateur introuvable');
-
-    if (updates.username && updates.username !== users[idx].username) {
-      if (users.some((u) => u.username === updates.username && u.id !== userId)) {
-        throw new Error('Ce nom d\'utilisateur est déjà pris');
-      }
+    // Fire async update, return optimistic cached user
+    this.updateUserAsync(userId, updates);
+    if (cachedUser && cachedUser.id === userId) {
+      const updated = { ...cachedUser, ...updates };
+      setCachedAuth(updated, cachedSession);
+      return updated;
     }
-
-    users[idx] = { ...users[idx], ...updates };
-    saveUsers(users);
-
-    const { passwordHash: _pw, ...safeUser } = users[idx];
-
-    // Update current user in localStorage if it's the logged-in user
-    const currentUser = this.getUser();
-    if (currentUser && currentUser.id === userId) {
-      localStorage.setItem(STORAGE_KEYS.currentUser, JSON.stringify(safeUser));
-    }
-
-    return safeUser;
+    throw new Error('Utilisateur introuvable');
   }
 
-  updatePassword(userId: string, oldPassword: string, newPassword: string): void {
-    const users = getStoredUsers();
-    const idx = users.findIndex((u) => u.id === userId);
-    if (idx === -1) throw new Error('Utilisateur introuvable');
+  async updatePasswordAsync(newPassword: string): Promise<void> {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw new Error(error.message);
+  }
 
-    if (users[idx].passwordHash !== simpleHash(oldPassword)) {
-      throw new Error('Ancien mot de passe incorrect');
-    }
+  updatePassword(_userId: string, _oldPassword: string, newPassword: string): void {
+    this.updatePasswordAsync(newPassword);
+  }
 
-    users[idx].passwordHash = simpleHash(newPassword);
-    saveUsers(users);
+  async deleteUserAsync(userId: string): Promise<void> {
+    // Delete profile (cascade will clean up data)
+    const { error } = await supabase
+      .from('profiles')
+      .delete()
+      .eq('id', userId);
+    if (error) throw new Error(error.message);
   }
 
   deleteUser(userId: string): void {
-    const users = getStoredUsers().filter((u) => u.id !== userId);
-    saveUsers(users);
+    this.deleteUserAsync(userId);
   }
 
-  createUserAdmin(data: SignupData & { role?: 'admin' | 'user' }): User {
-    const users = getStoredUsers();
-    if (users.some((u) => u.username === data.username)) {
-      throw new Error('Ce nom d\'utilisateur est déjà pris');
+  async createUserAdmin(data: SignupData & { role?: 'admin' | 'user' }): Promise<User> {
+    // Admin creates user via signup, then updates role
+    const email = `${data.username}@ilmify.app`;
+    const { data: authData, error } = await supabase.auth.signUp({
+      email,
+      password: data.password,
+      options: {
+        data: {
+          username: data.username,
+          display_name: data.displayName,
+        },
+      },
+    });
+
+    if (error) {
+      if (error.message.includes('already registered')) {
+        throw new Error('Ce nom d\'utilisateur est déjà pris');
+      }
+      throw new Error(error.message);
     }
 
-    const newUser: StoredUser = {
-      id: `user-${generateId()}`,
+    if (!authData.user) throw new Error('Erreur lors de la création');
+
+    // Update role if admin
+    if (data.role === 'admin') {
+      await supabase
+        .from('profiles')
+        .update({ role: 'admin' })
+        .eq('id', authData.user.id);
+    }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', authData.user.id)
+      .single();
+
+    return profile ? profileToUser(profile) : {
+      id: authData.user.id,
       username: data.username,
       displayName: data.displayName,
       role: data.role || 'user',
       createdAt: new Date().toISOString(),
-      passwordHash: simpleHash(data.password),
     };
+  }
 
-    users.push(newUser);
-    saveUsers(users);
+  async updateUserRoleAsync(userId: string, role: 'admin' | 'user'): Promise<User> {
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ role })
+      .eq('id', userId)
+      .select()
+      .single();
 
-    const { passwordHash: _pw, ...safeUser } = newUser;
-    return safeUser;
+    if (error) throw new Error(error.message);
+    return profileToUser(data);
   }
 
   updateUserRole(userId: string, role: 'admin' | 'user'): User {
-    const users = getStoredUsers();
-    const idx = users.findIndex((u) => u.id === userId);
-    if (idx === -1) throw new Error('Utilisateur introuvable');
-
-    users[idx].role = role;
-    saveUsers(users);
-
-    const { passwordHash: _pw, ...safeUser } = users[idx];
-    return safeUser;
+    this.updateUserRoleAsync(userId, role);
+    return { id: userId, username: '', displayName: '', role, createdAt: '' };
   }
 }
 
 // Singleton instance
-export const authService = new LocalAuthService();
+export const authService = new SupabaseAuthService();

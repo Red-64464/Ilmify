@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BookOpen, Star, Plus, Upload, Smile, Trash2 } from 'lucide-react';
@@ -17,6 +17,7 @@ import ImageCropper from '@/components/ui/ImageCropper';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthGuard from '@/components/layout/AuthGuard';
 import { bookRepository } from '@/lib/repositories/bookRepository';
+import type { Book } from '@/types';
 
 const statusTabs = [
   { id: 'all', label: 'Tous' },
@@ -60,23 +61,24 @@ export default function LibraryPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [cropImage, setCropImage] = useState<string | null>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
+  const [books, setBooks] = useState<Book[]>([]);
 
-  const books = useMemo(() => bookRepository.getAll(), [refreshKey]);
+  useEffect(() => {
+    bookRepository.getAll().then(setBooks);
+  }, [refreshKey]);
 
-  const filtered = useMemo(() => {
-    return books.filter((b) => {
-      const matchesTab = tab === 'all' || b.status === tab;
-      const matchesSearch =
-        !search ||
-        b.title.toLowerCase().includes(search.toLowerCase()) ||
-        b.author.toLowerCase().includes(search.toLowerCase());
-      return matchesTab && matchesSearch;
-    });
-  }, [books, search, tab]);
+  const filtered = books.filter((b) => {
+    const matchesTab = tab === 'all' || b.status === tab;
+    const matchesSearch =
+      !search ||
+      b.title.toLowerCase().includes(search.toLowerCase()) ||
+      b.author.toLowerCase().includes(search.toLowerCase());
+    return matchesTab && matchesSearch;
+  });
 
-  const handleAddBook = useCallback(() => {
-    if (!newTitle.trim() || !newAuthor.trim()) return;
-    bookRepository.create({
+  const handleAddBook = useCallback(async () => {
+    if (!newTitle.trim() || !newAuthor.trim() || !user) return;
+    await bookRepository.create(user.id, {
       title: `${newEmoji ? newEmoji + ' ' : ''}${newTitle.trim()}`,
       author: newAuthor.trim(),
       coverUrl: newCoverUrl || undefined,
@@ -93,7 +95,7 @@ export default function LibraryPage() {
     setNewCoverUrl('');
     setNewEmoji('');
     setRefreshKey((k) => k + 1);
-  }, [newTitle, newAuthor, newCategory, newCoverUrl, newEmoji]);
+  }, [user, newTitle, newAuthor, newCategory, newCoverUrl, newEmoji]);
 
   const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -105,9 +107,9 @@ export default function LibraryPage() {
     reader.readAsDataURL(file);
   };
 
-  const handleDeleteBook = useCallback((bookId: string) => {
+  const handleDeleteBook = useCallback(async (bookId: string) => {
     if (!confirm('Supprimer ce livre et tous ses passages ?')) return;
-    bookRepository.delete(bookId);
+    await bookRepository.delete(bookId);
     setRefreshKey((k) => k + 1);
   }, []);
 

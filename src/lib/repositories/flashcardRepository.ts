@@ -1,141 +1,190 @@
 import type { FlashcardDeck, Flashcard } from '@/types';
-import { flashcardDecks as defaultDecks, flashcards as defaultCards } from '@/data/flashcards';
+import { supabase } from '@/lib/supabase/client';
 
-const DECKS_KEY = 'ilmify-flashcard-decks';
-const CARDS_KEY = 'ilmify-flashcards';
-
-function generateId(prefix: string): string {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+function rowToDeck(row: Record<string, unknown>): FlashcardDeck {
+  return {
+    id: row.id as string,
+    title: row.title as string,
+    description: row.description as string,
+    themeId: (row.theme_id as string) || undefined,
+    cardCount: (row.card_count as number) || 0,
+    masteredCount: (row.mastered_count as number) || 0,
+    color: row.color as string,
+    icon: (row.icon as string) || undefined,
+    lastStudiedAt: (row.last_studied_at as string) || undefined,
+    toReviewCount: (row.to_review_count as number) || 0,
+    tags: (row.tags as string[]) || [],
+    createdAt: row.created_at as string,
+  };
 }
 
-function getAllDecks(): FlashcardDeck[] {
-  if (typeof window === 'undefined') return defaultDecks;
-  const stored = localStorage.getItem(DECKS_KEY);
-  if (!stored) {
-    localStorage.setItem(DECKS_KEY, JSON.stringify(defaultDecks));
-    return defaultDecks;
-  }
-  return JSON.parse(stored);
-}
-
-function saveDecks(decks: FlashcardDeck[]): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(DECKS_KEY, JSON.stringify(decks));
-}
-
-function getAllCards(): Flashcard[] {
-  if (typeof window === 'undefined') return defaultCards;
-  const stored = localStorage.getItem(CARDS_KEY);
-  if (!stored) {
-    localStorage.setItem(CARDS_KEY, JSON.stringify(defaultCards));
-    return defaultCards;
-  }
-  return JSON.parse(stored);
-}
-
-function saveCards(cards: Flashcard[]): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(CARDS_KEY, JSON.stringify(cards));
+function rowToCard(row: Record<string, unknown>): Flashcard {
+  return {
+    id: row.id as string,
+    deckId: row.deck_id as string,
+    front: row.front as string,
+    back: row.back as string,
+    tags: (row.tags as string[]) || [],
+    difficulty: row.difficulty as Flashcard['difficulty'],
+    masteryLevel: (row.mastery_level as number) || 0,
+    nextReviewAt: (row.next_review_at as string) || undefined,
+    reviewCount: (row.review_count as number) || 0,
+    themeId: (row.theme_id as string) || undefined,
+    lastReviewedAt: (row.last_reviewed_at as string) || undefined,
+    createdAt: (row.created_at as string) || undefined,
+  };
 }
 
 export const flashcardRepository = {
   // Decks
-  getAllDecks(): FlashcardDeck[] {
-    return getAllDecks();
+  async getAllDecks(): Promise<FlashcardDeck[]> {
+    const { data, error } = await supabase
+      .from('flashcard_decks')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw new Error(error.message);
+    return (data || []).map(rowToDeck);
   },
 
-  getDeckById(id: string): FlashcardDeck | null {
-    return getAllDecks().find((d) => d.id === id) || null;
+  async getDeckById(id: string): Promise<FlashcardDeck | null> {
+    const { data, error } = await supabase
+      .from('flashcard_decks')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error) return null;
+    return rowToDeck(data);
   },
 
-  createDeck(data: Omit<FlashcardDeck, 'id' | 'createdAt' | 'cardCount' | 'masteredCount' | 'toReviewCount'>): FlashcardDeck {
-    const deck: FlashcardDeck = {
-      ...data,
-      id: generateId('deck'),
-      cardCount: 0,
-      masteredCount: 0,
-      toReviewCount: 0,
-      createdAt: new Date().toISOString(),
-    };
-    const all = getAllDecks();
-    all.push(deck);
-    saveDecks(all);
-    return deck;
+  async createDeck(userId: string, data: Omit<FlashcardDeck, 'id' | 'createdAt' | 'cardCount' | 'masteredCount' | 'toReviewCount'>): Promise<FlashcardDeck> {
+    const { data: row, error } = await supabase
+      .from('flashcard_decks')
+      .insert({
+        user_id: userId,
+        title: data.title,
+        description: data.description,
+        theme_id: data.themeId || null,
+        color: data.color,
+        icon: data.icon || null,
+        tags: data.tags,
+        card_count: 0,
+        mastered_count: 0,
+        to_review_count: 0,
+      })
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return rowToDeck(row);
   },
 
-  updateDeck(id: string, updates: Partial<Omit<FlashcardDeck, 'id'>>): FlashcardDeck | null {
-    const all = getAllDecks();
-    const index = all.findIndex((d) => d.id === id);
-    if (index === -1) return null;
-    all[index] = { ...all[index], ...updates };
-    saveDecks(all);
-    return all[index];
+  async updateDeck(id: string, updates: Partial<Omit<FlashcardDeck, 'id'>>): Promise<FlashcardDeck | null> {
+    const dbUpdates: Record<string, unknown> = {};
+    if (updates.title !== undefined) dbUpdates.title = updates.title;
+    if (updates.description !== undefined) dbUpdates.description = updates.description;
+    if (updates.themeId !== undefined) dbUpdates.theme_id = updates.themeId || null;
+    if (updates.color !== undefined) dbUpdates.color = updates.color;
+    if (updates.icon !== undefined) dbUpdates.icon = updates.icon || null;
+    if (updates.tags !== undefined) dbUpdates.tags = updates.tags;
+    if (updates.cardCount !== undefined) dbUpdates.card_count = updates.cardCount;
+    if (updates.masteredCount !== undefined) dbUpdates.mastered_count = updates.masteredCount;
+    if (updates.toReviewCount !== undefined) dbUpdates.to_review_count = updates.toReviewCount;
+    if (updates.lastStudiedAt !== undefined) dbUpdates.last_studied_at = updates.lastStudiedAt;
+
+    const { data, error } = await supabase
+      .from('flashcard_decks')
+      .update(dbUpdates)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) return null;
+    return rowToDeck(data);
   },
 
-  deleteDeck(id: string): boolean {
-    const decks = getAllDecks().filter((d) => d.id !== id);
-    saveDecks(decks);
-    // Also delete associated cards
-    const cards = getAllCards().filter((c) => c.deckId !== id);
-    saveCards(cards);
-    return true;
+  async deleteDeck(id: string): Promise<boolean> {
+    const { error } = await supabase.from('flashcard_decks').delete().eq('id', id);
+    return !error;
   },
 
-  // Refresh deck counts from actual cards
-  refreshDeckCounts(deckId: string): void {
-    const cards = getAllCards().filter((c) => c.deckId === deckId);
-    const mastered = cards.filter((c) => c.masteryLevel >= 80).length;
-    this.updateDeck(deckId, {
-      cardCount: cards.length,
-      masteredCount: mastered,
-      toReviewCount: cards.length - mastered,
-    });
+  async refreshDeckCounts(deckId: string): Promise<void> {
+    const { data: cards } = await supabase
+      .from('flashcards')
+      .select('mastery_level')
+      .eq('deck_id', deckId);
+
+    const total = cards?.length || 0;
+    const mastered = cards?.filter((c) => (c.mastery_level as number) >= 80).length || 0;
+
+    await supabase.from('flashcard_decks').update({
+      card_count: total,
+      mastered_count: mastered,
+      to_review_count: total - mastered,
+    }).eq('id', deckId);
   },
 
   // Cards
-  getCardsByDeck(deckId: string): Flashcard[] {
-    return getAllCards().filter((c) => c.deckId === deckId);
+  async getCardsByDeck(deckId: string): Promise<Flashcard[]> {
+    const { data, error } = await supabase
+      .from('flashcards')
+      .select('*')
+      .eq('deck_id', deckId)
+      .order('created_at', { ascending: true });
+    if (error) throw new Error(error.message);
+    return (data || []).map(rowToCard);
   },
 
-  createCard(data: Omit<Flashcard, 'id' | 'createdAt' | 'reviewCount' | 'masteryLevel'>): Flashcard {
-    const card: Flashcard = {
-      ...data,
-      id: generateId('card'),
-      masteryLevel: 0,
-      reviewCount: 0,
-      createdAt: new Date().toISOString(),
-    };
-    const all = getAllCards();
-    all.push(card);
-    saveCards(all);
-    this.refreshDeckCounts(data.deckId);
-    return card;
+  async createCard(userId: string, data: Omit<Flashcard, 'id' | 'createdAt' | 'reviewCount' | 'masteryLevel'>): Promise<Flashcard> {
+    const { data: row, error } = await supabase
+      .from('flashcards')
+      .insert({
+        deck_id: data.deckId,
+        user_id: userId,
+        front: data.front,
+        back: data.back,
+        tags: data.tags || [],
+        difficulty: data.difficulty || 'medium',
+        mastery_level: 0,
+        review_count: 0,
+      })
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    await this.refreshDeckCounts(data.deckId);
+    return rowToCard(row);
   },
 
-  deleteCard(id: string): boolean {
-    const cards = getAllCards();
-    const card = cards.find((c) => c.id === id);
-    const updated = cards.filter((c) => c.id !== id);
-    saveCards(updated);
+  async deleteCard(id: string): Promise<boolean> {
+    // Get deck_id before deleting
+    const { data: card } = await supabase
+      .from('flashcards')
+      .select('deck_id')
+      .eq('id', id)
+      .single();
+
+    const { error } = await supabase.from('flashcards').delete().eq('id', id);
+    if (error) return false;
+
     if (card) {
-      this.refreshDeckCounts(card.deckId);
+      await this.refreshDeckCounts(card.deck_id as string);
     }
     return true;
   },
 
-  // Import cards from JSON
-  importCards(deckId: string, cardsData: { front: string; back: string; tags?: string[]; difficulty?: 'easy' | 'medium' | 'hard' }[]): number {
-    let count = 0;
-    for (const item of cardsData) {
-      this.createCard({
-        deckId,
-        front: item.front,
-        back: item.back,
-        tags: item.tags || [],
-        difficulty: item.difficulty || 'medium',
-      });
-      count++;
-    }
-    return count;
+  async importCards(userId: string, deckId: string, cardsData: { front: string; back: string; tags?: string[]; difficulty?: 'easy' | 'medium' | 'hard' }[]): Promise<number> {
+    const rows = cardsData.map((item) => ({
+      deck_id: deckId,
+      user_id: userId,
+      front: item.front,
+      back: item.back,
+      tags: item.tags || [],
+      difficulty: item.difficulty || 'medium',
+      mastery_level: 0,
+      review_count: 0,
+    }));
+
+    const { error } = await supabase.from('flashcards').insert(rows);
+    if (error) throw new Error(error.message);
+
+    await this.refreshDeckCounts(deckId);
+    return cardsData.length;
   },
 };

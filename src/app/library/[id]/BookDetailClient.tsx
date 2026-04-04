@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BookOpen, Star, FileQuestion, BookMarked, Plus, Upload, Link2, Image } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
@@ -9,7 +9,9 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import EmptyState from '@/components/ui/EmptyState';
+import { useAuth } from '@/contexts/AuthContext';
 import { bookRepository } from '@/lib/repositories/bookRepository';
+import type { Book, BookPassage } from '@/types';
 
 const stagger = {
   hidden: {},
@@ -22,10 +24,23 @@ const fadeUp = {
 };
 
 export default function BookDetailClient({ id }: { id: string }) {
+  const { user } = useAuth();
   const [refreshKey, setRefreshKey] = useState(0);
-  const book = bookRepository.getById(id);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const passages = bookRepository.getPassagesByBook(id);
+  const [book, setBook] = useState<Book | null>(null);
+  const [passages, setPassages] = useState<BookPassage[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([
+      bookRepository.getById(id),
+      bookRepository.getPassagesByBook(id),
+    ]).then(([b, p]) => {
+      setBook(b);
+      setPassages(p);
+      setLoading(false);
+    });
+  }, [id, refreshKey]);
 
   // Add passage state
   const [showAddPassage, setShowAddPassage] = useState(false);
@@ -38,9 +53,9 @@ export default function BookDetailClient({ id }: { id: string }) {
   const [passageLink, setPassageLink] = useState('');
   const passageImageRef = useRef<HTMLInputElement>(null);
 
-  const handleAddPassage = useCallback(() => {
-    if (!passageTitle.trim() || !passageContent.trim()) return;
-    bookRepository.createPassage({
+  const handleAddPassage = useCallback(async () => {
+    if (!passageTitle.trim() || !passageContent.trim() || !user) return;
+    await bookRepository.createPassage(user.id, {
       bookId: id,
       title: passageTitle.trim(),
       content: passageContent.trim(),
@@ -73,6 +88,14 @@ export default function BookDetailClient({ id }: { id: string }) {
     reader.onload = (ev) => setPassageImageUrl(ev.target?.result as string);
     reader.readAsDataURL(file);
   };
+
+  if (loading) {
+    return (
+      <div className="pb-10">
+        <PageHeader title="Chargement..." backButton />
+      </div>
+    );
+  }
 
   if (!book) {
     return (

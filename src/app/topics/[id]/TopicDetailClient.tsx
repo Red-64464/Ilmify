@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
@@ -22,30 +22,28 @@ export default function TopicDetailClient({ id: propId }: { id: string }) {
   const params = useParams();
   const id = (params?.id as string) || propId;
   const { toast } = useToast();
-  const [topic, setTopic] = useState<Topic | null>(() => {
-    if (typeof window === 'undefined') return null;
-    return topicRepository.getById(id);
-  });
+  const [topic, setTopic] = useState<Topic | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [editTitle, setEditTitle] = useState(() => {
-    if (typeof window === 'undefined') return '';
-    const t = topicRepository.getById(id);
-    return t?.title || '';
-  });
-  const [editBlocks, setEditBlocks] = useState<TopicBlock[]>(() => {
-    if (typeof window === 'undefined') return [];
-    const t = topicRepository.getById(id);
-    return t?.blocks || [];
-  });
+  const [editTitle, setEditTitle] = useState('');
+  const [editBlocks, setEditBlocks] = useState<TopicBlock[]>([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  useEffect(() => {
+    topicRepository.getById(id).then((t) => {
+      setTopic(t);
+      if (t) {
+        setEditTitle(t.title);
+        setEditBlocks(t.blocks);
+      }
+    });
+  }, [id]);
 
   const isOwner = user && topic && user.id === topic.userId;
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     if (!topic) return;
-    // Deep clone blocks to avoid stale references
     const blocksToSave = JSON.parse(JSON.stringify(editBlocks)) as TopicBlock[];
-    const updated = topicRepository.update(topic.id, {
+    const updated = await topicRepository.update(topic.id, {
       title: editTitle,
       blocks: blocksToSave,
     });
@@ -60,22 +58,22 @@ export default function TopicDetailClient({ id: propId }: { id: string }) {
     }
   }, [topic, editTitle, editBlocks, toast]);
 
-  const handleDelete = useCallback(() => {
+  const handleDelete = useCallback(async () => {
     if (!topic) return;
-    topicRepository.delete(topic.id);
+    await topicRepository.delete(topic.id);
     toast('success', 'Topic supprimé');
     router.push('/topics');
   }, [topic, toast, router]);
 
-  const handleTogglePin = useCallback(() => {
+  const handleTogglePin = useCallback(async () => {
     if (!topic) return;
-    const updated = topicRepository.togglePin(topic.id);
+    const updated = await topicRepository.togglePin(topic.id);
     if (updated) setTopic(updated);
   }, [topic]);
 
-  const handleToggleFavorite = useCallback(() => {
+  const handleToggleFavorite = useCallback(async () => {
     if (!topic) return;
-    const updated = topicRepository.toggleFavorite(topic.id);
+    const updated = await topicRepository.toggleFavorite(topic.id);
     if (updated) setTopic(updated);
   }, [topic]);
 

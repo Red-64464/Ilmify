@@ -1,12 +1,8 @@
 import CourseDetailClient from './CourseDetailClient';
 
-// For static export - seed courses are created dynamically in localStorage
+// Data is now in Supabase - use placeholder for static export
 export function generateStaticParams() {
-  return [
-    { id: 'course-tawhid' },
-    { id: 'course-prayer' },
-    { id: 'course-3-principles' },
-  ];
+  return [{ id: '_placeholder' }];
 }
 
 export default async function CourseDetailPage({

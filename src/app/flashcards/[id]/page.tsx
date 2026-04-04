@@ -1,8 +1,8 @@
-import { flashcardDecks } from '@/data/flashcards';
 import FlashcardStudyClient from './FlashcardStudyClient';
 
+// Data is now in Supabase - use placeholder for static export
 export function generateStaticParams() {
-  return flashcardDecks.map((deck) => ({ id: deck.id }));
+  return [{ id: '_placeholder' }];
 }
 
 export default async function FlashcardStudyPage({

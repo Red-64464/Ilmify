@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -45,23 +45,25 @@ export default function TopicsPage() {
   const [newCategory, setNewCategory] = useState('');
   const [contextMenu, setContextMenu] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [topics, setTopics] = useState<Topic[]>([]);
 
-  const topics = useMemo(() => {
-    if (!user) return [];
-    let result = topicRepository.getByUser(user.id);
-    if (search) {
-      result = topicRepository.search(user.id, search);
-    }
-    if (categoryFilter !== 'Tous') {
-      result = result.filter((t) => t.category === categoryFilter);
-    }
-    return result;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!user) return;
+    const loadTopics = async () => {
+      let result = search
+        ? await topicRepository.search(user.id, search)
+        : await topicRepository.getByUser(user.id);
+      if (categoryFilter !== 'Tous') {
+        result = result.filter((t) => t.category === categoryFilter);
+      }
+      setTopics(result);
+    };
+    loadTopics();
   }, [user, search, categoryFilter, refreshKey]);
 
-  const handleCreate = useCallback(() => {
+  const handleCreate = useCallback(async () => {
     if (!user || !newTitle.trim()) return;
-    const topic = topicRepository.create(user.id, newTitle.trim(), newCategory || undefined);
+    const topic = await topicRepository.create(user.id, newTitle.trim(), newCategory || undefined);
     setShowCreateModal(false);
     setNewTitle('');
     setNewCategory('');
@@ -69,23 +71,23 @@ export default function TopicsPage() {
   }, [user, newTitle, newCategory]);
 
   const handleAction = useCallback(
-    (action: string, topic: Topic) => {
+    async (action: string, topic: Topic) => {
       setContextMenu(null);
       switch (action) {
         case 'pin':
-          topicRepository.togglePin(topic.id);
+          await topicRepository.togglePin(topic.id);
           break;
         case 'favorite':
-          topicRepository.toggleFavorite(topic.id);
+          await topicRepository.toggleFavorite(topic.id);
           break;
         case 'archive':
-          topicRepository.archive(topic.id);
+          await topicRepository.archive(topic.id);
           break;
         case 'duplicate':
-          if (user) topicRepository.duplicate(topic.id, user.id);
+          if (user) await topicRepository.duplicate(topic.id, user.id);
           break;
         case 'delete':
-          topicRepository.delete(topic.id);
+          await topicRepository.delete(topic.id);
           break;
       }
       setRefreshKey((k) => k + 1);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { RotateCcw, ChevronLeft, ChevronRight, FileQuestion } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
@@ -9,13 +9,33 @@ import Button from '@/components/ui/Button';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import EmptyState from '@/components/ui/EmptyState';
 import { flashcardRepository } from '@/lib/repositories/flashcardRepository';
+import type { FlashcardDeck, Flashcard } from '@/types';
 
 export default function FlashcardStudyClient({ id }: { id: string }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
+  const [deck, setDeck] = useState<FlashcardDeck | null>(null);
+  const [cards, setCards] = useState<Flashcard[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const deck = flashcardRepository.getDeckById(id);
-  const cards = flashcardRepository.getCardsByDeck(id);
+  useEffect(() => {
+    Promise.all([
+      flashcardRepository.getDeckById(id),
+      flashcardRepository.getCardsByDeck(id),
+    ]).then(([d, c]) => {
+      setDeck(d);
+      setCards(c);
+      setLoading(false);
+    });
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="pb-10">
+        <PageHeader title="Chargement..." backButton />
+      </div>
+    );
+  }
 
   if (!deck || cards.length === 0) {
     return (
