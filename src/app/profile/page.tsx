@@ -12,6 +12,7 @@ import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import EmptyState from '@/components/ui/EmptyState';
 import { useAuth } from '@/contexts/AuthContext';
+import AuthGuard from '@/components/layout/AuthGuard';
 import { themes } from '@/data/themes';
 import { quizQuestions } from '@/data/quiz';
 import { flashcards } from '@/data/flashcards';
@@ -52,20 +53,11 @@ export default function ProfilePage() {
   };
 
   if (!user) {
-    return (
-      <div className="pb-10">
-        <EmptyState
-          icon={User}
-          title="Non connecté"
-          description="Connectez-vous pour accéder à votre profil et vos données personnelles."
-          actionLabel="Se connecter"
-          onAction={() => router.push('/login')}
-        />
-      </div>
-    );
+    return null;
   }
 
   return (
+    <AuthGuard>
     <div className="pb-10">
       {/* Avatar & Name */}
       <motion.div
@@ -211,5 +203,6 @@ export default function ProfilePage() {
         </Button>
       </motion.div>
     </div>
+    </AuthGuard>
   );
 }

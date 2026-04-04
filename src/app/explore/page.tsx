@@ -8,6 +8,7 @@ import PageHeader from '@/components/layout/PageHeader';
 import SearchInput from '@/components/ui/SearchInput';
 import Badge from '@/components/ui/Badge';
 import { ProgressBar } from '@/components/ui/ProgressBar';
+import AuthGuard from '@/components/layout/AuthGuard';
 import { themes } from '@/data/themes';
 
 const stagger = {
@@ -31,6 +32,7 @@ export default function ExplorePage() {
   );
 
   return (
+    <AuthGuard>
     <div className="pb-10">
       <PageHeader title="Explorer" subtitle="Parcourez les thèmes islamiques" />
 
@@ -125,5 +127,6 @@ export default function ExplorePage() {
         </motion.div>
       )}
     </div>
+    </AuthGuard>
   );
 }

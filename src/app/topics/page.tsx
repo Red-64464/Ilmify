@@ -16,6 +16,7 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import EmptyState from '@/components/ui/EmptyState';
 import { useAuth } from '@/contexts/AuthContext';
+import AuthGuard from '@/components/layout/AuthGuard';
 import { topicRepository } from '@/lib/repositories/topicRepository';
 import type { Topic } from '@/types';
 
@@ -93,21 +94,11 @@ export default function TopicsPage() {
   );
 
   if (!user) {
-    return (
-      <div className="pb-10">
-        <PageHeader title="Mes Topics" />
-        <EmptyState
-          icon={FileText}
-          title="Connectez-vous"
-          description="Connectez-vous pour créer et gérer vos topics personnels."
-          actionLabel="Se connecter"
-          onAction={() => router.push('/login')}
-        />
-      </div>
-    );
+    return null;
   }
 
   return (
+    <AuthGuard>
     <div className="pb-10">
       <PageHeader
         title="Mes Topics"
@@ -356,5 +347,6 @@ export default function TopicsPage() {
         </div>
       </Modal>
     </div>
+    </AuthGuard>
   );
 }

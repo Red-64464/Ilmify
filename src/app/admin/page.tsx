@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   LayoutDashboard, Star, FileText, Brain, BookOpen,
@@ -9,6 +10,8 @@ import {
 import PageHeader from '@/components/layout/PageHeader';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
+import AuthGuard from '@/components/layout/AuthGuard';
+import { useAuth } from '@/contexts/AuthContext';
 import { themes } from '@/data/themes';
 import { contentItems } from '@/data/content';
 import { quizQuestions } from '@/data/quiz';
@@ -17,6 +20,14 @@ import { flashcardDecks, flashcards } from '@/data/flashcards';
 import { favorites } from '@/data/favorites';
 
 export default function AdminPage() {
+  const { isAdmin } = useAuth();
+  const router = useRouter();
+
+  if (!isAdmin) {
+    router.replace('/');
+    return null;
+  }
+
   const stats = useMemo(
     () => [
       { label: 'Thèmes', value: themes.length, icon: Star, color: '#3aaa60' },
@@ -64,6 +75,7 @@ export default function AdminPage() {
   );
 
   return (
+    <AuthGuard>
     <div className="pb-10">
       <PageHeader
         title="Administration"
@@ -137,5 +149,6 @@ export default function AdminPage() {
         </motion.div>
       ))}
     </div>
+    </AuthGuard>
   );
 }

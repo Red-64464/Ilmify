@@ -14,6 +14,7 @@ import Modal from '@/components/ui/Modal';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import EmptyState from '@/components/ui/EmptyState';
 import { useAuth } from '@/contexts/AuthContext';
+import AuthGuard from '@/components/layout/AuthGuard';
 import { bookRepository } from '@/lib/repositories/bookRepository';
 
 const statusTabs = [
@@ -84,6 +85,7 @@ export default function LibraryPage() {
   }, [newTitle, newAuthor, newCategory]);
 
   return (
+    <AuthGuard>
     <div className="pb-10">
       <PageHeader
         title="Bibliothèque"
@@ -275,5 +277,6 @@ export default function LibraryPage() {
         </div>
       </Modal>
     </div>
+    </AuthGuard>
   );
 }

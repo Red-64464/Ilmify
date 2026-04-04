@@ -9,12 +9,14 @@ import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import EmptyState from '@/components/ui/EmptyState';
+import AuthGuard from '@/components/layout/AuthGuard';
 import { flashcardDecks } from '@/data/flashcards';
 
 export default function FlashcardsPage() {
   const [expandedDeck, setExpandedDeck] = useState<string | null>(null);
 
   return (
+    <AuthGuard>
     <div className="pb-10">
       <PageHeader title="Flashcards" subtitle="Révisez avec les cartes mémoire" />
 
@@ -101,5 +103,6 @@ export default function FlashcardsPage() {
         />
       )}
     </div>
+    </AuthGuard>
   );
 }

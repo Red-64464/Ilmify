@@ -7,6 +7,7 @@ import {
   AlertCircle, Lightbulb, Bell, BookOpen, BookMarked,
   Image, Link2, Video, FileText, HelpCircle, Table2, Minus,
   GripVertical, Trash2, ChevronUp, ChevronDown,
+  Upload, PlusCircle, MinusCircle, Columns, Rows,
 } from 'lucide-react';
 import type { TopicBlock, BlockType } from '@/types';
 
@@ -108,6 +109,164 @@ function SlashMenu({
         )}
       </div>
     </motion.div>
+  );
+}
+
+// Table editor component
+function TableEditor({
+  block,
+  onUpdate,
+}: {
+  block: TopicBlock;
+  onUpdate: (updates: Partial<TopicBlock>) => void;
+}) {
+  // Parse table data from metadata or initialize default 3x3
+  const getTableData = (): string[][] => {
+    if (block.metadata?.tableData) {
+      try {
+        return JSON.parse(block.metadata.tableData);
+      } catch {
+        // fall through to default
+      }
+    }
+    return [
+      ['', '', ''],
+      ['', '', ''],
+      ['', '', ''],
+    ];
+  };
+
+  const tableData = getTableData();
+  const rows = tableData.length;
+  const cols = tableData[0]?.length || 3;
+
+  const updateCell = (rowIdx: number, colIdx: number, value: string) => {
+    const newData = tableData.map((row) => [...row]);
+    newData[rowIdx][colIdx] = value;
+    onUpdate({
+      metadata: {
+        ...block.metadata,
+        tableData: JSON.stringify(newData),
+      },
+    });
+  };
+
+  const addRow = () => {
+    const newData = [...tableData, new Array(cols).fill('')];
+    onUpdate({
+      metadata: { ...block.metadata, tableData: JSON.stringify(newData) },
+    });
+  };
+
+  const removeRow = (rowIdx: number) => {
+    if (rows <= 1) return;
+    const newData = tableData.filter((_, i) => i !== rowIdx);
+    onUpdate({
+      metadata: { ...block.metadata, tableData: JSON.stringify(newData) },
+    });
+  };
+
+  const addColumn = () => {
+    const newData = tableData.map((row) => [...row, '']);
+    onUpdate({
+      metadata: { ...block.metadata, tableData: JSON.stringify(newData) },
+    });
+  };
+
+  const removeColumn = (colIdx: number) => {
+    if (cols <= 1) return;
+    const newData = tableData.map((row) => row.filter((_, i) => i !== colIdx));
+    onUpdate({
+      metadata: { ...block.metadata, tableData: JSON.stringify(newData) },
+    });
+  };
+
+  return (
+    <div className="mt-2 space-y-2">
+      {/* Table toolbar */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <button
+          onClick={addRow}
+          className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] cursor-pointer transition-colors"
+          style={{ background: 'rgba(20,184,166,0.1)', color: '#14b8a6' }}
+          title="Ajouter une ligne"
+        >
+          <PlusCircle size={12} />
+          <Rows size={12} />
+        </button>
+        <button
+          onClick={addColumn}
+          className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] cursor-pointer transition-colors"
+          style={{ background: 'rgba(20,184,166,0.1)', color: '#14b8a6' }}
+          title="Ajouter une colonne"
+        >
+          <PlusCircle size={12} />
+          <Columns size={12} />
+        </button>
+      </div>
+
+      {/* Table */}
+      <div className="overflow-x-auto rounded-lg" style={{ border: '1px solid var(--border-light)' }}>
+        <table className="w-full border-collapse text-sm">
+          <tbody>
+            {tableData.map((row, rowIdx) => (
+              <tr key={rowIdx}>
+                {row.map((cell, colIdx) => (
+                  <td
+                    key={colIdx}
+                    className="relative group/cell"
+                    style={{
+                      border: '1px solid var(--border-subtle)',
+                      background: rowIdx === 0 ? 'rgba(20,184,166,0.06)' : 'transparent',
+                    }}
+                  >
+                    <input
+                      type="text"
+                      value={cell}
+                      onChange={(e) => updateCell(rowIdx, colIdx, e.target.value)}
+                      className="w-full bg-transparent px-3 py-2 outline-none text-sm"
+                      style={{
+                        color: 'var(--text-primary)',
+                        fontWeight: rowIdx === 0 ? 600 : 400,
+                        minWidth: '80px',
+                      }}
+                      placeholder={rowIdx === 0 ? 'En-tête' : ''}
+                    />
+                    {/* Delete column button on first row */}
+                    {rowIdx === 0 && cols > 1 && (
+                      <button
+                        onClick={() => removeColumn(colIdx)}
+                        className="absolute -top-3 right-1 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded cursor-pointer transition-opacity"
+                        style={{ color: '#f87171', background: 'var(--bg-elevated)' }}
+                        title="Supprimer cette colonne"
+                      >
+                        <MinusCircle size={10} />
+                      </button>
+                    )}
+                  </td>
+                ))}
+                {/* Delete row button */}
+                {rows > 1 && (
+                  <td className="w-6" style={{ border: 'none' }}>
+                    <button
+                      onClick={() => removeRow(rowIdx)}
+                      className="opacity-0 group-hover:opacity-100 p-0.5 rounded cursor-pointer transition-opacity"
+                      style={{ color: '#f87171' }}
+                      title="Supprimer cette ligne"
+                    >
+                      <MinusCircle size={10} />
+                    </button>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+        {rows} lignes × {cols} colonnes
+      </p>
+    </div>
   );
 }
 
@@ -412,6 +571,101 @@ function EditableBlock({
           />
         )}
 
+        {/* Image file picker */}
+        {block.type === 'image' && (
+          <div className="mt-2 space-y-2">
+            {block.metadata?.dataUrl && (
+              <div className="rounded-lg overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={block.metadata.dataUrl} alt={block.content || 'Image'} className="max-w-full rounded-lg" />
+              </div>
+            )}
+            <label
+              className="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors text-sm"
+              style={{
+                background: 'rgba(236, 72, 153, 0.08)',
+                border: '1px dashed rgba(236, 72, 153, 0.25)',
+                color: '#ec4899',
+              }}
+            >
+              <Upload size={14} />
+              <span>{block.metadata?.dataUrl ? 'Changer l\'image' : 'Choisir une image depuis votre PC'}</span>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                      onUpdate({
+                        content: file.name,
+                        metadata: {
+                          ...block.metadata,
+                          dataUrl: ev.target?.result as string,
+                          fileName: file.name,
+                        },
+                      });
+                    };
+                    reader.readAsDataURL(file);
+                  }
+                }}
+              />
+            </label>
+          </div>
+        )}
+
+        {/* PDF file picker */}
+        {block.type === 'pdf' && (
+          <div className="mt-2 space-y-2">
+            {block.metadata?.dataUrl && (
+              <div className="flex items-center gap-2 text-xs" style={{ color: '#fb923c' }}>
+                <FileText size={14} />
+                <span>{block.metadata.fileName || 'Document PDF'}</span>
+              </div>
+            )}
+            <label
+              className="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors text-sm"
+              style={{
+                background: 'rgba(249, 115, 22, 0.08)',
+                border: '1px dashed rgba(249, 115, 22, 0.25)',
+                color: '#f97316',
+              }}
+            >
+              <Upload size={14} />
+              <span>{block.metadata?.dataUrl ? 'Changer le PDF' : 'Choisir un PDF depuis votre PC'}</span>
+              <input
+                type="file"
+                accept=".pdf,application/pdf"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                      onUpdate({
+                        content: file.name,
+                        metadata: {
+                          ...block.metadata,
+                          dataUrl: ev.target?.result as string,
+                          fileName: file.name,
+                        },
+                      });
+                    };
+                    reader.readAsDataURL(file);
+                  }
+                }}
+              />
+            </label>
+          </div>
+        )}
+
+        {/* Table editor */}
+        {block.type === 'table' && (
+          <TableEditor block={block} onUpdate={onUpdate} />
+        )}
+
         {/* Inline actions */}
         <AnimatePresence>
           {showActions && (
@@ -683,16 +937,35 @@ function ReadOnlyBlock({ block }: { block: TopicBlock }) {
       );
     case 'pdf':
       return (
-        <div
-          className="my-3 flex items-center gap-2 rounded-lg p-3 text-sm"
-          style={{
-            background: 'rgba(249, 115, 22, 0.06)',
-            border: '1px solid rgba(249, 115, 22, 0.12)',
-            color: '#fb923c',
-          }}
-        >
-          <FileText size={16} />
-          <span className="truncate">{block.content || 'Document PDF'}</span>
+        <div className="my-3">
+          {block.metadata?.dataUrl ? (
+            <a
+              href={block.metadata.dataUrl}
+              download={block.metadata.fileName || 'document.pdf'}
+              className="flex items-center gap-2 rounded-lg p-3 text-sm transition-colors"
+              style={{
+                background: 'rgba(249, 115, 22, 0.06)',
+                border: '1px solid rgba(249, 115, 22, 0.12)',
+                color: '#fb923c',
+              }}
+            >
+              <FileText size={16} />
+              <span className="truncate">{block.metadata.fileName || block.content || 'Document PDF'}</span>
+              <span className="text-[10px] ml-auto opacity-70">Télécharger</span>
+            </a>
+          ) : (
+            <div
+              className="flex items-center gap-2 rounded-lg p-3 text-sm"
+              style={{
+                background: 'rgba(249, 115, 22, 0.06)',
+                border: '1px solid rgba(249, 115, 22, 0.12)',
+                color: '#fb923c',
+              }}
+            >
+              <FileText size={16} />
+              <span className="truncate">{block.content || 'Document PDF'}</span>
+            </div>
+          )}
         </div>
       );
     case 'qa': {
@@ -723,6 +996,38 @@ function ReadOnlyBlock({ block }: { block: TopicBlock }) {
               </p>
             </div>
           )}
+        </div>
+      );
+    }
+    case 'table': {
+      let tableData: string[][] = [['']];
+      try {
+        if (block.metadata?.tableData) tableData = JSON.parse(block.metadata.tableData);
+      } catch { /* ignore */ }
+      return (
+        <div className="my-4 overflow-x-auto rounded-xl" style={{ border: '1px solid var(--border-light)' }}>
+          <table className="w-full border-collapse text-sm">
+            <tbody>
+              {tableData.map((row, rowIdx) => (
+                <tr key={rowIdx}>
+                  {row.map((cell, colIdx) => (
+                    <td
+                      key={colIdx}
+                      className="px-3 py-2"
+                      style={{
+                        border: '1px solid var(--border-subtle)',
+                        background: rowIdx === 0 ? 'rgba(20,184,166,0.06)' : 'transparent',
+                        fontWeight: rowIdx === 0 ? 600 : 400,
+                        color: 'var(--text-primary)',
+                      }}
+                    >
+                      {cell}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       );
     }

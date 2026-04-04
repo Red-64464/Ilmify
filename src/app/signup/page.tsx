@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { UserPlus, Eye, EyeOff } from 'lucide-react';
+import Image from 'next/image';
 import Button from '@/components/ui/Button';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
@@ -48,14 +49,8 @@ export default function SignupPage() {
       >
         {/* Logo */}
         <div className="text-center mb-10">
-          <div
-            className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl text-2xl font-bold text-white"
-            style={{
-              background: 'linear-gradient(135deg, #1a7a6b, #12a393)',
-              boxShadow: '0 4px 20px rgba(26, 122, 107, 0.3)',
-            }}
-          >
-            ☪
+          <div className="relative mx-auto mb-4 h-20 w-20">
+            <Image src="/logo.png" alt="Ilmify" fill className="object-contain" priority />
           </div>
           <h1 className="text-2xl font-bold font-heading tracking-tight" style={{ color: '#d4ad4a' }}>
             Créer un compte

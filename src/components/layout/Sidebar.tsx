@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import Image from 'next/image';
 import {
   Home,
   FileText,
@@ -14,6 +15,7 @@ import {
   Settings,
   Compass,
 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const mainNav = [
   { href: '/', label: 'Home', icon: Home },
@@ -23,12 +25,11 @@ const mainNav = [
   { href: '/profile', label: 'Profil', icon: User },
 ] as const;
 
-const secondaryNav = [
+const toolsNav = [
   { href: '/explore', label: 'Explorer (Thèmes)', icon: Compass },
   { href: '/quiz', label: 'Quiz', icon: Brain },
   { href: '/flashcards', label: 'Flashcards', icon: Layers },
   { href: '/favorites', label: 'Favoris', icon: Heart },
-  { href: '/admin', label: 'Admin', icon: Settings },
 ] as const;
 
 function NavLink({
@@ -71,6 +72,7 @@ function NavLink({
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { isAdmin } = useAuth();
 
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' : pathname.startsWith(href);
@@ -85,14 +87,8 @@ export default function Sidebar() {
     >
       {/* Brand */}
       <div className="flex items-center gap-3 px-7 py-7">
-        <div
-          className="flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold text-white"
-          style={{
-            background: 'linear-gradient(135deg, #1a7a6b, #12a393)',
-            boxShadow: '0 2px 12px rgba(26, 122, 107, 0.3)',
-          }}
-        >
-          ☪
+        <div className="relative h-10 w-10 shrink-0">
+          <Image src="/logo.png" alt="Ilmify" fill className="object-contain" />
         </div>
         <div>
           <span className="text-lg font-bold tracking-tight" style={{ color: '#2e9e8c' }}>
@@ -117,9 +113,12 @@ export default function Sidebar() {
           </span>
         </div>
 
-        {secondaryNav.map((item) => (
+        {toolsNav.map((item) => (
           <NavLink key={item.href} {...item} isActive={isActive(item.href)} />
         ))}
+        {isAdmin && (
+          <NavLink href="/admin" label="Admin" icon={Settings} isActive={isActive('/admin')} />
+        )}
       </nav>
 
       {/* Footer */}

@@ -275,3 +275,72 @@ body {
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(196, 154, 61, 0.12), transparent);
 }
+
+/* ============================================
+   PERFORMANCE & FLUIDITY OPTIMIZATIONS
+   ============================================ */
+
+/* GPU acceleration for animated elements */
+.pattern-bg::before {
+  will-change: auto;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Prevent layout thrashing on mobile */
+html, body {
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Smooth touch scrolling everywhere */
+* {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Fix mobile 100vh issue */
+@supports (height: 100dvh) {
+  body {
+    min-height: 100dvh;
+  }
+}
+
+/* Prevent text size adjust on orientation change */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Fix iOS input zoom */
+@media (max-width: 768px) {
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Fix mobile viewport issues */
+.fixed {
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
+/* Optimize images */
+img {
+  content-visibility: auto;
+}
+
+/* Prevent horizontal scroll on mobile */
+#__next, main {
+  overflow-x: hidden;
+  max-width: 100vw;
+}

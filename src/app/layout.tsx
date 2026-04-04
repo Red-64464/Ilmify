@@ -20,10 +20,19 @@ export const metadata: Metadata = {
   description:
     "Explorez, apprenez et renforcez vos connaissances islamiques avec des quiz, des flashcards et une bibliothèque complète.",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export const viewport: Viewport = {
   themeColor: "#0d1117",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

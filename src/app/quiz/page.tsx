@@ -8,6 +8,7 @@ import PageHeader from '@/components/layout/PageHeader';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
+import AuthGuard from '@/components/layout/AuthGuard';
 import { quizQuestions } from '@/data/quiz';
 import { themes } from '@/data/themes';
 
@@ -31,6 +32,7 @@ export default function QuizPage() {
   }, []);
 
   return (
+    <AuthGuard>
     <div className="pb-10">
       <PageHeader
         title="Quiz"
@@ -115,5 +117,6 @@ export default function QuizPage() {
         ))}
       </div>
     </div>
+    </AuthGuard>
   );
 }

@@ -15,6 +15,7 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import EmptyState from '@/components/ui/EmptyState';
 import { useAuth } from '@/contexts/AuthContext';
+import AuthGuard from '@/components/layout/AuthGuard';
 import { courseRepository } from '@/lib/repositories/courseRepository';
 
 const stagger = {
@@ -82,6 +83,7 @@ export default function CoursesPage() {
   }, []);
 
   return (
+    <AuthGuard>
     <div className="pb-10">
       <PageHeader
         title="Cours"
@@ -374,5 +376,6 @@ export default function CoursesPage() {
         </div>
       </Modal>
     </div>
+    </AuthGuard>
   );
 }

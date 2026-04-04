@@ -11,6 +11,7 @@ import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Tabs from '@/components/ui/Tabs';
 import EmptyState from '@/components/ui/EmptyState';
+import AuthGuard from '@/components/layout/AuthGuard';
 import { favorites } from '@/data/favorites';
 
 const filterTabs = [
@@ -41,6 +42,7 @@ export default function FavoritesPage() {
   }, [tab]);
 
   return (
+    <AuthGuard>
     <div className="pb-10">
       <PageHeader title="Favoris" subtitle={`${favorites.length} éléments sauvegardés`} />
 
@@ -101,5 +103,6 @@ export default function FavoritesPage() {
         />
       )}
     </div>
+    </AuthGuard>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
@@ -84,14 +85,8 @@ export default function HomePage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] as const }}
       >
-        <div
-          className="mb-6 flex h-20 w-20 items-center justify-center rounded-3xl text-3xl font-bold text-white"
-          style={{
-            background: 'linear-gradient(135deg, #1a7a6b, #12a393)',
-            boxShadow: '0 4px 24px rgba(26, 122, 107, 0.3)',
-          }}
-        >
-          ☪
+        <div className="relative mb-6 h-24 w-24">
+          <Image src="/logo.png" alt="Ilmify" fill className="object-contain" priority />
         </div>
         <h1 className="text-3xl font-bold font-heading tracking-tight mb-2" style={{ color: '#d4ad4a' }}>
           Ilmify

@@ -12,6 +12,7 @@ import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Tabs from '@/components/ui/Tabs';
 import EmptyState from '@/components/ui/EmptyState';
+import AuthGuard from '@/components/layout/AuthGuard';
 import { searchAll, popularSearches } from '@/lib/search';
 import type { SearchResult } from '@/types';
 
@@ -50,6 +51,7 @@ export default function SearchPage() {
   const results: SearchResult[] = searchAll(query, filter !== 'all' ? filter : undefined);
 
   return (
+    <AuthGuard>
     <div className="pb-10 py-6">
       <div className="mb-8">
         <h1
@@ -161,5 +163,6 @@ export default function SearchPage() {
         />
       )}
     </div>
+    </AuthGuard>
   );
 }
