@@ -1,0 +1,115 @@
+@import "tailwindcss";
+
+@theme {
+  /* Colors */
+  --color-primary-50: #f0faf7;
+  --color-primary-100: #d4f0e8;
+  --color-primary-200: #a8e0d0;
+  --color-primary-300: #6bc4a8;
+  --color-primary-400: #3da882;
+  --color-primary-500: #1e6b5e;
+  --color-primary-600: #1a5c50;
+  --color-primary-700: #143d35;
+  --color-primary-800: #0d2b25;
+  --color-primary-900: #0a1f1b;
+  --color-primary-950: #071513;
+
+  --color-gold-50: #fdf9ef;
+  --color-gold-100: #f8efd4;
+  --color-gold-200: #f0dda8;
+  --color-gold-300: #e8cc6e;
+  --color-gold-400: #d4b65a;
+  --color-gold-500: #c9a84c;
+  --color-gold-600: #b08f3a;
+  --color-gold-700: #8a6f2d;
+  --color-gold-800: #6b5623;
+  --color-gold-900: #4d3e19;
+
+  --color-ivory-50: #fefdfb;
+  --color-ivory-100: #faf7f0;
+  --color-ivory-200: #f5f0e8;
+  --color-ivory-300: #ede5d5;
+  --color-ivory-400: #ddd2bb;
+  --color-ivory-500: #c4b89d;
+
+  --color-teal-50: #f0fdfb;
+  --color-teal-100: #ccfbf1;
+  --color-teal-200: #99f6e4;
+  --color-teal-300: #5eead4;
+  --color-teal-400: #2dd4bf;
+  --color-teal-500: #14b8a6;
+  --color-teal-600: #0d9488;
+  --color-teal-700: #0f766e;
+
+  /* Fonts */
+  --font-heading: 'Playfair Display', Georgia, serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-arabic: 'Amiri', serif;
+
+  /* Animations */
+  --animate-fade-in: fade-in 0.5s ease-out;
+  --animate-slide-up: slide-up 0.5s ease-out;
+  --animate-scale-in: scale-in 0.3s ease-out;
+  --animate-glow: glow 2s ease-in-out infinite;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes glow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+/* Import Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&family=Amiri:wght@400;700&display=swap');
+
+/* Base styles */
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--color-primary-900);
+  color: var(--color-ivory-200);
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-primary-900);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-primary-600);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gold-600);
+}
+
+/* Selection */
+::selection {
+  background-color: rgba(201, 168, 76, 0.3);
+  color: var(--color-ivory-100);
+}
