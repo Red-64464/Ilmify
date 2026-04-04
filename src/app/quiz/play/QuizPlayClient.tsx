@@ -12,7 +12,7 @@ import { ProgressBar } from '@/components/ui/ProgressBar';
 import { quizQuestions } from '@/data/quiz';
 import type { QuizQuestion } from '@/types';
 
-export default function QuizPlayPage() {
+export default function QuizPlayClient() {
   const searchParams = useSearchParams();
   const themeFilter = searchParams.get('theme');
 

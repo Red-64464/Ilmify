@@ -5,8 +5,8 @@
 [build.environment]
   NODE_VERSION = "20"
 
-# SPA-style fallback for client-side routing
+# Serve Next.js generated 404 page for missing routes
 [[redirects]]
   from = "/*"
-  to = "/index.html"
-  status = 200
+  to = "/404.html"
+  status = 404
