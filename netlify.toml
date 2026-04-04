@@ -5,6 +5,12 @@
 [build.environment]
   NODE_VERSION = "20"
 
+# Rewrite dynamic topic routes to the placeholder page
+[[redirects]]
+  from = "/topics/*"
+  to = "/topics/_placeholder.html"
+  status = 200
+
 # Serve Next.js generated 404 page for missing routes
 [[redirects]]
   from = "/*"
