@@ -56,6 +56,13 @@ export default function HomePage() {
   const daily = useMemo(() => getDailyReminder(), []);
   const [search, setSearch] = useState('');
 
+  // Navigate to search page when user types
+  useEffect(() => {
+    if (search.trim()) {
+      router.push(`/search?q=${encodeURIComponent(search.trim())}`);
+    }
+  }, [search, router]);
+
   const [recentTopics, setRecentTopics] = useState<{ id: string; title: string; updatedAt: string; icon?: string }[]>([]);
   const [readingBooks, setReadingBooks] = useState<{ id: string; title: string; author: string; progress?: number }[]>([]);
   const [featuredCourses, setFeaturedCourses] = useState<{ id: string; title: string; description?: string; icon?: string }[]>([]);

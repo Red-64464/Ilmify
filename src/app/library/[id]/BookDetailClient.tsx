@@ -55,31 +55,31 @@ export default function BookDetailClient({ id }: { id: string }) {
 
   const handleAddPassage = useCallback(async () => {
     if (!passageTitle.trim() || !passageContent.trim() || !user) return;
-    await bookRepository.createPassage(user.id, {
-      bookId: id,
-      title: passageTitle.trim(),
-      content: passageContent.trim(),
-      personalReflection: passageReflection.trim() || undefined,
-      pageNumber: passagePage ? parseInt(passagePage, 10) : undefined,
-      tags: [],
-      isFavorite: false,
-      isImportant: passageImportant,
-      // Store image and link in the content for now
-    });
+    try {
+      await bookRepository.createPassage(user.id, {
+        bookId: id,
+        title: passageTitle.trim(),
+        content: passageContent.trim(),
+        personalReflection: passageReflection.trim() || undefined,
+        pageNumber: passagePage ? parseInt(passagePage, 10) : undefined,
+        tags: [],
+        isFavorite: false,
+        isImportant: passageImportant,
+      });
 
-    // If there's an image or link, update the passage content to include them
-    // We'll use a simple approach: append to content
-
-    setShowAddPassage(false);
-    setPassageTitle('');
-    setPassageContent('');
-    setPassagePage('');
-    setPassageReflection('');
-    setPassageImportant(false);
-    setPassageImageUrl('');
-    setPassageLink('');
-    setRefreshKey((k) => k + 1);
-  }, [id, passageTitle, passageContent, passagePage, passageReflection, passageImportant]);
+      setShowAddPassage(false);
+      setPassageTitle('');
+      setPassageContent('');
+      setPassagePage('');
+      setPassageReflection('');
+      setPassageImportant(false);
+      setPassageImageUrl('');
+      setPassageLink('');
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      console.error('Error creating passage:', err);
+    }
+  }, [id, passageTitle, passageContent, passagePage, passageReflection, passageImportant, user]);
 
   const handlePassageImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

@@ -54,34 +54,46 @@ export default function CoursesPage() {
     courseRepository.searchPages(search).then(setFilteredPages);
   }, [search, refreshKey]);
 
+  const [error, setError] = useState('');
+
   const handleCreateFolder = useCallback(async () => {
     if (!newFolderTitle.trim() || !user) return;
-    await courseRepository.createFolder(user.id, {
-      title: newFolderTitle.trim(),
-      description: newFolderDesc.trim() || undefined,
-      icon: '📁',
-      order: folders.length + 1,
-    });
-    setShowCreateFolder(false);
-    setNewFolderTitle('');
-    setNewFolderDesc('');
-    setRefreshKey((k) => k + 1);
-  }, [newFolderTitle, newFolderDesc, folders.length]);
+    try {
+      setError('');
+      await courseRepository.createFolder(user.id, {
+        title: newFolderTitle.trim(),
+        description: newFolderDesc.trim() || undefined,
+        icon: '📁',
+        order: folders.length + 1,
+      });
+      setShowCreateFolder(false);
+      setNewFolderTitle('');
+      setNewFolderDesc('');
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur lors de la création');
+    }
+  }, [newFolderTitle, newFolderDesc, folders.length, user]);
 
   const handleCreatePage = useCallback(async () => {
     if (!newPageTitle.trim() || !newPageFolder || !user) return;
-    const page = await courseRepository.createPage(user.id, {
-      folderId: newPageFolder,
-      title: newPageTitle.trim(),
-      blocks: [courseRepository.createDefaultBlock()],
-      tags: [],
-      order: allPages.filter((p) => p.folderId === newPageFolder).length + 1,
-    });
-    setShowCreatePage(false);
-    setNewPageTitle('');
-    setNewPageFolder('');
-    router.push(`/courses/${page.id}`);
-  }, [newPageTitle, newPageFolder, allPages, router]);
+    try {
+      setError('');
+      const page = await courseRepository.createPage(user.id, {
+        folderId: newPageFolder,
+        title: newPageTitle.trim(),
+        blocks: [courseRepository.createDefaultBlock()],
+        tags: [],
+        order: allPages.filter((p) => p.folderId === newPageFolder).length + 1,
+      });
+      setShowCreatePage(false);
+      setNewPageTitle('');
+      setNewPageFolder('');
+      router.push(`/courses/${page.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur lors de la création');
+    }
+  }, [newPageTitle, newPageFolder, allPages, router, user]);
 
   const handleDeleteFolder = useCallback(async (id: string) => {
     await courseRepository.deleteFolder(id);
@@ -314,8 +326,11 @@ export default function CoursesPage() {
               }}
             />
           </div>
+          {error && (
+            <p className="text-sm text-center py-2 px-3 rounded-xl" style={{ color: '#ef4444', background: 'rgba(239,68,68,0.08)' }}>{error}</p>
+          )}
           <div className="flex gap-2 pt-2">
-            <Button variant="secondary" size="md" onClick={() => setShowCreateFolder(false)} className="flex-1">
+            <Button variant="secondary" size="md" onClick={() => { setShowCreateFolder(false); setError(''); }} className="flex-1">
               Annuler
             </Button>
             <Button variant="primary" size="md" onClick={handleCreateFolder} disabled={!newFolderTitle.trim()} className="flex-1">
@@ -371,8 +386,11 @@ export default function CoursesPage() {
               ))}
             </select>
           </div>
+          {error && (
+            <p className="text-sm text-center py-2 px-3 rounded-xl" style={{ color: '#ef4444', background: 'rgba(239,68,68,0.08)' }}>{error}</p>
+          )}
           <div className="flex gap-2 pt-2">
-            <Button variant="secondary" size="md" onClick={() => setShowCreatePage(false)} className="flex-1">
+            <Button variant="secondary" size="md" onClick={() => { setShowCreatePage(false); setError(''); }} className="flex-1">
               Annuler
             </Button>
             <Button variant="primary" size="md" onClick={handleCreatePage} disabled={!newPageTitle.trim()} className="flex-1">

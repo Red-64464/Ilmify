@@ -61,14 +61,21 @@ export default function TopicsPage() {
     loadTopics();
   }, [user, search, categoryFilter, refreshKey]);
 
+  const [error, setError] = useState('');
+
   const handleCreate = useCallback(async () => {
     if (!user || !newTitle.trim()) return;
-    const topic = await topicRepository.create(user.id, newTitle.trim(), newCategory || undefined);
-    setShowCreateModal(false);
-    setNewTitle('');
-    setNewCategory('');
-    router.push(`/topics/${topic.id}`);
-  }, [user, newTitle, newCategory]);
+    try {
+      setError('');
+      const topic = await topicRepository.create(user.id, newTitle.trim(), newCategory || undefined);
+      setShowCreateModal(false);
+      setNewTitle('');
+      setNewCategory('');
+      router.push(`/topics/${topic.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur lors de la création');
+    }
+  }, [user, newTitle, newCategory, router]);
 
   const handleAction = useCallback(
     async (action: string, topic: Topic) => {
@@ -338,8 +345,11 @@ export default function TopicsPage() {
               ))}
             </div>
           </div>
+          {error && (
+            <p className="text-sm text-center py-2 px-3 rounded-xl" style={{ color: '#ef4444', background: 'rgba(239,68,68,0.08)' }}>{error}</p>
+          )}
           <div className="flex gap-2 pt-2">
-            <Button variant="secondary" size="md" onClick={() => setShowCreateModal(false)} className="flex-1">
+            <Button variant="secondary" size="md" onClick={() => { setShowCreateModal(false); setError(''); }} className="flex-1">
               Annuler
             </Button>
             <Button variant="primary" size="md" onClick={handleCreate} disabled={!newTitle.trim()} className="flex-1">

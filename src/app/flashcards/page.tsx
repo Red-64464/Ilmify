@@ -105,8 +105,8 @@ export default function FlashcardsPage() {
     setRefreshKey((k) => k + 1);
   }, [user, cardFront, cardBack, cardDifficulty, showAddCard]);
 
-  const handleImportJson = useCallback(() => {
-    if (!importJson.trim() || !showImport) return;
+  const handleImportJson = useCallback(async () => {
+    if (!importJson.trim() || !showImport || !user) return;
     setImportError('');
     setImportSuccess('');
     try {
@@ -123,7 +123,7 @@ export default function FlashcardsPage() {
         return;
       }
 
-      const count = flashcardRepository.importCards(user!.id, showImport, validCards);
+      const count = await flashcardRepository.importCards(user.id, showImport, validCards);
       setImportSuccess(`${count} carte(s) importée(s) avec succès !`);
       setImportJson('');
       setRefreshKey((k) => k + 1);
@@ -131,7 +131,7 @@ export default function FlashcardsPage() {
     } catch {
       setImportError('JSON invalide. Vérifiez le format.');
     }
-  }, [importJson, showImport]);
+  }, [importJson, showImport, user]);
 
   const handleFileImport = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
