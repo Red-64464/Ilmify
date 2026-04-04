@@ -28,7 +28,9 @@ interface StoredUser extends User {
   passwordHash: string;
 }
 
-// Simple hash for local mock - NOT for production use
+// Simple hash for LOCAL MOCK ONLY - NOT for production use.
+// This is intentionally simple as data lives in localStorage.
+// When migrating to Supabase, use Supabase Auth which handles password hashing securely.
 function simpleHash(str: string): string {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {

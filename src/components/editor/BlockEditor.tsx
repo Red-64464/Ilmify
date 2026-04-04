@@ -34,7 +34,10 @@ const BLOCK_TYPES: { type: BlockType; icon: React.ElementType; label: string; sh
 ];
 
 function generateBlockId(): string {
-  return `block-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return `block-${crypto.randomUUID()}`;
+  }
+  return `block-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 }
 
 interface BlockEditorProps {

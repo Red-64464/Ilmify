@@ -255,6 +255,6 @@ export interface RecentActivity {
 export interface UserSettings {
   userId: string;
   textSize: 'small' | 'medium' | 'large';
-  theme: 'dark';
-  language: 'fr';
+  theme: 'dark' | 'light';
+  language: 'fr' | 'en' | 'ar';
 }

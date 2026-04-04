@@ -22,8 +22,8 @@ export default function SignupPage() {
     e.preventDefault();
     setError('');
 
-    if (password.length < 3) {
-      setError('Le mot de passe doit contenir au moins 3 caractères');
+    if (password.length < 6) {
+      setError('Le mot de passe doit contenir au moins 6 caractères');
       return;
     }
 
