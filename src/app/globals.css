@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-ilm-darkest: #0A1F1C;
+  --color-ilm-dark: #0F2D28;
+  --color-ilm-card: #143832;
+  --color-ilm-accent: #1B5E4F;
+  --color-ilm-teal: #2DA891;
+  --color-ilm-gold: #D4A843;
+  --color-ilm-gold-light: #E8C068;
+  --color-ilm-ivory: #F5F0E8;
+  --color-ilm-cream: #EDE6D8;
+  --color-ilm-sage: #8BA89A;
+  --color-ilm-success: #4CAF50;
+  --color-ilm-error: #E57373;
+  --color-ilm-warning: #FFB74D;
+  --color-ilm-info: #4FC3F7;
+  --font-heading: 'Inter', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+}
+
+* { scrollbar-width: thin; scrollbar-color: #1B5E4F #0A1F1C; }
+*::-webkit-scrollbar { width: 6px; height: 6px; }
+*::-webkit-scrollbar-track { background: #0A1F1C; }
+*::-webkit-scrollbar-thumb { background: #1B5E4F; border-radius: 3px; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: #0A1F1C;
+  color: #F5F0E8;
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.glass-card {
+  background: rgba(20, 56, 50, 0.6);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(27, 94, 79, 0.15);
+}
+
+.gold-glow { box-shadow: 0 0 20px rgba(212, 168, 67, 0.15), 0 0 40px rgba(212, 168, 67, 0.05); }
+
+.card-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3); }
+
+.text-gradient-gold {
+  background: linear-gradient(135deg, #D4A843, #E8C068);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.scrollbar-none { scrollbar-width: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 20px rgba(212, 168, 67, 0.2); }
+  50% { box-shadow: 0 0 40px rgba(212, 168, 67, 0.4); }
+}
+
+.skeleton-loader {
+  background: linear-gradient(90deg, #143832 25%, #1B5E4F 50%, #143832 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+.animate-pulse-glow { animation: pulseGlow 2s ease-in-out infinite; }
