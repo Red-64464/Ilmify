@@ -45,13 +45,13 @@ export default function CoursesPage() {
   const [filteredPages, setFilteredPages] = useState<CoursePage[]>([]);
 
   useEffect(() => {
-    courseRepository.getFolders().then(setFolders);
-    courseRepository.getAllPages().then(setAllPages);
+    courseRepository.getFolders().then(setFolders).catch(() => {});
+    courseRepository.getAllPages().then(setAllPages).catch(() => {});
   }, [refreshKey]);
 
   useEffect(() => {
     if (!search) { setFilteredPages([]); return; }
-    courseRepository.searchPages(search).then(setFilteredPages);
+    courseRepository.searchPages(search).then(setFilteredPages).catch(() => {});
   }, [search, refreshKey]);
 
   const [error, setError] = useState('');
@@ -96,8 +96,10 @@ export default function CoursesPage() {
   }, [newPageTitle, newPageFolder, allPages, router, user]);
 
   const handleDeleteFolder = useCallback(async (id: string) => {
-    await courseRepository.deleteFolder(id);
-    setRefreshKey((k) => k + 1);
+    try {
+      await courseRepository.deleteFolder(id);
+      setRefreshKey((k) => k + 1);
+    } catch { /* ignore */ }
   }, []);
 
   return (

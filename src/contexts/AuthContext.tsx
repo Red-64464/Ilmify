@@ -125,6 +125,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateUser = useCallback((updates: { displayName?: string; username?: string; avatarUrl?: string }) => {
     if (!user) throw new Error('Non connecté');
     // Optimistic update
+    const prevUser = user;
     const updated = { ...user, ...updates };
     setUser(updated);
     setCachedAuth(updated, session);
@@ -132,12 +133,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     authService.updateUserAsync(user.id, updates).then((u) => {
       setUser(u);
       setCachedAuth(u, session);
+    }).catch(() => {
+      // Revert on failure
+      setUser(prevUser);
+      setCachedAuth(prevUser, session);
     });
   }, [user, session]);
 
-  const updatePassword = useCallback((_oldPassword: string, newPassword: string) => {
+  const updatePassword = useCallback(async (_oldPassword: string, newPassword: string) => {
     if (!user) throw new Error('Non connecté');
-    authService.updatePasswordAsync(newPassword);
+    await authService.updatePasswordAsync(newPassword);
   }, [user]);
 
   const refreshUser = useCallback(async () => {

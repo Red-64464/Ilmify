@@ -71,13 +71,13 @@ export default function HomePage() {
     if (!user) return;
     topicRepository.getByUser(user.id).then((topics) => {
       setRecentTopics(topics.slice(0, 4).map((t) => ({ id: t.id, title: t.title, updatedAt: t.updatedAt, icon: t.icon })));
-    });
+    }).catch(() => {});
     bookRepository.getAll().then((bks) => {
       setReadingBooks(bks.filter((b) => b.status === 'reading').map((b) => ({ id: b.id, title: b.title, author: b.author, progress: b.progress })));
-    });
+    }).catch(() => {});
     courseRepository.getAllPages().then((courses) => {
       setFeaturedCourses(courses.slice(0, 3).map((c) => ({ id: c.id, title: c.title, description: c.description, icon: c.icon })));
-    });
+    }).catch(() => {});
   }, [user]);
 
   const DailyIcon = daily ? typeIcons[daily.type] || Star : Star;

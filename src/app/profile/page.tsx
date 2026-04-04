@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useRef } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -14,10 +14,9 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthGuard from '@/components/layout/AuthGuard';
-import { themes } from '@/data/themes';
-import { quizQuestions } from '@/data/quiz';
-import { flashcards } from '@/data/flashcards';
-import { books } from '@/data/books';
+import { topicRepository } from '@/lib/repositories/topicRepository';
+import { bookRepository } from '@/lib/repositories/bookRepository';
+import { flashcardRepository } from '@/lib/repositories/flashcardRepository';
 
 const menuItems = [
   { icon: Heart, label: 'Favoris', desc: 'Gérer vos favoris', href: '/favorites' },
@@ -45,23 +44,29 @@ export default function ProfilePage() {
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState(false);
 
-  const stats = useMemo(() => {
-    const themesExplored = themes.filter((t) => t.progress && t.progress > 0).length;
-    const avgQuizScore = quizQuestions.length > 0
-      ? Math.round(
-          quizQuestions.reduce((acc, q) => acc + q.masteryLevel, 0) / quizQuestions.length
-        )
-      : 0;
-    const flashcardsMastered = flashcards.filter((f) => f.masteryLevel >= 80).length;
-    const booksRead = books.filter((b) => b.status === 'read').length;
+  // Dynamic stats from Supabase
+  const [topicCount, setTopicCount] = useState(0);
+  const [booksRead, setBooksRead] = useState(0);
+  const [totalBooks, setTotalBooks] = useState(0);
+  const [flashcardCount, setFlashcardCount] = useState(0);
 
+  useEffect(() => {
+    if (!user) return;
+    topicRepository.getByUser(user.id).then((t) => setTopicCount(t.length)).catch(() => {});
+    bookRepository.getAll().then((bks) => {
+      setTotalBooks(bks.length);
+      setBooksRead(bks.filter((b) => b.status === 'read').length);
+    }).catch(() => {});
+    flashcardRepository.getAllDecks().then((d) => setFlashcardCount(d.reduce((a, dk) => a + dk.cardCount, 0))).catch(() => {});
+  }, [user]);
+
+  const stats = useMemo(() => {
     return [
-      { label: 'Thèmes explorés', value: themesExplored, total: themes.length, icon: Star, color: '#3aaa60' },
-      { label: 'Score quiz', value: `${avgQuizScore}%`, icon: Brain, color: '#6366f1' },
-      { label: 'Cartes maîtrisées', value: flashcardsMastered, total: flashcards.length, icon: Layers, color: '#24ad9d' },
-      { label: 'Livres lus', value: booksRead, total: books.length, icon: BookOpen, color: '#d4991a' },
+      { label: 'Topics créés', value: topicCount, icon: Star, color: '#3aaa60' },
+      { label: 'Flashcards', value: flashcardCount, icon: Layers, color: '#24ad9d' },
+      { label: 'Livres lus', value: booksRead, total: totalBooks, icon: BookOpen, color: '#d4991a' },
     ];
-  }, []);
+  }, [topicCount, flashcardCount, booksRead, totalBooks]);
 
   const handleLogout = async () => {
     await logout();

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -29,7 +29,7 @@ export default function AdminPage() {
   const router = useRouter();
 
   // User management state
-  const [users, setUsers] = useState<User[]>(() => authService.getAllUsers());
+  const [users, setUsers] = useState<User[]>([]);
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [newUsername, setNewUsername] = useState('');
   const [newDisplayName, setNewDisplayName] = useState('');
@@ -39,9 +39,16 @@ export default function AdminPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [showUserSection, setShowUserSection] = useState(true);
 
-  const refreshUsers = useCallback(() => {
-    setUsers(authService.getAllUsers());
+  const refreshUsers = useCallback(async () => {
+    try {
+      const list = await authService.getAllUsersAsync();
+      setUsers(list);
+    } catch { /* ignore */ }
   }, []);
+
+  useEffect(() => {
+    refreshUsers();
+  }, [refreshUsers]);
 
   if (!isAdmin) {
     router.replace('/');
@@ -59,24 +66,24 @@ export default function AdminPage() {
     { label: 'Favoris', value: favorites.length, icon: Star, color: '#f59e0b' },
   ];
 
-  const handleCreateUser = () => {
+  const handleCreateUser = async () => {
     setCreateError('');
     if (!newUsername.trim() || !newDisplayName.trim() || !newPassword.trim()) {
       setCreateError('Tous les champs sont requis');
       return;
     }
-    if (newPassword.length < 4) {
-      setCreateError('Le mot de passe doit faire au moins 4 caractères');
+    if (newPassword.length < 6) {
+      setCreateError('Le mot de passe doit faire au moins 6 caractères');
       return;
     }
     try {
-      authService.createUserAdmin({
+      await authService.createUserAdmin({
         username: newUsername.trim(),
         displayName: newDisplayName.trim(),
         password: newPassword,
         role: newRole,
       });
-      refreshUsers();
+      await refreshUsers();
       setShowCreateUser(false);
       setNewUsername('');
       setNewDisplayName('');
@@ -87,16 +94,20 @@ export default function AdminPage() {
     }
   };
 
-  const handleDeleteUser = (userId: string) => {
-    authService.deleteUser(userId);
-    refreshUsers();
+  const handleDeleteUser = async (userId: string) => {
+    try {
+      await authService.deleteUserAsync(userId);
+      await refreshUsers();
+    } catch { /* ignore */ }
     setShowDeleteConfirm(null);
   };
 
-  const handleToggleRole = (userId: string, currentRole: 'admin' | 'user') => {
+  const handleToggleRole = async (userId: string, currentRole: 'admin' | 'user') => {
     const newRole = currentRole === 'admin' ? 'user' : 'admin';
-    authService.updateUserRole(userId, newRole);
-    refreshUsers();
+    try {
+      await authService.updateUserRoleAsync(userId, newRole);
+      await refreshUsers();
+    } catch { /* ignore */ }
   };
 
   const sections = [

@@ -61,48 +61,60 @@ export default function FlashcardsPage() {
   const [decks, setDecks] = useState<FlashcardDeck[]>([]);
 
   useEffect(() => {
-    flashcardRepository.getAllDecks().then(setDecks);
+    flashcardRepository.getAllDecks().then(setDecks).catch(() => {});
   }, [refreshKey]);
 
   const handleAddDeck = useCallback(async () => {
     if (!newTitle.trim() || !user) return;
-    await flashcardRepository.createDeck(user.id, {
-      title: `${newEmoji ? newEmoji + ' ' : ''}${newTitle.trim()}`,
-      description: newDesc.trim(),
-      color: newColor,
-      icon: newIcon || undefined,
-      tags: newTags ? newTags.split(',').map((t) => t.trim()).filter(Boolean) : [],
-    });
-    setShowAddDeck(false);
-    setNewTitle('');
-    setNewDesc('');
-    setNewColor(DECK_COLORS[0]);
-    setNewEmoji('');
-    setNewIcon('');
-    setNewTags('');
-    setRefreshKey((k) => k + 1);
+    try {
+      await flashcardRepository.createDeck(user.id, {
+        title: `${newEmoji ? newEmoji + ' ' : ''}${newTitle.trim()}`,
+        description: newDesc.trim(),
+        color: newColor,
+        icon: newIcon || undefined,
+        tags: newTags ? newTags.split(',').map((t) => t.trim()).filter(Boolean) : [],
+      });
+      setShowAddDeck(false);
+      setNewTitle('');
+      setNewDesc('');
+      setNewColor(DECK_COLORS[0]);
+      setNewEmoji('');
+      setNewIcon('');
+      setNewTags('');
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      console.error('Error creating deck:', err);
+    }
   }, [user, newTitle, newDesc, newColor, newEmoji, newIcon, newTags]);
 
   const handleDeleteDeck = useCallback(async (deckId: string) => {
     if (!confirm('Supprimer ce deck et toutes ses cartes ?')) return;
-    await flashcardRepository.deleteDeck(deckId);
-    setRefreshKey((k) => k + 1);
+    try {
+      await flashcardRepository.deleteDeck(deckId);
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      console.error('Error deleting deck:', err);
+    }
   }, []);
 
   const handleAddCard = useCallback(async () => {
     if (!cardFront.trim() || !cardBack.trim() || !showAddCard || !user) return;
-    await flashcardRepository.createCard(user.id, {
-      deckId: showAddCard,
-      front: cardFront.trim(),
-      back: cardBack.trim(),
-      tags: [],
-      difficulty: cardDifficulty,
-    });
-    setCardFront('');
-    setCardBack('');
-    setCardDifficulty('medium');
-    setShowAddCard(null);
-    setRefreshKey((k) => k + 1);
+    try {
+      await flashcardRepository.createCard(user.id, {
+        deckId: showAddCard,
+        front: cardFront.trim(),
+        back: cardBack.trim(),
+        tags: [],
+        difficulty: cardDifficulty,
+      });
+      setCardFront('');
+      setCardBack('');
+      setCardDifficulty('medium');
+      setShowAddCard(null);
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      console.error('Error creating card:', err);
+    }
   }, [user, cardFront, cardBack, cardDifficulty, showAddCard]);
 
   const handleImportJson = useCallback(async () => {
@@ -145,22 +157,26 @@ export default function FlashcardsPage() {
 
   const handleEditDeck = useCallback(async () => {
     if (!showEditDeck) return;
-    const updates: Record<string, string> = {};
-    if (editTitle.trim()) updates.title = editTitle.trim();
-    if (editColor) updates.color = editColor;
-    if (editEmoji) {
-      const deck = await flashcardRepository.getDeckById(showEditDeck);
-      if (deck) {
-        const titleWithoutEmoji = deck.title.replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}]\s*/u, '');
-        updates.title = `${editEmoji} ${editTitle.trim() || titleWithoutEmoji}`;
+    try {
+      const updates: Record<string, string> = {};
+      if (editTitle.trim()) updates.title = editTitle.trim();
+      if (editColor) updates.color = editColor;
+      if (editEmoji) {
+        const deck = await flashcardRepository.getDeckById(showEditDeck);
+        if (deck) {
+          const titleWithoutEmoji = deck.title.replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}]\s*/u, '');
+          updates.title = `${editEmoji} ${editTitle.trim() || titleWithoutEmoji}`;
+        }
       }
+      await flashcardRepository.updateDeck(showEditDeck, updates);
+      setShowEditDeck(null);
+      setEditEmoji('');
+      setEditColor('');
+      setEditTitle('');
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      console.error('Error editing deck:', err);
     }
-    await flashcardRepository.updateDeck(showEditDeck, updates);
-    setShowEditDeck(null);
-    setEditEmoji('');
-    setEditColor('');
-    setEditTitle('');
-    setRefreshKey((k) => k + 1);
   }, [showEditDeck, editEmoji, editColor, editTitle]);
 
   const openEditDeck = useCallback(async (deckId: string) => {

@@ -64,7 +64,7 @@ export default function LibraryPage() {
   const [books, setBooks] = useState<Book[]>([]);
 
   useEffect(() => {
-    bookRepository.getAll().then(setBooks);
+    bookRepository.getAll().then(setBooks).catch(() => {});
   }, [refreshKey]);
 
   const filtered = books.filter((b) => {
@@ -78,23 +78,27 @@ export default function LibraryPage() {
 
   const handleAddBook = useCallback(async () => {
     if (!newTitle.trim() || !newAuthor.trim() || !user) return;
-    await bookRepository.create(user.id, {
-      title: `${newEmoji ? newEmoji + ' ' : ''}${newTitle.trim()}`,
-      author: newAuthor.trim(),
-      coverUrl: newCoverUrl || undefined,
-      description: '',
-      category: newCategory || 'Autre',
-      language: 'fr',
-      status: 'to-read',
-      tags: [],
-    });
-    setShowAddModal(false);
-    setNewTitle('');
-    setNewAuthor('');
-    setNewCategory('');
-    setNewCoverUrl('');
-    setNewEmoji('');
-    setRefreshKey((k) => k + 1);
+    try {
+      await bookRepository.create(user.id, {
+        title: `${newEmoji ? newEmoji + ' ' : ''}${newTitle.trim()}`,
+        author: newAuthor.trim(),
+        coverUrl: newCoverUrl || undefined,
+        description: '',
+        category: newCategory || 'Autre',
+        language: 'fr',
+        status: 'to-read',
+        tags: [],
+      });
+      setShowAddModal(false);
+      setNewTitle('');
+      setNewAuthor('');
+      setNewCategory('');
+      setNewCoverUrl('');
+      setNewEmoji('');
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      console.error('Error creating book:', err);
+    }
   }, [user, newTitle, newAuthor, newCategory, newCoverUrl, newEmoji]);
 
   const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -109,8 +113,12 @@ export default function LibraryPage() {
 
   const handleDeleteBook = useCallback(async (bookId: string) => {
     if (!confirm('Supprimer ce livre et tous ses passages ?')) return;
-    await bookRepository.delete(bookId);
-    setRefreshKey((k) => k + 1);
+    try {
+      await bookRepository.delete(bookId);
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      console.error('Error deleting book:', err);
+    }
   }, []);
 
   return (

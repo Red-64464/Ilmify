@@ -26,6 +26,8 @@ export default function FlashcardStudyClient({ id }: { id: string }) {
       setDeck(d);
       setCards(c);
       setLoading(false);
+    }).catch(() => {
+      setLoading(false);
     });
   }, [id]);
 

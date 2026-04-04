@@ -35,46 +35,58 @@ export default function TopicDetailClient({ id: propId }: { id: string }) {
         setEditTitle(t.title);
         setEditBlocks(t.blocks);
       }
-    });
+    }).catch(() => { /* loading failed */ });
   }, [id]);
 
   const isOwner = user && topic && user.id === topic.userId;
 
   const handleSave = useCallback(async () => {
     if (!topic) return;
-    const blocksToSave = JSON.parse(JSON.stringify(editBlocks)) as TopicBlock[];
-    const updated = await topicRepository.update(topic.id, {
-      title: editTitle,
-      blocks: blocksToSave,
-    });
-    if (updated) {
-      setTopic(updated);
-      setEditBlocks(updated.blocks);
-      setEditTitle(updated.title);
-      setIsEditing(false);
-      toast('success', 'Topic sauvegardé');
-    } else {
+    try {
+      const blocksToSave = JSON.parse(JSON.stringify(editBlocks)) as TopicBlock[];
+      const updated = await topicRepository.update(topic.id, {
+        title: editTitle,
+        blocks: blocksToSave,
+      });
+      if (updated) {
+        setTopic(updated);
+        setEditBlocks(updated.blocks);
+        setEditTitle(updated.title);
+        setIsEditing(false);
+        toast('success', 'Topic sauvegardé');
+      } else {
+        toast('error', 'Erreur lors de la sauvegarde');
+      }
+    } catch {
       toast('error', 'Erreur lors de la sauvegarde');
     }
   }, [topic, editTitle, editBlocks, toast]);
 
   const handleDelete = useCallback(async () => {
     if (!topic) return;
-    await topicRepository.delete(topic.id);
-    toast('success', 'Topic supprimé');
-    router.push('/topics');
+    try {
+      await topicRepository.delete(topic.id);
+      toast('success', 'Topic supprimé');
+      router.push('/topics');
+    } catch {
+      toast('error', 'Erreur lors de la suppression');
+    }
   }, [topic, toast, router]);
 
   const handleTogglePin = useCallback(async () => {
     if (!topic) return;
-    const updated = await topicRepository.togglePin(topic.id);
-    if (updated) setTopic(updated);
+    try {
+      const updated = await topicRepository.togglePin(topic.id);
+      if (updated) setTopic(updated);
+    } catch { /* ignore */ }
   }, [topic]);
 
   const handleToggleFavorite = useCallback(async () => {
     if (!topic) return;
-    const updated = await topicRepository.toggleFavorite(topic.id);
-    if (updated) setTopic(updated);
+    try {
+      const updated = await topicRepository.toggleFavorite(topic.id);
+      if (updated) setTopic(updated);
+    } catch { /* ignore */ }
   }, [topic]);
 
   if (!topic) {

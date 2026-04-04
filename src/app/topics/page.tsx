@@ -80,24 +80,28 @@ export default function TopicsPage() {
   const handleAction = useCallback(
     async (action: string, topic: Topic) => {
       setContextMenu(null);
-      switch (action) {
-        case 'pin':
-          await topicRepository.togglePin(topic.id);
-          break;
-        case 'favorite':
-          await topicRepository.toggleFavorite(topic.id);
-          break;
-        case 'archive':
-          await topicRepository.archive(topic.id);
-          break;
-        case 'duplicate':
-          if (user) await topicRepository.duplicate(topic.id, user.id);
-          break;
-        case 'delete':
-          await topicRepository.delete(topic.id);
-          break;
+      try {
+        switch (action) {
+          case 'pin':
+            await topicRepository.togglePin(topic.id);
+            break;
+          case 'favorite':
+            await topicRepository.toggleFavorite(topic.id);
+            break;
+          case 'archive':
+            await topicRepository.archive(topic.id);
+            break;
+          case 'duplicate':
+            if (user) await topicRepository.duplicate(topic.id, user.id);
+            break;
+          case 'delete':
+            await topicRepository.delete(topic.id);
+            break;
+        }
+        setRefreshKey((k) => k + 1);
+      } catch {
+        setError('Erreur lors de l\'action');
       }
-      setRefreshKey((k) => k + 1);
     },
     [user]
   );

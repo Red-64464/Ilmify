@@ -32,29 +32,37 @@ export default function CourseDetailClient({ id }: { id: string }) {
       if (p) {
         setEditTitle(p.title);
         setEditBlocks(p.blocks);
-        courseRepository.getFolderById(p.folderId).then(setFolder);
+        courseRepository.getFolderById(p.folderId).then(setFolder).catch(() => {});
       }
-    });
+    }).catch(() => {});
   }, [id]);
 
   const handleSave = useCallback(async () => {
     if (!page) return;
-    const updated = await courseRepository.updatePage(page.id, {
-      title: editTitle,
-      blocks: editBlocks,
-    });
-    if (updated) {
-      setPage(updated);
-      setIsEditing(false);
-      toast('success', 'Page de cours sauvegardée');
+    try {
+      const updated = await courseRepository.updatePage(page.id, {
+        title: editTitle,
+        blocks: editBlocks,
+      });
+      if (updated) {
+        setPage(updated);
+        setIsEditing(false);
+        toast('success', 'Page de cours sauvegardée');
+      }
+    } catch {
+      toast('error', 'Erreur lors de la sauvegarde');
     }
   }, [page, editTitle, editBlocks, toast]);
 
   const handleDelete = useCallback(async () => {
     if (!page) return;
-    await courseRepository.deletePage(page.id);
-    toast('success', 'Page de cours supprimée');
-    router.push('/courses');
+    try {
+      await courseRepository.deletePage(page.id);
+      toast('success', 'Page de cours supprimée');
+      router.push('/courses');
+    } catch {
+      toast('error', 'Erreur lors de la suppression');
+    }
   }, [page, toast, router]);
 
   if (!page) {
@@ -131,7 +139,13 @@ export default function CourseDetailClient({ id }: { id: string }) {
                 </>
               ) : (
                 <>
-                  <Button variant="secondary" size="sm" iconLeft={<Edit3 size={14} />} onClick={() => setIsEditing(true)}>
+                  <Button variant="secondary" size="sm" iconLeft={<Edit3 size={14} />} onClick={() => {
+                    if (page) {
+                      setEditTitle(page.title);
+                      setEditBlocks(JSON.parse(JSON.stringify(page.blocks)));
+                    }
+                    setIsEditing(true);
+                  }}>
                     Modifier
                   </Button>
                   <button
