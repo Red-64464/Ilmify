@@ -10,12 +10,13 @@ export interface Theme {
   image?: string;
   parentId?: string;
   order: number;
+  tags?: string[];
 }
 
 export interface ContentItem {
   id: string;
   themeId: string;
-  type: 'verse' | 'hadith' | 'explanation' | 'reminder' | 'quote' | 'note' | 'proof';
+  type: 'verse' | 'hadith' | 'explanation' | 'reminder' | 'quote' | 'note' | 'proof' | 'link';
   title: string;
   content: string;
   arabicText?: string;
@@ -24,6 +25,8 @@ export interface ContentItem {
   tags: string[];
   isFavorite: boolean;
   order: number;
+  contentAr?: string;
+  createdAt?: string;
 }
 
 export interface Tag {
@@ -35,16 +38,18 @@ export interface Tag {
 export interface QuizQuestion {
   id: string;
   themeId: string;
-  type: 'mcq' | 'true-false' | 'short-answer';
+  type: 'mcq' | 'true-false' | 'short-answer' | 'association';
   question: string;
   options?: string[];
-  correctAnswer: string;
+  correctAnswer: string | number; // number used for association-type answers
   explanation: string;
   source?: string;
   difficulty: 'easy' | 'medium' | 'hard';
-  mastery: number; // 0-100
-  lastReviewed?: string;
+  masteryLevel: number; // 0-100
+  lastReviewedAt?: string;
   errorCount: number;
+  tags?: string[];
+  proof?: string;
 }
 
 export interface QuizSession {
@@ -65,8 +70,11 @@ export interface FlashcardDeck {
   cardCount: number;
   masteredCount: number;
   color: string;
-  icon: string;
-  lastStudied?: string;
+  icon?: string;
+  lastStudiedAt?: string;
+  toReviewCount: number;
+  createdAt: string;
+  tags: string[];
 }
 
 export interface Flashcard {
@@ -76,16 +84,19 @@ export interface Flashcard {
   back: string;
   tags: string[];
   difficulty: 'easy' | 'medium' | 'hard';
-  mastery: 'new' | 'learning' | 'reviewing' | 'mastered';
-  nextReview?: string;
+  masteryLevel: number; // 0-100
+  nextReviewAt?: string;
   reviewCount: number;
+  themeId?: string;
+  lastReviewedAt?: string;
+  createdAt?: string;
 }
 
 export interface Book {
   id: string;
   title: string;
   author: string;
-  cover?: string;
+  coverUrl?: string;
   description: string;
   category: string;
   language: string;
@@ -95,7 +106,10 @@ export interface Book {
   rating?: number;
   tags: string[];
   addedAt: string;
-  notes?: string;
+  personalNotes?: string;
+  passageCount?: number;
+  startedAt?: string;
+  finishedAt?: string;
 }
 
 export interface BookPassage {
@@ -103,25 +117,29 @@ export interface BookPassage {
   bookId: string;
   title: string;
   content: string;
-  reflection?: string;
-  page?: number;
+  personalReflection?: string;
+  pageNumber?: number;
   tags: string[];
   isFavorite: boolean;
   addedAt: string;
   themeId?: string;
+  isImportant?: boolean;
 }
 
 export interface Favorite {
   id: string;
-  type: 'content' | 'theme' | 'quiz' | 'flashcard' | 'book' | 'passage';
+  itemType: 'content' | 'theme' | 'quiz' | 'flashcard' | 'book' | 'passage';
   itemId: string;
   addedAt: string;
+  title?: string;
+  preview?: string;
 }
 
 export interface DailyReminder {
   id: string;
   type: 'verse' | 'hadith' | 'quote' | 'reminder';
   content: string;
+  contentAr?: string;
   source?: string;
   date: string;
 }
