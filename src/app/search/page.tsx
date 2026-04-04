@@ -85,18 +85,15 @@ export default function SearchPage() {
           {results.map((result, i) => {
             const cfg = typeConfig[result.type] || typeConfig.content;
             const Icon = cfg.icon;
-            const href =
-              result.type === 'theme'
-                ? `/explore/${result.id}`
-                : result.type === 'book'
-                  ? `/library/${result.id}`
-                  : result.type === 'content' && result.themeId
-                    ? `/explore/${result.themeId}`
-                    : result.type === 'quiz'
-                      ? '/quiz'
-                      : result.type === 'flashcard'
-                        ? '/flashcards'
-                        : '#';
+            const hrefMap: Record<string, string> = {
+              theme: `/explore/${result.id}`,
+              book: `/library/${result.id}`,
+              content: result.themeId ? `/explore/${result.themeId}` : '#',
+              quiz: '/quiz',
+              flashcard: '/flashcards',
+              passage: result.themeId ? `/explore/${result.themeId}` : '/library',
+            };
+            const href = hrefMap[result.type] || '#';
 
             return (
               <motion.div

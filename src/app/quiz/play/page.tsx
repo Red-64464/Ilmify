@@ -174,7 +174,7 @@ export default function QuizPlayPage() {
 
           {/* Answer Options */}
           <div className="space-y-2 mb-4">
-            {current.type === 'mcq' && current.options?.map((option, idx) => {
+            {current.type === 'mcq' && current.options && current.options.map((option, idx) => {
               const isSelected = selectedAnswer === idx;
               const isCorrectOption = idx === current.correctAnswer;
               let optionStyle = 'border-primary-700/50';
