@@ -1,31 +1,47 @@
-import { ReactNode } from 'react';
+'use client';
 
-interface BadgeProps {
-  children: ReactNode;
-  variant?: 'default' | 'gold' | 'teal' | 'success' | 'warning' | 'error';
-  size?: 'sm' | 'md';
-  className?: string;
+import React from 'react';
+
+type BadgeVariant = 'default' | 'green' | 'gold' | 'teal' | 'red' | 'blue';
+type BadgeSize = 'sm' | 'md';
+
+export interface BadgeProps extends Omit<React.HTMLAttributes<HTMLSpanElement>, 'ref'> {
+  variant?: BadgeVariant;
+  size?: BadgeSize;
+  children: React.ReactNode;
 }
 
-const badgeVariants = {
-  default: 'bg-primary-700/60 text-ivory-300 border-primary-600/40',
-  gold: 'bg-gold-500/15 text-gold-400 border-gold-500/30',
-  teal: 'bg-teal-500/15 text-teal-400 border-teal-500/30',
-  success: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
-  warning: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
-  error: 'bg-red-500/15 text-red-400 border-red-500/30',
+const variantClasses: Record<BadgeVariant, string> = {
+  default: 'bg-white/10 text-[var(--text-secondary)]',
+  green: 'bg-primary-500/15 text-primary-400',
+  gold: 'bg-gold-500/15 text-gold-400',
+  teal: 'bg-teal-500/15 text-teal-400',
+  red: 'bg-red-500/15 text-red-400',
+  blue: 'bg-blue-500/15 text-blue-400',
 };
 
-const badgeSizes = {
+const sizeClasses: Record<BadgeSize, string> = {
   sm: 'px-2 py-0.5 text-xs',
   md: 'px-3 py-1 text-sm',
 };
 
-export function Badge({ children, variant = 'default', size = 'sm', className = '' }: BadgeProps) {
-  return (
-    <span className={`inline-flex items-center gap-1 font-medium rounded-full border
-      ${badgeVariants[variant]} ${badgeSizes[size]} ${className}`}>
-      {children}
-    </span>
-  );
-}
+const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
+  ({ variant = 'default', size = 'sm', className = '', children, ...props }, ref) => {
+    return (
+      <span
+        ref={ref}
+        className={`inline-flex items-center font-medium rounded-full whitespace-nowrap
+          ${variantClasses[variant]}
+          ${sizeClasses[size]}
+          ${className}`}
+        {...props}
+      >
+        {children}
+      </span>
+    );
+  }
+);
+
+Badge.displayName = 'Badge';
+
+export default Badge;

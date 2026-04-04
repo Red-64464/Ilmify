@@ -39,7 +39,7 @@ export function SplashScreen() {
             className="relative z-10 flex flex-col items-center"
           >
             <div className="relative w-28 h-28 mb-6">
-              <Image src="/logo.png" alt="Ilmify" fill className="object-contain" preload />
+              <Image src="/logo.png" alt="Ilmify" fill className="object-contain" priority />
             </div>
             <motion.h1
               initial={{ y: 10, opacity: 0 }}

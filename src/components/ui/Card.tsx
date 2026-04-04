@@ -1,38 +1,61 @@
 'use client';
 
+import React from 'react';
 import { motion } from 'framer-motion';
-import { ReactNode } from 'react';
 
-interface CardProps {
-  children: ReactNode;
+type GlowColor = 'green' | 'gold' | 'teal' | 'none';
+
+export interface CardProps {
+  children: React.ReactNode;
+  hoverable?: boolean;
+  glowColor?: GlowColor;
   className?: string;
-  hover?: boolean;
-  glow?: boolean;
   onClick?: () => void;
-  padding?: 'none' | 'sm' | 'md' | 'lg';
+  id?: string;
 }
 
-const paddings = {
+const glowClasses: Record<GlowColor, string> = {
+  green: 'hover:shadow-primary-500/10 hover:border-primary-500/20',
+  gold: 'hover:shadow-gold-500/10 hover:border-gold-500/20',
+  teal: 'hover:shadow-teal-500/10 hover:border-teal-500/20',
   none: '',
-  sm: 'p-3',
-  md: 'p-5',
-  lg: 'p-7',
 };
 
-export function Card({ children, className = '', hover = false, glow = false, onClick, padding = 'md' }: CardProps) {
-  return (
-    <motion.div
-      whileHover={hover ? { y: -2, scale: 1.01 } : undefined}
-      whileTap={onClick ? { scale: 0.98 } : undefined}
-      onClick={onClick}
-      className={`relative bg-primary-800/60 backdrop-blur-sm border border-primary-700/40 rounded-2xl overflow-hidden
-        ${hover ? 'cursor-pointer transition-shadow hover:shadow-xl hover:shadow-gold-500/5 hover:border-primary-600/60' : ''}
-        ${glow ? 'shadow-lg shadow-gold-500/10' : ''}
-        ${paddings[padding]}
-        ${onClick ? 'cursor-pointer' : ''}
-        ${className}`}
-    >
-      {children}
-    </motion.div>
-  );
-}
+const Card = React.forwardRef<HTMLDivElement, CardProps>(
+  (
+    {
+      children,
+      hoverable = true,
+      glowColor = 'none',
+      className = '',
+      onClick,
+      id,
+    },
+    ref
+  ) => {
+    return (
+      <motion.div
+        ref={ref}
+        id={id}
+        whileHover={hoverable ? { y: -2 } : undefined}
+        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+        onClick={onClick}
+        className={`rounded-2xl border transition-all duration-300
+          ${hoverable ? 'hover:shadow-xl' : ''}
+          ${glowClasses[glowColor]}
+          ${onClick ? 'cursor-pointer' : ''}
+          ${className}`}
+        style={{
+          background: 'var(--bg-card)',
+          borderColor: 'var(--border-subtle)',
+        }}
+      >
+        {children}
+      </motion.div>
+    );
+  }
+);
+
+Card.displayName = 'Card';
+
+export default Card;

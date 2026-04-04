@@ -1,23 +1,27 @@
-import type { Metadata, Viewport } from 'next';
-import './globals.css';
-import { AppShell } from '@/components/layout/AppShell';
-import { SplashScreen } from '@/components/layout/SplashScreen';
+import type { Metadata, Viewport } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import AppShell from "@/components/layout/AppShell";
+import "./globals.css";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
 
 export const metadata: Metadata = {
-  title: 'Ilmify — Savoir • Lumière • Sérénité',
-  description: 'Plateforme islamique moderne d\'apprentissage, de mémorisation et d\'organisation du savoir.',
-  manifest: '/manifest.json',
-  icons: {
-    icon: '/logo.png',
-    apple: '/logo.png',
-  },
+  title: "Ilmify - Votre compagnon de savoir islamique",
+  description:
+    "Explorez, apprenez et renforcez vos connaissances islamiques avec des quiz, des flashcards et une bibliothèque complète.",
+  manifest: "/manifest.json",
 };
 
 export const viewport: Viewport = {
-  width: 'device-width',
-  initialScale: 1,
-  maximumScale: 1,
-  themeColor: '#0a1f1b',
+  themeColor: "#0d1117",
 };
 
 export default function RootLayout({
@@ -26,9 +30,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr">
-      <body className="font-body antialiased">
-        <SplashScreen />
+    <html
+      lang="fr"
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+    >
+      <body className="pattern-bg min-h-full flex flex-col">
         <AppShell>{children}</AppShell>
       </body>
     </html>

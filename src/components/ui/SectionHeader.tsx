@@ -1,27 +1,53 @@
+'use client';
+
+import React from 'react';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 
-interface SectionHeaderProps {
+export interface SectionHeaderProps {
   title: string;
   subtitle?: string;
-  href?: string;
-  action?: React.ReactNode;
+  seeAllHref?: string;
+  seeAllLabel?: string;
+  className?: string;
 }
 
-export function SectionHeader({ title, subtitle, href, action }: SectionHeaderProps) {
+const SectionHeader: React.FC<SectionHeaderProps> = ({
+  title,
+  subtitle,
+  seeAllHref,
+  seeAllLabel = 'See all',
+  className = '',
+}) => {
   return (
-    <div className="flex items-end justify-between mb-4">
-      <div>
-        <h2 className="text-lg font-semibold text-ivory-100 font-heading">{title}</h2>
-        {subtitle && <p className="text-sm text-ivory-400 mt-0.5">{subtitle}</p>}
+    <div className={`space-y-1 ${className}`}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-1 h-6 rounded-full bg-gold-500" />
+          <h2
+            className="text-xl font-bold tracking-tight"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            {title}
+          </h2>
+        </div>
+        {seeAllHref && (
+          <Link
+            href={seeAllHref}
+            className="flex items-center gap-1 text-sm font-medium text-primary-400 hover:text-primary-300 transition-colors duration-200"
+          >
+            {seeAllLabel}
+            <ChevronRight size={16} />
+          </Link>
+        )}
       </div>
-      {href && (
-        <Link href={href} className="flex items-center gap-1 text-sm text-gold-400 hover:text-gold-300 transition-colors font-medium">
-          Voir tout
-          <ChevronRight className="w-4 h-4" />
-        </Link>
+      {subtitle && (
+        <p className="pl-[1.375rem] text-sm" style={{ color: 'var(--text-muted)' }}>
+          {subtitle}
+        </p>
       )}
-      {action}
     </div>
   );
-}
+};
+
+export default SectionHeader;

@@ -1,19 +1,62 @@
-export function Skeleton({ className = '' }: { className?: string }) {
-  return (
-    <div className={`bg-primary-700/40 rounded-xl animate-pulse ${className}`} />
-  );
+'use client';
+
+import React from 'react';
+
+type SkeletonVariant = 'text' | 'card' | 'circle' | 'rectangle';
+
+export interface SkeletonProps {
+  variant?: SkeletonVariant;
+  width?: string | number;
+  height?: string | number;
+  className?: string;
+  count?: number;
 }
 
-export function CardSkeleton() {
-  return (
-    <div className="bg-primary-800/60 border border-primary-700/40 rounded-2xl p-5 space-y-3">
-      <Skeleton className="h-4 w-3/4" />
-      <Skeleton className="h-3 w-full" />
-      <Skeleton className="h-3 w-2/3" />
-      <div className="flex gap-2 pt-2">
-        <Skeleton className="h-5 w-16 rounded-full" />
-        <Skeleton className="h-5 w-12 rounded-full" />
-      </div>
-    </div>
-  );
-}
+const variantStyles: Record<SkeletonVariant, { className: string; defaultStyle: React.CSSProperties }> = {
+  text: {
+    className: 'rounded-md',
+    defaultStyle: { width: '100%', height: '1rem' },
+  },
+  card: {
+    className: 'rounded-2xl',
+    defaultStyle: { width: '100%', height: '12rem' },
+  },
+  circle: {
+    className: 'rounded-full',
+    defaultStyle: { width: '3rem', height: '3rem' },
+  },
+  rectangle: {
+    className: 'rounded-xl',
+    defaultStyle: { width: '100%', height: '6rem' },
+  },
+};
+
+const Skeleton: React.FC<SkeletonProps> = ({
+  variant = 'text',
+  width,
+  height,
+  className = '',
+  count = 1,
+}) => {
+  const { className: variantClass, defaultStyle } = variantStyles[variant];
+  const style: React.CSSProperties = {
+    ...defaultStyle,
+    ...(width !== undefined ? { width: typeof width === 'number' ? `${width}px` : width } : {}),
+    ...(height !== undefined ? { height: typeof height === 'number' ? `${height}px` : height } : {}),
+  };
+
+  const items = Array.from({ length: count }, (_, i) => (
+    <div
+      key={i}
+      className={`skeleton ${variantClass} ${className}`}
+      style={style}
+      aria-hidden="true"
+    />
+  ));
+
+  if (count === 1) return items[0];
+
+  return <div className="space-y-3">{items}</div>;
+};
+
+export default Skeleton;

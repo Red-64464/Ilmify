@@ -1,33 +1,61 @@
 'use client';
 
+import React, { useState, useCallback } from 'react';
 import { Search, X } from 'lucide-react';
-import { InputHTMLAttributes, forwardRef } from 'react';
 
-interface SearchInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> {
+export interface SearchInputProps
+  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'ref' | 'onChange'> {
+  value: string;
+  onChange: (value: string) => void;
   onClear?: () => void;
-  showClear?: boolean;
 }
 
-export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
-  ({ onClear, showClear, className = '', ...props }, ref) => {
+const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
+  ({ value, onChange, onClear, placeholder = 'Search...', className = '', ...props }, ref) => {
+    const [focused, setFocused] = useState(false);
+
+    const handleClear = useCallback(() => {
+      onChange('');
+      onClear?.();
+    }, [onChange, onClear]);
+
     return (
-      <div className={`relative group ${className}`}>
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-ivory-500 group-focus-within:text-gold-400 transition-colors" />
+      <div
+        className={`relative flex items-center rounded-xl transition-all duration-300 ${className}`}
+        style={{
+          background: 'var(--bg-secondary)',
+          border: focused
+            ? '1px solid var(--color-primary-500, #3aaa60)'
+            : '1px solid var(--border-subtle)',
+          boxShadow: focused ? '0 0 0 3px rgba(58, 170, 96, 0.15)' : 'none',
+        }}
+      >
+        <Search
+          size={18}
+          className="absolute left-3 pointer-events-none transition-colors duration-200"
+          style={{ color: focused ? 'var(--color-primary-500, #3aaa60)' : 'var(--text-muted)' }}
+        />
         <input
           ref={ref}
           type="text"
-          className="w-full pl-12 pr-10 py-3.5 bg-primary-800/70 border border-primary-600/40 rounded-2xl
-            text-ivory-200 placeholder:text-ivory-500/60
-            focus:outline-none focus:border-gold-500/50 focus:ring-2 focus:ring-gold-500/20 focus:bg-primary-800
-            transition-all duration-300"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          placeholder={placeholder}
+          className="w-full bg-transparent py-3 pl-10 pr-10 text-sm outline-none"
+          style={{ color: 'var(--text-primary)' }}
           {...props}
         />
-        {showClear && (
+        {value && (
           <button
-            onClick={onClear}
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-ivory-500 hover:text-ivory-200 transition-colors"
+            type="button"
+            onClick={handleClear}
+            className="absolute right-3 p-0.5 rounded-full transition-colors duration-200 hover:bg-white/10 cursor-pointer"
+            style={{ color: 'var(--text-muted)' }}
+            aria-label="Clear search"
           >
-            <X className="w-4 h-4" />
+            <X size={16} />
           </button>
         )}
       </div>
@@ -36,3 +64,5 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
 );
 
 SearchInput.displayName = 'SearchInput';
+
+export default SearchInput;

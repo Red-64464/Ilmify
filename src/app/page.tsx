@@ -1,65 +1,191 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import { useMemo } from 'react';
+import Link from 'next/link';
+import { motion } from 'framer-motion';
+import {
+  Compass, Brain, Layers, BookOpen, Star, Sun,
+  ChevronRight, BookMarked,
+} from 'lucide-react';
+import Card from '@/components/ui/Card';
+import SectionHeader from '@/components/ui/SectionHeader';
+import { ProgressBar } from '@/components/ui/ProgressBar';
+import Badge from '@/components/ui/Badge';
+import { themes } from '@/data/themes';
+import { books } from '@/data/books';
+import { dailyReminders } from '@/data/daily';
+
+const quickLinks = [
+  { href: '/explore', icon: Compass, label: 'Explorer', color: '#3aaa60' },
+  { href: '/quiz', icon: Brain, label: 'Quiz', color: '#6366f1' },
+  { href: '/flashcards', icon: Layers, label: 'Flashcards', color: '#24ad9d' },
+  { href: '/library', icon: BookOpen, label: 'Bibliothèque', color: '#d4991a' },
+];
+
+const typeIcons: Record<string, typeof Star> = {
+  verse: BookOpen,
+  hadith: BookMarked,
+  quote: Star,
+  reminder: Sun,
+};
+
+function getDailyReminder() {
+  const today = new Date().toISOString().split('T')[0];
+  return dailyReminders.find((r) => r.date === today) || dailyReminders[0] || null;
+}
+
+export default function HomePage() {
+  const daily = useMemo(() => getDailyReminder(), []);
+
+  const inProgress = themes.filter((t) => t.progress && t.progress > 0 && t.progress < 100);
+  const readingBooks = books.filter((b) => b.status === 'reading');
+  const DailyIcon = daily ? typeIcons[daily.type] || Star : Star;
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="space-y-8 pb-8">
+      {/* Hero */}
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <h1 className="text-2xl sm:text-3xl font-bold text-gold-400 font-heading mb-2">
+          As-salamu alaykum 👋
+        </h1>
+        <p className="text-ivory-400 text-sm sm:text-base max-w-lg">
+          Bienvenue sur <span className="text-primary-400 font-semibold">Ilmify</span>, votre compagnon
+          de savoir islamique. Continuez votre apprentissage aujourd&apos;hui.
+        </p>
+      </motion.section>
+
+      {/* Daily Reminder */}
+      {daily && (
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+        >
+          <Card glowColor="gold" className="p-5">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold-500/15">
+                <DailyIcon size={20} className="text-gold-400" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <Badge variant="gold" size="sm" className="mb-2">Rappel du jour</Badge>
+                <p className="text-ivory-200 text-sm leading-relaxed">{daily.content}</p>
+                {daily.contentAr && (
+                  <p className="mt-2 text-right text-lg text-gold-300 font-arabic leading-loose">
+                    {daily.contentAr}
+                  </p>
+                )}
+                {daily.source && (
+                  <p className="mt-2 text-xs text-ivory-400">{daily.source}</p>
+                )}
+              </div>
+            </div>
+          </Card>
+        </motion.section>
+      )}
+
+      {/* Quick Access */}
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+      >
+        <SectionHeader title="Accès rapide" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+          {quickLinks.map((link) => (
+            <Link key={link.href} href={link.href}>
+              <Card glowColor="green" className="p-4 text-center">
+                <div
+                  className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl"
+                  style={{ backgroundColor: `${link.color}20` }}
+                >
+                  <link.icon size={24} style={{ color: link.color }} />
+                </div>
+                <span className="text-sm font-medium text-ivory-200">{link.label}</span>
+              </Card>
+            </Link>
+          ))}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      </motion.section>
+
+      {/* Continue Learning */}
+      {inProgress.length > 0 && (
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+        >
+          <SectionHeader
+            title="Continuer l'apprentissage"
+            seeAllHref="/explore"
+            seeAllLabel="Voir tout"
+          />
+          <div className="mt-4 space-y-3">
+            {inProgress.slice(0, 4).map((theme) => (
+              <Link key={theme.id} href={`/explore/${theme.id}`}>
+                <Card glowColor="green" className="p-4 mb-3">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+                      style={{ backgroundColor: `${theme.color}20` }}
+                    >
+                      <Star size={18} style={{ color: theme.color }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-semibold text-ivory-200 truncate">{theme.title}</h3>
+                      <ProgressBar
+                        value={theme.progress || 0}
+                        showLabel
+                        color={theme.color}
+                        className="mt-1.5"
+                      />
+                    </div>
+                    <ChevronRight size={16} className="text-ivory-400 shrink-0" />
+                  </div>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </motion.section>
+      )}
+
+      {/* Recent Books */}
+      {readingBooks.length > 0 && (
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.4 }}
+        >
+          <SectionHeader
+            title="Lectures en cours"
+            seeAllHref="/library"
+            seeAllLabel="Voir tout"
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+            {readingBooks.map((book) => (
+              <Link key={book.id} href={`/library/${book.id}`}>
+                <Card glowColor="gold" className="p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold-500/15">
+                      <BookOpen size={18} className="text-gold-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-semibold text-ivory-200 truncate">{book.title}</h3>
+                      <p className="text-xs text-ivory-400 truncate">{book.author}</p>
+                      {book.progress !== undefined && (
+                        <ProgressBar value={book.progress} showLabel className="mt-2" />
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </motion.section>
+      )}
     </div>
   );
 }

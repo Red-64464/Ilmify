@@ -1,22 +1,21 @@
 'use client';
 
-import { Sidebar } from './Sidebar';
-import { BottomNav } from './BottomNav';
-import { IslamicPattern } from '../ui/IslamicPattern';
+import Sidebar from './Sidebar';
+import BottomNav from './BottomNav';
+import { SplashScreen } from './SplashScreen';
+import { ToastProvider } from '@/components/ui/Toast';
 
-interface AppShellProps {
-  children: React.ReactNode;
-}
-
-export function AppShell({ children }: AppShellProps) {
+export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-primary-900 relative">
-      <IslamicPattern opacity={0.02} />
+    <ToastProvider>
+      <SplashScreen />
       <Sidebar />
-      <main className="lg:ml-64 pb-20 lg:pb-0 relative z-10">
-        {children}
+      <main className="min-h-screen lg:pl-[280px]">
+        <div className="mx-auto max-w-5xl px-4 pb-nav sm:px-6 lg:px-8 lg:py-4">
+          {children}
+        </div>
       </main>
       <BottomNav />
-    </div>
+    </ToastProvider>
   );
 }
