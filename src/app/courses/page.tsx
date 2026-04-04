@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   GraduationCap, FolderOpen, ChevronRight, Plus,
-  FileText, Search, Trash2,
+  Trash2,
 } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import SearchInput from '@/components/ui/SearchInput';

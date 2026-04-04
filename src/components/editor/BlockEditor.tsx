@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Type, Heading2, Heading3, Quote, List, ListOrdered,
   AlertCircle, Lightbulb, Bell, BookOpen, BookMarked,
-  Image, Link2, Youtube, FileText, HelpCircle, Table2, Minus,
+  Image, Link2, Video, FileText, HelpCircle, Table2, Minus,
   GripVertical, Trash2, ChevronUp, ChevronDown,
 } from 'lucide-react';
 import type { TopicBlock, BlockType } from '@/types';
@@ -26,7 +26,7 @@ const BLOCK_TYPES: { type: BlockType; icon: React.ElementType; label: string; sh
   { type: 'verse', icon: BookOpen, label: 'Verset', shortcut: '/verse', color: '#d4ad4a' },
   { type: 'image', icon: Image, label: 'Image', shortcut: '/image', color: '#ec4899' },
   { type: 'link', icon: Link2, label: 'Lien', shortcut: '/link', color: '#3b82f6' },
-  { type: 'youtube', icon: Youtube, label: 'YouTube', shortcut: '/youtube', color: '#ef4444' },
+  { type: 'youtube', icon: Video, label: 'YouTube', shortcut: '/youtube', color: '#ef4444' },
   { type: 'pdf', icon: FileText, label: 'PDF', shortcut: '/pdf', color: '#f97316' },
   { type: 'qa', icon: HelpCircle, label: 'Question / Réponse', shortcut: '/qa', color: '#8b5cf6' },
   { type: 'table', icon: Table2, label: 'Tableau', shortcut: '/table', color: '#14b8a6' },
@@ -673,7 +673,7 @@ function ReadOnlyBlock({ block }: { block: TopicBlock }) {
               color: '#f87171',
             }}
           >
-            <Youtube size={16} />
+            <Video size={16} />
             <span className="truncate">{block.content}</span>
           </div>
         </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback } from 'react';
 import type { User, Session, AuthCredentials, SignupData } from '@/types';
 import { authService } from '@/lib/auth/authService';
 
@@ -23,20 +23,18 @@ export function useAuth(): AuthContextValue {
 }
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    // Restore session on mount
-    const existingUser = authService.getUser();
-    const existingSession = authService.getSession();
-    if (existingUser && existingSession) {
-      setUser(existingUser);
-      setSession(existingSession);
-    }
-    setIsLoading(false);
-  }, []);
+  const [user, setUser] = useState<User | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return authService.getUser();
+  });
+  const [session, setSession] = useState<Session | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return authService.getSession();
+  });
+  const [isLoading] = useState(() => {
+    // Initialized synchronously from local storage
+    return false;
+  });
 
   const login = useCallback(async (credentials: AuthCredentials) => {
     const result = await authService.login(credentials);

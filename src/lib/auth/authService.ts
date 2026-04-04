@@ -80,7 +80,7 @@ export class LocalAuthService implements IAuthService {
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
     };
 
-    const { passwordHash: _, ...safeUser } = user;
+    const { passwordHash: _pw, ...safeUser } = user;
     
     localStorage.setItem(STORAGE_KEYS.session, JSON.stringify(session));
     localStorage.setItem(STORAGE_KEYS.currentUser, JSON.stringify(safeUser));
@@ -113,7 +113,7 @@ export class LocalAuthService implements IAuthService {
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     };
 
-    const { passwordHash: _, ...safeUser } = newUser;
+    const { passwordHash: _pw, ...safeUser } = newUser;
 
     localStorage.setItem(STORAGE_KEYS.session, JSON.stringify(session));
     localStorage.setItem(STORAGE_KEYS.currentUser, JSON.stringify(safeUser));

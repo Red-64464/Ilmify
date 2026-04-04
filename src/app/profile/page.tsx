@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   User, Star, Brain, Layers, BookOpen, Settings,
-  Info, Shield, Heart, LogOut, GraduationCap, FileText,
-  Moon, Type,
+  Info, Shield, Heart, LogOut, GraduationCap,
 } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';

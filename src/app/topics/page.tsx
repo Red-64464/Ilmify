@@ -4,9 +4,9 @@ import { useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Plus, Search, FileText, Pin, Heart, Archive,
+  Plus, FileText, Pin, Heart, Archive,
   LayoutGrid, List, MoreVertical, Trash2, Copy,
-  Tag, Filter, Star,
+  Star,
 } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import SearchInput from '@/components/ui/SearchInput';

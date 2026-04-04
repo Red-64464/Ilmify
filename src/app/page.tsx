@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -23,9 +23,6 @@ import { dailyReminders } from '@/data/daily';
 const quickLinks = [
   { href: '/topics', icon: FileText, label: 'Mes Topics', color: '#2e9e8c', gradient: 'linear-gradient(135deg, rgba(26,122,107,0.12), rgba(18,163,147,0.06))' },
   { href: '/courses', icon: GraduationCap, label: 'Cours', color: '#d4ad4a', gradient: 'linear-gradient(135deg, rgba(196,154,61,0.1), rgba(168,128,49,0.06))' },
-  { href: '/library', icon: BookOpen, label: 'Bibliothèque', color: '#6366f1', gradient: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(139,92,246,0.06))' },
-  { href: '/explore', icon: Star, label: 'Explorer', color: '#28c4b0', gradient: 'linear-gradient(135deg, rgba(18,163,147,0.1), rgba(40,196,176,0.06))' },
-];
   { href: '/library', icon: BookOpen, label: 'Bibliothèque', color: '#6366f1', gradient: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(139,92,246,0.06))' },
   { href: '/explore', icon: Star, label: 'Explorer', color: '#28c4b0', gradient: 'linear-gradient(135deg, rgba(18,163,147,0.1), rgba(40,196,176,0.06))' },
 ];
@@ -58,20 +55,23 @@ export default function HomePage() {
   const daily = useMemo(() => getDailyReminder(), []);
   const [search, setSearch] = useState('');
 
-  const [recentTopics, setRecentTopics] = useState<{ id: string; title: string; updatedAt: string; icon?: string }[]>([]);
-  const [readingBooks, setReadingBooks] = useState<{ id: string; title: string; author: string; progress?: number }[]>([]);
-  const [featuredCourses, setFeaturedCourses] = useState<{ id: string; title: string; description?: string; icon?: string }[]>([]);
-
-  useEffect(() => {
-    if (user) {
-      const topics = topicRepository.getByUser(user.id).slice(0, 4);
-      setRecentTopics(topics.map((t) => ({ id: t.id, title: t.title, updatedAt: t.updatedAt, icon: t.icon })));
-    }
-    const books = bookRepository.getAll().filter((b) => b.status === 'reading');
-    setReadingBooks(books.map((b) => ({ id: b.id, title: b.title, author: b.author, progress: b.progress })));
-    const courses = courseRepository.getAllPages().slice(0, 3);
-    setFeaturedCourses(courses.map((c) => ({ id: c.id, title: c.title, description: c.description, icon: c.icon })));
+  const recentTopics = useMemo(() => {
+    if (typeof window === 'undefined' || !user) return [];
+    const topics = topicRepository.getByUser(user.id).slice(0, 4);
+    return topics.map((t) => ({ id: t.id, title: t.title, updatedAt: t.updatedAt, icon: t.icon }));
   }, [user]);
+
+  const readingBooks = useMemo(() => {
+    if (typeof window === 'undefined') return [];
+    const bks = bookRepository.getAll().filter((b) => b.status === 'reading');
+    return bks.map((b) => ({ id: b.id, title: b.title, author: b.author, progress: b.progress }));
+  }, []);
+
+  const featuredCourses = useMemo(() => {
+    if (typeof window === 'undefined') return [];
+    const courses = courseRepository.getAllPages().slice(0, 3);
+    return courses.map((c) => ({ id: c.id, title: c.title, description: c.description, icon: c.icon }));
+  }, []);
 
   const DailyIcon = daily ? typeIcons[daily.type] || Star : Star;
 
