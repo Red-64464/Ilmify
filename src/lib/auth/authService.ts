@@ -92,8 +92,25 @@ export class SupabaseAuthService implements IAuthService {
       throw new Error(error.message);
     }
 
-    if (!authData.user || !authData.session) {
+    if (!authData.user) {
       throw new Error('Erreur lors de l\'inscription');
+    }
+
+    // If email confirmation is enabled, session will be null.
+    // Try signing in immediately (works if auto-confirm is off but user was created).
+    let activeSession = authData.session;
+    if (!activeSession) {
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password: data.password,
+      });
+      if (signInError || !signInData.session) {
+        throw new Error(
+          'Inscription réussie mais connexion impossible. ' +
+          'Désactivez la confirmation email dans Supabase : Authentication → Providers → Email → décocher "Confirm email"'
+        );
+      }
+      activeSession = signInData.session;
     }
 
     // Profile is auto-created by trigger, fetch it
@@ -113,8 +130,8 @@ export class SupabaseAuthService implements IAuthService {
 
     const session: Session = {
       userId: authData.user.id,
-      token: authData.session.access_token,
-      expiresAt: new Date(authData.session.expires_at! * 1000).toISOString(),
+      token: activeSession.access_token,
+      expiresAt: new Date(activeSession.expires_at! * 1000).toISOString(),
     };
 
     setCachedAuth(user, session);
