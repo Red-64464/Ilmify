@@ -6,6 +6,10 @@ import { flashcardDecks, flashcards } from '@/data/flashcards';
 import { books, bookPassages } from '@/data/books';
 import { SearchResult } from '@/types';
 
+function truncate(text: string, maxLength = 120): string {
+  return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+}
+
 function buildSearchIndex(): SearchResult[] {
   const results: SearchResult[] = [];
 
@@ -16,13 +20,13 @@ function buildSearchIndex(): SearchResult[] {
 
   contentItems.forEach(c => results.push({
     id: c.id, type: 'content', title: c.title,
-    description: c.content.substring(0, 120) + '...',
+    description: truncate(c.content),
     themeId: c.themeId,
   }));
 
   quizQuestions.forEach(q => results.push({
     id: q.id, type: 'quiz', title: q.question,
-    description: q.explanation.substring(0, 120) + '...',
+    description: truncate(q.explanation),
     themeId: q.themeId,
   }));
 
@@ -33,12 +37,12 @@ function buildSearchIndex(): SearchResult[] {
 
   books.forEach(b => results.push({
     id: b.id, type: 'book', title: b.title,
-    description: b.description.substring(0, 120) + '...',
+    description: truncate(b.description),
   }));
 
   bookPassages.forEach(p => results.push({
     id: p.id, type: 'passage', title: p.title,
-    description: p.content.substring(0, 120) + '...',
+    description: truncate(p.content),
   }));
 
   return results;
