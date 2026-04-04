@@ -1,0 +1,68 @@
+'use client';
+
+import React, { useState, useCallback } from 'react';
+import { Search, X } from 'lucide-react';
+
+export interface SearchInputProps
+  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'ref' | 'onChange'> {
+  value: string;
+  onChange: (value: string) => void;
+  onClear?: () => void;
+}
+
+const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
+  ({ value, onChange, onClear, placeholder = 'Search...', className = '', ...props }, ref) => {
+    const [focused, setFocused] = useState(false);
+
+    const handleClear = useCallback(() => {
+      onChange('');
+      onClear?.();
+    }, [onChange, onClear]);
+
+    return (
+      <div
+        className={`relative flex items-center rounded-xl transition-all duration-300 ${className}`}
+        style={{
+          background: 'var(--bg-secondary)',
+          border: focused
+            ? '1px solid var(--color-primary-500, #3aaa60)'
+            : '1px solid var(--border-subtle)',
+          boxShadow: focused ? '0 0 0 3px rgba(58, 170, 96, 0.15)' : 'none',
+        }}
+      >
+        <Search
+          size={18}
+          className="absolute left-3 pointer-events-none transition-colors duration-200"
+          style={{ color: focused ? 'var(--color-primary-500, #3aaa60)' : 'var(--text-muted)' }}
+        />
+        <input
+          ref={ref}
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          placeholder={placeholder}
+          className="w-full bg-transparent py-3 pl-10 pr-10 text-sm outline-none"
+          style={{ color: 'var(--text-primary)' }}
+          {...props}
+        />
+        {value && (
+          <button
+            type="button"
+            onClick={handleClear}
+            className="absolute right-3 p-0.5 rounded-full transition-colors duration-200 hover:bg-white/10 cursor-pointer"
+            style={{ color: 'var(--text-muted)' }}
+            aria-label="Clear search"
+          >
+            <X size={16} />
+          </button>
+        )}
+      </div>
+    );
+  }
+);
+
+SearchInput.displayName = 'SearchInput';
+
+export default SearchInput;
