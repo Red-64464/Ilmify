@@ -1,4 +1,5 @@
 import type { CourseFolder, CoursePage, TopicBlock } from '@/types';
+import type { Json } from '@/lib/supabase/types';
 import { supabase } from '@/lib/supabase/client';
 
 function rowToFolder(row: Record<string, unknown>): CourseFolder {
@@ -146,7 +147,7 @@ export const courseRepository = {
         user_id: userId,
         title: data.title,
         description: data.description || null,
-        blocks: data.blocks || [],
+        blocks: (data.blocks || []) as unknown as Json,
         tags: data.tags,
         icon: data.icon || null,
         cover_image: data.coverImage || null,

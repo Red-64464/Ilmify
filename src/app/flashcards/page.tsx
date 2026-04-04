@@ -123,7 +123,7 @@ export default function FlashcardsPage() {
         return;
       }
 
-      const count = flashcardRepository.importCards(showImport, validCards);
+      const count = flashcardRepository.importCards(user!.id, showImport, validCards);
       setImportSuccess(`${count} carte(s) importée(s) avec succès !`);
       setImportJson('');
       setRefreshKey((k) => k + 1);

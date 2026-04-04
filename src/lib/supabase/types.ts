@@ -26,6 +26,7 @@ export interface Database {
           role?: 'admin' | 'user';
           avatar_url?: string | null;
         };
+        Relationships: [];
       };
       books: {
         Row: {
@@ -85,6 +86,7 @@ export interface Database {
           started_at?: string | null;
           finished_at?: string | null;
         };
+        Relationships: [];
       };
       book_passages: {
         Row: {
@@ -125,6 +127,7 @@ export interface Database {
           is_important?: boolean;
           theme_id?: string | null;
         };
+        Relationships: [];
       };
       topics: {
         Row: {
@@ -169,6 +172,7 @@ export interface Database {
           is_archived?: boolean;
           updated_at?: string;
         };
+        Relationships: [];
       };
       course_folders: {
         Row: {
@@ -201,6 +205,7 @@ export interface Database {
           order_num?: number;
           updated_at?: string;
         };
+        Relationships: [];
       };
       course_pages: {
         Row: {
@@ -242,6 +247,7 @@ export interface Database {
           folder_id?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       flashcard_decks: {
         Row: {
@@ -286,6 +292,7 @@ export interface Database {
           to_review_count?: number;
           tags?: string[];
         };
+        Relationships: [];
       };
       flashcards: {
         Row: {
@@ -329,6 +336,7 @@ export interface Database {
           theme_id?: string | null;
           last_reviewed_at?: string | null;
         };
+        Relationships: [];
       };
       favorites: {
         Row: {
@@ -353,6 +361,7 @@ export interface Database {
           title?: string | null;
           preview?: string | null;
         };
+        Relationships: [];
       };
     };
     Views: Record<string, never>;

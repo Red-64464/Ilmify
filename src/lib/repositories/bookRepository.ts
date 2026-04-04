@@ -173,7 +173,6 @@ export const bookRepository = {
     if (error) throw new Error(error.message);
 
     // Update passage count
-    await supabase.rpc('', {}).catch(() => {});
     const { count } = await supabase
       .from('book_passages')
       .select('*', { count: 'exact', head: true })

@@ -652,7 +652,6 @@ function EditableBlock({
                 onCancel={() => { setCropImage(null); setCropFileName(''); }}
               />
             )}
-            </label>
           </div>
         )}
 

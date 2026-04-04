@@ -1,4 +1,5 @@
 import type { Topic, TopicBlock } from '@/types';
+import type { Json } from '@/lib/supabase/types';
 import { supabase } from '@/lib/supabase/client';
 
 function rowToTopic(row: Record<string, unknown>): Topic {
@@ -55,7 +56,7 @@ export const topicRepository = {
       .insert({
         user_id: userId,
         title,
-        blocks: [defaultBlock],
+        blocks: [defaultBlock] as unknown as Json,
         tags: [],
         category: category || null,
         is_pinned: false,
@@ -131,7 +132,7 @@ export const topicRepository = {
         title: `${original.title} (copie)`,
         icon: original.icon || null,
         cover_image: original.coverImage || null,
-        blocks: newBlocks,
+        blocks: newBlocks as unknown as Json,
         tags: original.tags,
         category: original.category || null,
         is_pinned: false,
