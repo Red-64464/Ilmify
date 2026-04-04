@@ -19,14 +19,14 @@ const backdropVariants = {
 };
 
 const contentVariants = {
-  hidden: { opacity: 0, scale: 0.95, y: 20 },
+  hidden: { opacity: 0, scale: 0.96, y: 16 },
   visible: {
     opacity: 1,
     scale: 1,
     y: 0,
     transition: { type: 'spring' as const, stiffness: 300, damping: 25 },
   },
-  exit: { opacity: 0, scale: 0.95, y: 20, transition: { duration: 0.15 } },
+  exit: { opacity: 0, scale: 0.96, y: 16, transition: { duration: 0.15 } },
 };
 
 const Modal: React.FC<ModalProps> = ({
@@ -64,7 +64,10 @@ const Modal: React.FC<ModalProps> = ({
           initial="hidden"
           animate="visible"
           exit="hidden"
-          style={{ background: 'rgba(0, 0, 0, 0.6)', backdropFilter: 'blur(4px)' }}
+          style={{
+            background: 'rgba(0, 0, 0, 0.65)',
+            backdropFilter: 'blur(8px)',
+          }}
           onClick={onClose}
         >
           <motion.div
@@ -72,19 +75,20 @@ const Modal: React.FC<ModalProps> = ({
             initial="hidden"
             animate="visible"
             exit="exit"
-            className={`relative w-full rounded-2xl border p-6 shadow-2xl ${className}`}
+            className={`relative w-full rounded-2xl p-6 ${className}`}
             style={{
               maxWidth,
               background: 'var(--bg-card)',
-              borderColor: 'var(--border-light)',
+              boxShadow: 'var(--shadow-elevated)',
+              border: '1px solid var(--border-subtle)',
             }}
             onClick={(e) => e.stopPropagation()}
           >
             {(title || true) && (
-              <div className="mb-4 flex items-center justify-between">
+              <div className="mb-5 flex items-center justify-between">
                 {title && (
                   <h2
-                    className="text-lg font-semibold"
+                    className="text-lg font-semibold tracking-tight"
                     style={{ color: 'var(--text-primary)' }}
                   >
                     {title}
@@ -92,8 +96,11 @@ const Modal: React.FC<ModalProps> = ({
                 )}
                 <button
                   onClick={onClose}
-                  className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg transition-colors duration-200 hover:bg-white/10 cursor-pointer"
-                  style={{ color: 'var(--text-muted)' }}
+                  className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg transition-colors duration-200 cursor-pointer"
+                  style={{
+                    color: 'var(--text-muted)',
+                    background: 'rgba(255,255,255,0.04)',
+                  }}
                   aria-label="Close modal"
                 >
                   <X size={18} />

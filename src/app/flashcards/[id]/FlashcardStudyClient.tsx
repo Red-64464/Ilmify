@@ -19,8 +19,7 @@ export default function FlashcardStudyClient({ id }: { id: string }) {
 
   if (!deck || cards.length === 0) {
     return (
-      <div className="pb-8">
-        <PageHeader title="Deck introuvable" backButton />
+      <div className="pb-10">
         <EmptyState
           icon={FileQuestion}
           title="Deck introuvable"
@@ -50,7 +49,7 @@ export default function FlashcardStudyClient({ id }: { id: string }) {
         : '#ef4444';
 
   return (
-    <div className="pb-8">
+    <div className="pb-10">
       <PageHeader title={deck.title} subtitle={`Carte ${currentIndex + 1}/${cards.length}`} backButton />
 
       <ProgressBar
@@ -58,11 +57,11 @@ export default function FlashcardStudyClient({ id }: { id: string }) {
         max={cards.length}
         color={deck.color}
         size="sm"
-        className="mb-6"
+        className="mb-8"
       />
 
       {/* Flip Card */}
-      <div className="flex justify-center mb-6">
+      <div className="flex justify-center mb-8">
         <motion.div
           className="w-full max-w-md cursor-pointer perspective-[1000px]"
           onClick={() => setFlipped(!flipped)}
@@ -75,34 +74,36 @@ export default function FlashcardStudyClient({ id }: { id: string }) {
           >
             {/* Front */}
             <div
-              className="absolute inset-0 rounded-2xl border border-primary-700 p-6 flex flex-col justify-center items-center text-center"
+              className="absolute inset-0 rounded-2xl p-6 flex flex-col justify-center items-center text-center"
               style={{
                 backfaceVisibility: 'hidden',
                 background: 'var(--bg-card)',
+                border: '1px solid rgba(46,158,140,0.3)',
               }}
             >
               <Badge variant="default" size="sm" className="mb-4">
                 Question
               </Badge>
-              <p className="text-base font-medium text-ivory-200 leading-relaxed">
+              <p className="text-base font-medium leading-relaxed" style={{ color: 'var(--text-primary)' }}>
                 {current.front}
               </p>
-              <p className="text-xs text-ivory-400 mt-4">Cliquez pour retourner</p>
+              <p className="text-xs mt-4" style={{ color: 'var(--text-muted)' }}>Cliquez pour retourner</p>
             </div>
 
             {/* Back */}
             <div
-              className="absolute inset-0 rounded-2xl border border-gold-700/30 p-6 flex flex-col justify-center items-center text-center"
+              className="absolute inset-0 rounded-2xl p-6 flex flex-col justify-center items-center text-center"
               style={{
                 backfaceVisibility: 'hidden',
                 transform: 'rotateY(180deg)',
                 background: 'var(--bg-card)',
+                border: '1px solid rgba(212,173,74,0.2)',
               }}
             >
               <Badge variant="gold" size="sm" className="mb-4">
                 Réponse
               </Badge>
-              <p className="text-base text-ivory-200 leading-relaxed">
+              <p className="text-base leading-relaxed" style={{ color: 'var(--text-primary)' }}>
                 {current.back}
               </p>
             </div>
@@ -111,9 +112,9 @@ export default function FlashcardStudyClient({ id }: { id: string }) {
       </div>
 
       {/* Mastery */}
-      <div className="max-w-md mx-auto mb-6">
+      <div className="max-w-md mx-auto mb-8">
         <div className="flex items-center justify-between mb-1">
-          <span className="text-xs text-ivory-400">Maîtrise</span>
+          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Maîtrise</span>
           <Badge
             variant={
               current.difficulty === 'easy'

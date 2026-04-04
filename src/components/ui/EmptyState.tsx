@@ -24,25 +24,28 @@ const EmptyState: React.FC<EmptyStateProps> = ({
 }) => {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className={`flex flex-col items-center justify-center py-16 px-6 text-center ${className}`}
+      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+      className={`flex flex-col items-center justify-center py-20 px-6 text-center ${className}`}
     >
       <div
-        className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl"
-        style={{ background: 'var(--bg-elevated)' }}
+        className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl"
+        style={{
+          background: 'var(--bg-card)',
+          boxShadow: 'var(--shadow-card)',
+        }}
       >
         <Icon size={28} style={{ color: 'var(--text-muted)' }} />
       </div>
       <h3
-        className="mb-2 text-lg font-semibold"
+        className="mb-2 text-lg font-semibold tracking-tight"
         style={{ color: 'var(--text-primary)' }}
       >
         {title}
       </h3>
       <p
-        className="mb-6 max-w-sm text-sm leading-relaxed"
+        className="mb-6 max-w-xs text-sm leading-relaxed"
         style={{ color: 'var(--text-muted)' }}
       >
         {description}

@@ -64,7 +64,7 @@ export default function AdminPage() {
   );
 
   return (
-    <div className="pb-8">
+    <div className="pb-10">
       <PageHeader
         title="Administration"
         subtitle="Tableau de bord"
@@ -81,10 +81,10 @@ export default function AdminPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="mb-8"
+        className="mb-10"
       >
-        <h3 className="text-lg font-semibold text-ivory-200 mb-4 flex items-center gap-2">
-          <BarChart3 size={18} className="text-gold-400" />
+        <h3 className="text-lg font-semibold tracking-tight mb-5 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+          <BarChart3 size={18} style={{ color: '#d4ad4a' }} />
           Vue d&apos;ensemble
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -102,8 +102,8 @@ export default function AdminPage() {
                 >
                   <stat.icon size={16} style={{ color: stat.color }} />
                 </div>
-                <p className="text-2xl font-bold text-ivory-200">{stat.value}</p>
-                <p className="text-xs text-ivory-400">{stat.label}</p>
+                <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{stat.value}</p>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{stat.label}</p>
               </Card>
             </motion.div>
           ))}
@@ -117,18 +117,18 @@ export default function AdminPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.2 + si * 0.1 }}
-          className="mb-8"
+          className="mb-10"
         >
-          <h3 className="text-lg font-semibold text-ivory-200 mb-4 flex items-center gap-2">
+          <h3 className="text-lg font-semibold tracking-tight mb-5 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
             <section.icon size={18} style={{ color: section.color }} />
             {section.title}
           </h3>
-          <Card className="divide-y divide-primary-700/50">
+          <Card className="divide-y divide-white/[0.06]">
             {section.items.map((item, j) => (
               <div key={j} className="p-4 flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-ivory-200">{item.name}</p>
-                  <p className="text-xs text-ivory-400">{item.detail}</p>
+                  <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{item.name}</p>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{item.detail}</p>
                 </div>
                 <Badge variant="default" size="sm">#{j + 1}</Badge>
               </div>

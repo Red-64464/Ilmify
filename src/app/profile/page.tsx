@@ -39,23 +39,26 @@ export default function ProfilePage() {
   }, []);
 
   return (
-    <div className="pb-8">
+    <div className="pb-10">
       {/* Avatar & Name */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="text-center mb-8"
+        className="text-center mb-10"
       >
-        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-primary-700 border-2 border-primary-600">
-          <User size={36} className="text-ivory-300" />
+        <div
+          className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full"
+          style={{ background: 'rgba(46,158,140,0.25)', border: '2px solid rgba(46,158,140,0.4)' }}
+        >
+          <User size={36} style={{ color: 'var(--text-secondary)' }} />
         </div>
-        <h1 className="text-xl font-bold text-ivory-200">Étudiant</h1>
-        <p className="text-sm text-ivory-400 mt-1">Apprenant sur Ilmify</p>
+        <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Étudiant</h1>
+        <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Apprenant sur Ilmify</p>
       </motion.div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-3 mb-8">
+      <div className="grid grid-cols-2 gap-3 mb-10">
         {stats.map((stat, i) => (
           <motion.div
             key={stat.label}
@@ -70,13 +73,13 @@ export default function ProfilePage() {
               >
                 <stat.icon size={18} style={{ color: stat.color }} />
               </div>
-              <p className="text-xl font-bold text-ivory-200">
+              <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
                 {stat.value}
                 {'total' in stat && stat.total !== undefined && (
-                  <span className="text-sm text-ivory-400 font-normal">/{stat.total}</span>
+                  <span className="text-sm font-normal" style={{ color: 'var(--text-muted)' }}>/{stat.total}</span>
                 )}
               </p>
-              <p className="text-xs text-ivory-400 mt-0.5">{stat.label}</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{stat.label}</p>
             </Card>
           </motion.div>
         ))}
@@ -94,11 +97,11 @@ export default function ProfilePage() {
             <Card hoverable className="p-4 cursor-pointer">
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/5">
-                  <item.icon size={18} className="text-ivory-400" />
+                  <item.icon size={18} style={{ color: 'var(--text-muted)' }} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-medium text-ivory-200">{item.label}</h3>
-                  <p className="text-xs text-ivory-400">{item.desc}</p>
+                  <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{item.label}</h3>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{item.desc}</p>
                 </div>
               </div>
             </Card>

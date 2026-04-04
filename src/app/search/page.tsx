@@ -16,10 +16,10 @@ import { searchAll, popularSearches } from '@/lib/search';
 import type { SearchResult } from '@/types';
 
 const typeConfig: Record<string, { icon: typeof Star; color: string; label: string }> = {
-  theme: { icon: Star, color: '#3aaa60', label: 'Thème' },
-  content: { icon: FileText, color: '#d4991a', label: 'Contenu' },
-  quiz: { icon: Brain, color: '#6366f1', label: 'Quiz' },
-  flashcard: { icon: Layers, color: '#24ad9d', label: 'Flashcard' },
+  theme: { icon: Star, color: '#2e9e8c', label: 'Thème' },
+  content: { icon: FileText, color: '#d4ad4a', label: 'Contenu' },
+  quiz: { icon: Brain, color: '#7c7cf0', label: 'Quiz' },
+  flashcard: { icon: Layers, color: '#28c4b0', label: 'Flashcard' },
   book: { icon: BookOpen, color: '#ec4899', label: 'Livre' },
   passage: { icon: BookMarked, color: '#f59e0b', label: 'Passage' },
 };
@@ -33,6 +33,16 @@ const filterTabs = [
   { id: 'flashcard', label: 'Flashcards' },
 ];
 
+const stagger = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.04 } },
+};
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] } },
+};
+
 export default function SearchPage() {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
@@ -40,9 +50,14 @@ export default function SearchPage() {
   const results: SearchResult[] = searchAll(query, filter !== 'all' ? filter : undefined);
 
   return (
-    <div className="pb-8">
-      <div className="mb-6">
-        <h1 className="text-xl font-bold text-ivory-200 mb-4">Rechercher</h1>
+    <div className="pb-10 py-6">
+      <div className="mb-8">
+        <h1
+          className="text-xl font-bold tracking-tight mb-5"
+          style={{ color: 'var(--text-primary)' }}
+        >
+          Rechercher
+        </h1>
         <SearchInput
           value={query}
           onChange={setQuery}
@@ -51,7 +66,7 @@ export default function SearchPage() {
       </div>
 
       {query.trim() && (
-        <div className="mb-4 overflow-x-auto">
+        <div className="mb-6 overflow-x-auto scrollbar-none -mx-5 px-5">
           <Tabs tabs={filterTabs} activeTab={filter} onChange={setFilter} />
         </div>
       )}
@@ -63,17 +78,19 @@ export default function SearchPage() {
           transition={{ duration: 0.3 }}
         >
           <div className="flex items-center gap-2 mb-4">
-            <TrendingUp size={16} className="text-gold-400" />
-            <h2 className="text-sm font-semibold text-ivory-300">Recherches populaires</h2>
+            <TrendingUp size={16} style={{ color: '#d4ad4a' }} />
+            <h2 className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>
+              Recherches populaires
+            </h2>
           </div>
           <div className="flex flex-wrap gap-2">
             {popularSearches.map((term) => (
               <button
                 key={term}
                 onClick={() => setQuery(term)}
-                className="cursor-pointer"
+                className="cursor-pointer transition-all duration-200"
               >
-                <Badge variant="default" size="md" className="hover:bg-white/15 transition-colors">
+                <Badge variant="default" size="md">
                   {term}
                 </Badge>
               </button>
@@ -81,8 +98,14 @@ export default function SearchPage() {
           </div>
         </motion.div>
       ) : results.length > 0 ? (
-        <div className="space-y-3">
-          {results.map((result, i) => {
+        <motion.div
+          className="space-y-3"
+          variants={stagger}
+          initial="hidden"
+          animate="visible"
+          key={filter}
+        >
+          {results.map((result) => {
             const cfg = typeConfig[result.type] || typeConfig.content;
             const Icon = cfg.icon;
             const hrefMap: Record<string, string> = {
@@ -96,29 +119,30 @@ export default function SearchPage() {
             const href = hrefMap[result.type] || '#';
 
             return (
-              <motion.div
-                key={result.id}
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.25, delay: i * 0.03 }}
-              >
+              <motion.div key={result.id} variants={fadeUp}>
                 <Link href={href}>
                   <Card glowColor="green" className="p-4">
                     <div className="flex items-start gap-3">
                       <div
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-                        style={{ backgroundColor: `${cfg.color}20` }}
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+                        style={{ background: `${cfg.color}15` }}
                       >
-                        <Icon size={16} style={{ color: cfg.color }} />
+                        <Icon size={18} style={{ color: cfg.color }} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <h3 className="text-sm font-semibold text-ivory-200 truncate">
+                          <h3
+                            className="text-sm font-semibold truncate"
+                            style={{ color: 'var(--text-primary)' }}
+                          >
                             {result.title}
                           </h3>
                           <Badge variant="default" size="sm">{cfg.label}</Badge>
                         </div>
-                        <p className="text-xs text-ivory-400 line-clamp-2">
+                        <p
+                          className="text-xs line-clamp-2 leading-relaxed"
+                          style={{ color: 'var(--text-muted)' }}
+                        >
                           {result.description}
                         </p>
                       </div>
@@ -128,7 +152,7 @@ export default function SearchPage() {
               </motion.div>
             );
           })}
-        </div>
+        </motion.div>
       ) : (
         <EmptyState
           icon={Search}

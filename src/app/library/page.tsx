@@ -29,6 +29,16 @@ const categoryColors: Record<string, 'gold' | 'green' | 'teal' | 'blue' | 'defau
   Fiqh: 'blue',
 };
 
+const stagger = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.06 } },
+};
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 14 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] } },
+};
+
 export default function LibraryPage() {
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState('all');
@@ -45,14 +55,14 @@ export default function LibraryPage() {
   }, [search, tab]);
 
   return (
-    <div className="pb-8">
+    <div className="pb-10">
       <PageHeader title="Bibliothèque" subtitle={`${books.length} livres`} />
 
-      <div className="mb-4 overflow-x-auto">
+      <div className="mb-5 overflow-x-auto scrollbar-none -mx-5 px-5">
         <Tabs tabs={statusTabs} activeTab={tab} onChange={setTab} />
       </div>
 
-      <div className="mb-6">
+      <div className="mb-8">
         <SearchInput
           value={search}
           onChange={setSearch}
@@ -61,25 +71,36 @@ export default function LibraryPage() {
       </div>
 
       {filtered.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {filtered.map((book, i) => (
-            <motion.div
-              key={book.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: i * 0.05 }}
-            >
+        <motion.div
+          className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+          variants={stagger}
+          initial="hidden"
+          animate="visible"
+          key={tab}
+        >
+          {filtered.map((book) => (
+            <motion.div key={book.id} variants={fadeUp}>
               <Link href={`/library/${book.id}`}>
                 <Card glowColor="gold" className="p-5 h-full">
-                  <div className="flex items-start gap-3 mb-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gold-500/15">
-                      <BookOpen size={20} className="text-gold-400" />
+                  <div className="flex items-start gap-3 mb-4">
+                    <div
+                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
+                      style={{
+                        background: 'linear-gradient(135deg, rgba(196,154,61,0.12), rgba(196,154,61,0.05))',
+                      }}
+                    >
+                      <BookOpen size={20} style={{ color: '#d4ad4a' }} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-semibold text-ivory-200 truncate">
+                      <h3
+                        className="text-sm font-semibold tracking-tight truncate"
+                        style={{ color: 'var(--text-primary)' }}
+                      >
                         {book.title}
                       </h3>
-                      <p className="text-xs text-ivory-400">{book.author}</p>
+                      <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                        {book.author}
+                      </p>
                     </div>
                   </div>
 
@@ -115,9 +136,9 @@ export default function LibraryPage() {
                         <Star
                           key={j}
                           size={14}
-                          className={
-                            j < (book.rating || 0) ? 'text-gold-400' : 'text-primary-700'
-                          }
+                          style={{
+                            color: j < (book.rating || 0) ? '#d4ad4a' : 'rgba(255,255,255,0.08)',
+                          }}
                           fill={j < (book.rating || 0) ? 'currentColor' : 'none'}
                         />
                       ))}
@@ -127,7 +148,7 @@ export default function LibraryPage() {
               </Link>
             </motion.div>
           ))}
-        </div>
+        </motion.div>
       ) : (
         <EmptyState
           icon={BookOpen}

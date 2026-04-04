@@ -41,10 +41,10 @@ export default function FavoritesPage() {
   }, [tab]);
 
   return (
-    <div className="pb-8">
+    <div className="pb-10">
       <PageHeader title="Favoris" subtitle={`${favorites.length} éléments sauvegardés`} />
 
-      <div className="mb-4 overflow-x-auto">
+      <div className="mb-5 overflow-x-auto">
         <Tabs tabs={filterTabs} activeTab={tab} onChange={setTab} />
       </div>
 
@@ -76,15 +76,15 @@ export default function FavoritesPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <h3 className="text-sm font-semibold text-ivory-200 truncate">
+                        <h3 className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
                           {fav.title || 'Sans titre'}
                         </h3>
                         <Badge variant="default" size="sm">{cfg.label}</Badge>
                       </div>
                       {fav.preview && (
-                        <p className="text-xs text-ivory-400 line-clamp-2">{fav.preview}</p>
+                        <p className="text-xs line-clamp-2" style={{ color: 'var(--text-muted)' }}>{fav.preview}</p>
                       )}
-                      <p className="text-xs text-ivory-400 mt-1.5">{dateStr}</p>
+                      <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>{dateStr}</p>
                     </div>
                     <Heart size={14} className="text-red-400 shrink-0 mt-1" fill="currentColor" />
                   </div>
