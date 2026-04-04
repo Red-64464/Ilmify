@@ -15,7 +15,7 @@ export default function FlashcardsPage() {
   const [expandedDeck, setExpandedDeck] = useState<string | null>(null);
 
   return (
-    <div className="pb-8">
+    <div className="pb-10">
       <PageHeader title="Flashcards" subtitle="Révisez avec les cartes mémoire" />
 
       {flashcardDecks.length > 0 ? (
@@ -42,10 +42,10 @@ export default function FlashcardsPage() {
                     <Layers size={20} style={{ color: deck.color }} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-semibold text-ivory-200 truncate">
+                    <h3 className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
                       {deck.title}
                     </h3>
-                    <p className="text-xs text-ivory-400 line-clamp-2 mt-0.5">
+                    <p className="text-xs line-clamp-2 mt-0.5" style={{ color: 'var(--text-muted)' }}>
                       {deck.description}
                     </p>
                   </div>
@@ -76,11 +76,13 @@ export default function FlashcardsPage() {
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
-                    className="mt-4 pt-4 border-t border-primary-700/50"
+                    className="mt-4 pt-4"
+                    style={{ borderTop: '1px solid rgba(46,158,140,0.2)' }}
                   >
                     <Link
                       href={`/flashcards/${deck.id}`}
-                      className="inline-flex items-center gap-2 text-sm font-medium text-primary-400 hover:text-primary-300 transition-colors"
+                      className="inline-flex items-center gap-2 text-sm font-medium transition-colors"
+                      style={{ color: '#2e9e8c' }}
                     >
                       <BookOpen size={14} />
                       Étudier ce deck

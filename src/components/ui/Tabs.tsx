@@ -27,7 +27,7 @@ const Tabs: React.FC<TabsProps> = ({ tabs, activeTab, onChange, className = '' }
 
   return (
     <div
-      className={`inline-flex items-center gap-1 rounded-xl p-1 ${className}`}
+      className={`inline-flex items-center gap-1 rounded-2xl p-1.5 ${className}`}
       style={{ background: 'var(--bg-secondary)' }}
       role="tablist"
     >
@@ -39,14 +39,18 @@ const Tabs: React.FC<TabsProps> = ({ tabs, activeTab, onChange, className = '' }
             role="tab"
             aria-selected={isActive}
             onClick={() => handleChange(tab.id)}
-            className="relative flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors duration-200 cursor-pointer"
+            className="relative flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors duration-200 cursor-pointer"
             style={{ color: isActive ? 'var(--text-primary)' : 'var(--text-muted)' }}
           >
             {isActive && (
               <motion.div
                 layoutId="tab-indicator"
-                className="absolute inset-0 rounded-lg bg-primary-600/20 border border-primary-500/30"
-                transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+                className="absolute inset-0 rounded-xl"
+                style={{
+                  background: 'var(--bg-elevated)',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.04)',
+                }}
+                transition={{ type: 'spring' as const, stiffness: 350, damping: 30 }}
               />
             )}
             <span className="relative z-10 flex items-center gap-2">

@@ -31,7 +31,7 @@ export default function QuizPage() {
   }, []);
 
   return (
-    <div className="pb-8">
+    <div className="pb-10">
       <PageHeader
         title="Quiz"
         subtitle="Testez vos connaissances"
@@ -45,7 +45,7 @@ export default function QuizPage() {
       />
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3 mb-6">
+      <div className="grid grid-cols-3 gap-3 mb-8">
         {[
           { label: 'Total', value: stats.total, icon: Brain, color: '#6366f1' },
           { label: 'Maîtrisées', value: stats.mastered, icon: CheckCircle, color: '#3aaa60' },
@@ -64,16 +64,16 @@ export default function QuizPage() {
               >
                 <stat.icon size={18} style={{ color: stat.color }} />
               </div>
-              <p className="text-2xl font-bold text-ivory-200">{stat.value}</p>
-              <p className="text-xs text-ivory-400">{stat.label}</p>
+              <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{stat.value}</p>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{stat.label}</p>
             </Card>
           </motion.div>
         ))}
       </div>
 
       {/* Theme Quiz Cards */}
-      <h3 className="text-lg font-semibold text-ivory-200 mb-4 flex items-center gap-2">
-        <Star size={18} className="text-gold-400" />
+      <h3 className="text-lg font-semibold tracking-tight mb-5 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+        <Star size={18} style={{ color: '#d4ad4a' }} />
         Quiz par thème
       </h3>
 
@@ -100,10 +100,10 @@ export default function QuizPage() {
                     />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h4 className="text-sm font-semibold text-ivory-200 truncate">
+                    <h4 className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
                       {theme?.title || themeId}
                     </h4>
-                    <p className="text-xs text-ivory-400">
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                       {count} question{count > 1 ? 's' : ''}
                     </p>
                   </div>

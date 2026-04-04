@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, XCircle, ArrowRight, RotateCcw, Trophy } from 'lucide-react';
@@ -73,10 +73,10 @@ export default function QuizPlayClient() {
 
   if (questions.length === 0) {
     return (
-      <div className="pb-8">
+      <div className="pb-10">
         <PageHeader title="Quiz" backButton />
         <div className="text-center py-16">
-          <p className="text-ivory-400">Aucune question disponible.</p>
+          <p style={{ color: 'var(--text-muted)' }}>Aucune question disponible.</p>
         </div>
       </div>
     );
@@ -85,7 +85,7 @@ export default function QuizPlayClient() {
   if (finished) {
     const percentage = Math.round((score / questions.length) * 100);
     return (
-      <div className="pb-8">
+      <div className="pb-10">
         <PageHeader title="Résultats" backButton />
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
@@ -93,20 +93,23 @@ export default function QuizPlayClient() {
           transition={{ duration: 0.5 }}
         >
           <Card glowColor="gold" className="p-6 text-center">
-            <div className="flex h-16 w-16 mx-auto items-center justify-center rounded-2xl bg-gold-500/15 mb-4">
-              <Trophy size={32} className="text-gold-400" />
+            <div
+              className="flex h-16 w-16 mx-auto items-center justify-center rounded-2xl mb-5"
+              style={{ background: 'linear-gradient(135deg, rgba(196,154,61,0.12), rgba(196,154,61,0.06))' }}
+            >
+              <Trophy size={32} style={{ color: '#d4ad4a' }} />
             </div>
-            <h2 className="text-2xl font-bold text-ivory-200 mb-2">Quiz terminé !</h2>
-            <p className="text-4xl font-bold text-gold-400 mb-1">
+            <h2 className="text-2xl font-bold tracking-tight mb-2" style={{ color: 'var(--text-primary)' }}>Quiz terminé !</h2>
+            <p className="text-4xl font-bold mb-1" style={{ color: '#d4ad4a' }}>
               {score}/{questions.length}
             </p>
-            <p className="text-sm text-ivory-400 mb-4">{percentage}% de bonnes réponses</p>
+            <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>{percentage}% de bonnes réponses</p>
             <ProgressBar
               value={percentage}
               showLabel
               size="md"
               color={percentage >= 70 ? '#3aaa60' : percentage >= 40 ? '#d4991a' : '#ef4444'}
-              className="mb-6"
+              className="mb-8"
             />
             <Button
               variant="primary"
@@ -125,7 +128,7 @@ export default function QuizPlayClient() {
     current.type === 'short-answer' ? textAnswer.trim().length > 0 : selectedAnswer !== null;
 
   return (
-    <div className="pb-8">
+    <div className="pb-10">
       <PageHeader
         title={`Question ${currentIndex + 1}/${questions.length}`}
         backButton
@@ -136,7 +139,7 @@ export default function QuizPlayClient() {
         max={questions.length}
         color="#3aaa60"
         size="sm"
-        className="mb-6"
+        className="mb-8"
       />
 
       <AnimatePresence mode="wait">
@@ -147,7 +150,7 @@ export default function QuizPlayClient() {
           exit={{ opacity: 0, x: -30 }}
           transition={{ duration: 0.3 }}
         >
-          <Card className="p-5 mb-4">
+          <Card className="p-5 mb-5">
             <div className="flex items-center gap-2 mb-3">
               <Badge
                 variant={
@@ -167,20 +170,21 @@ export default function QuizPlayClient() {
               </Badge>
               <Badge variant="default" size="sm">{current.type.toUpperCase()}</Badge>
             </div>
-            <h2 className="text-base font-semibold text-ivory-200 leading-relaxed">
+            <h2 className="text-base font-semibold tracking-tight leading-relaxed" style={{ color: 'var(--text-primary)' }}>
               {current.question}
             </h2>
           </Card>
 
           {/* Answer Options */}
-          <div className="space-y-2 mb-4">
+          <div className="space-y-2 mb-5">
             {current.type === 'mcq' && current.options && current.options.map((option, idx) => {
               const isSelected = selectedAnswer === idx;
               const isCorrectOption = idx === current.correctAnswer;
-              let optionStyle = 'border-primary-700/50';
-              if (showResult && isCorrectOption) optionStyle = 'border-green-500 bg-green-500/10';
-              else if (showResult && isSelected && !isCorrectOption) optionStyle = 'border-red-500 bg-red-500/10';
-              else if (isSelected) optionStyle = 'border-primary-500 bg-primary-500/10';
+              let optionStyle = '';
+              let optionInlineStyle: React.CSSProperties = { border: '1px solid rgba(46,158,140,0.3)' };
+              if (showResult && isCorrectOption) { optionStyle = 'border-green-500 bg-green-500/10'; optionInlineStyle = {}; }
+              else if (showResult && isSelected && !isCorrectOption) { optionStyle = 'border-red-500 bg-red-500/10'; optionInlineStyle = {}; }
+              else if (isSelected) { optionStyle = ''; optionInlineStyle = { border: '1px solid #2e9e8c', background: 'rgba(46,158,140,0.1)' }; }
 
               return (
                 <button
@@ -188,9 +192,9 @@ export default function QuizPlayClient() {
                   onClick={() => !showResult && setSelectedAnswer(idx)}
                   disabled={showResult}
                   className={`w-full text-left p-4 rounded-xl border transition-all cursor-pointer ${optionStyle}`}
-                  style={{ background: showResult ? undefined : 'var(--bg-card)' }}
+                  style={{ background: showResult ? undefined : 'var(--bg-card)', ...optionInlineStyle }}
                 >
-                  <span className="text-sm text-ivory-200">{option}</span>
+                  <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{option}</span>
                 </button>
               );
             })}
@@ -198,10 +202,11 @@ export default function QuizPlayClient() {
             {current.type === 'true-false' && ['true', 'false'].map((val) => {
               const isSelected = selectedAnswer === val;
               const isCorrectOption = val === current.correctAnswer;
-              let optionStyle = 'border-primary-700/50';
-              if (showResult && isCorrectOption) optionStyle = 'border-green-500 bg-green-500/10';
-              else if (showResult && isSelected && !isCorrectOption) optionStyle = 'border-red-500 bg-red-500/10';
-              else if (isSelected) optionStyle = 'border-primary-500 bg-primary-500/10';
+              let optionStyle = '';
+              let optionInlineStyle: React.CSSProperties = { border: '1px solid rgba(46,158,140,0.3)' };
+              if (showResult && isCorrectOption) { optionStyle = 'border-green-500 bg-green-500/10'; optionInlineStyle = {}; }
+              else if (showResult && isSelected && !isCorrectOption) { optionStyle = 'border-red-500 bg-red-500/10'; optionInlineStyle = {}; }
+              else if (isSelected) { optionStyle = ''; optionInlineStyle = { border: '1px solid #2e9e8c', background: 'rgba(46,158,140,0.1)' }; }
 
               return (
                 <button
@@ -209,9 +214,9 @@ export default function QuizPlayClient() {
                   onClick={() => !showResult && setSelectedAnswer(val)}
                   disabled={showResult}
                   className={`w-full text-left p-4 rounded-xl border transition-all cursor-pointer ${optionStyle}`}
-                  style={{ background: showResult ? undefined : 'var(--bg-card)' }}
+                  style={{ background: showResult ? undefined : 'var(--bg-card)', ...optionInlineStyle }}
                 >
-                  <span className="text-sm text-ivory-200">
+                  <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
                     {val === 'true' ? 'Vrai' : 'Faux'}
                   </span>
                 </button>
@@ -230,14 +235,21 @@ export default function QuizPlayClient() {
                         className={`px-3 py-2 rounded-lg border text-sm transition-all cursor-pointer ${
                           selectedAnswer === idx
                             ? showResult && idx === current.correctAnswer
-                              ? 'border-green-500 bg-green-500/10 text-ivory-200'
+                              ? 'border-green-500 bg-green-500/10'
                               : showResult
-                                ? 'border-red-500 bg-red-500/10 text-ivory-200'
-                                : 'border-primary-500 bg-primary-500/10 text-ivory-200'
+                                ? 'border-red-500 bg-red-500/10'
+                                : ''
                             : showResult && idx === current.correctAnswer
-                              ? 'border-green-500 bg-green-500/10 text-ivory-200'
-                              : 'border-primary-700/50 text-ivory-300'
+                              ? 'border-green-500 bg-green-500/10'
+                              : ''
                         }`}
+                        style={{
+                          ...(selectedAnswer !== idx && !(showResult && idx === current.correctAnswer)
+                            ? { border: '1px solid rgba(46,158,140,0.3)', color: 'var(--text-secondary)' }
+                            : selectedAnswer === idx && !showResult
+                              ? { border: '1px solid #2e9e8c', background: 'rgba(46,158,140,0.1)', color: 'var(--text-primary)' }
+                              : { color: 'var(--text-primary)' }),
+                        }}
                       >
                         {opt}
                       </button>
@@ -251,7 +263,8 @@ export default function QuizPlayClient() {
                     onChange={(e) => setTextAnswer(e.target.value)}
                     disabled={showResult}
                     placeholder="Tapez votre réponse..."
-                    className="w-full p-4 rounded-xl border border-primary-700/50 bg-transparent text-sm text-ivory-200 outline-none focus:border-primary-500 transition-colors"
+                    className="w-full p-4 rounded-xl border bg-transparent text-sm outline-none transition-colors"
+                    style={{ borderColor: 'rgba(46,158,140,0.3)', color: 'var(--text-primary)' }}
                   />
                 )}
               </div>
@@ -264,7 +277,7 @@ export default function QuizPlayClient() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
             >
-              <Card className="p-4 mb-4">
+              <Card className="p-4 mb-5">
                 <div className="flex items-center gap-2 mb-2">
                   {isCorrect() ? (
                     <CheckCircle size={18} className="text-green-400" />
@@ -279,7 +292,7 @@ export default function QuizPlayClient() {
                     {isCorrect() ? 'Bonne réponse !' : 'Mauvaise réponse'}
                   </span>
                 </div>
-                <p className="text-sm text-ivory-400">{current.explanation}</p>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{current.explanation}</p>
               </Card>
             </motion.div>
           )}

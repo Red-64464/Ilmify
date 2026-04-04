@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Star, FileQuestion } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
-import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Tabs from '@/components/ui/Tabs';
 import { ProgressBar } from '@/components/ui/ProgressBar';
@@ -24,6 +23,27 @@ const contentTypeTabs = [
   { id: 'proof', label: 'Preuves' },
 ];
 
+const stagger = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.06 } },
+};
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 14 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] as const } },
+};
+
+/* Visual treatment per content type */
+const typeStyles: Record<string, { gradient: string; borderAccent: string }> = {
+  verse: { gradient: 'linear-gradient(135deg, rgba(196,154,61,0.06), transparent)', borderAccent: 'rgba(196,154,61,0.1)' },
+  hadith: { gradient: 'linear-gradient(135deg, rgba(18,163,147,0.05), transparent)', borderAccent: 'rgba(18,163,147,0.1)' },
+  explanation: { gradient: 'linear-gradient(135deg, rgba(245,158,11,0.05), transparent)', borderAccent: 'rgba(245,158,11,0.08)' },
+  reminder: { gradient: 'linear-gradient(135deg, rgba(244,63,94,0.04), transparent)', borderAccent: 'rgba(244,63,94,0.08)' },
+  quote: { gradient: 'linear-gradient(135deg, rgba(139,92,246,0.04), transparent)', borderAccent: 'rgba(139,92,246,0.08)' },
+  note: { gradient: 'linear-gradient(135deg, rgba(59,130,246,0.04), transparent)', borderAccent: 'rgba(59,130,246,0.08)' },
+  proof: { gradient: 'linear-gradient(135deg, rgba(16,185,129,0.04), transparent)', borderAccent: 'rgba(16,185,129,0.08)' },
+};
+
 export default function ThemeDetailClient({ id }: { id: string }) {
   const [activeTab, setActiveTab] = useState('all');
 
@@ -35,7 +55,7 @@ export default function ThemeDetailClient({ id }: { id: string }) {
 
   if (!theme) {
     return (
-      <div className="pb-8">
+      <div className="pb-10">
         <PageHeader title="Thème introuvable" backButton />
         <EmptyState
           icon={FileQuestion}
@@ -47,90 +67,129 @@ export default function ThemeDetailClient({ id }: { id: string }) {
   }
 
   return (
-    <div className="pb-8">
+    <div className="pb-10">
       <PageHeader title={theme.title} subtitle={theme.titleAr} backButton />
 
-      {/* Theme Info */}
+      {/* Theme Hero Card */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] as const }}
       >
-        <Card glowColor="green" className="p-5 mb-6">
-          <div className="flex items-start gap-3 mb-4">
-            <div
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
-              style={{ backgroundColor: `${theme.color}20` }}
-            >
-              <Star size={22} style={{ color: theme.color }} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h2 className="text-lg font-semibold text-ivory-200">{theme.title}</h2>
-              <p className="text-sm text-ivory-400 mt-1">{theme.description}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <Badge variant="default" size="sm">
-              {theme.contentCount} contenus
-            </Badge>
-            {theme.progress !== undefined && (
-              <div className="flex-1">
-                <ProgressBar
-                  value={theme.progress}
-                  showLabel
-                  color={theme.color}
-                  size="md"
-                />
+        <div
+          className="relative overflow-hidden rounded-2xl p-6 sm:p-7 mb-8"
+          style={{
+            background: `linear-gradient(135deg, ${theme.color}08, var(--bg-card) 50%, ${theme.color}04)`,
+            boxShadow: 'var(--shadow-elevated)',
+            border: '1px solid var(--border-subtle)',
+          }}
+        >
+          {/* Ambient glow */}
+          <div
+            className="absolute -top-16 -right-16 w-48 h-48 rounded-full pointer-events-none"
+            style={{ background: `radial-gradient(circle, ${theme.color}0c, transparent 70%)` }}
+          />
+
+          <div className="relative z-10">
+            <div className="flex items-start gap-4 mb-5">
+              <div
+                className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl"
+                style={{
+                  background: `linear-gradient(135deg, ${theme.color}20, ${theme.color}0a)`,
+                }}
+              >
+                <Star size={24} style={{ color: theme.color }} />
               </div>
-            )}
+              <div className="flex-1 min-w-0">
+                <h2 className="text-xl font-bold tracking-tight mb-1" style={{ color: 'var(--text-primary)' }}>
+                  {theme.title}
+                </h2>
+                <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                  {theme.description}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <Badge variant="default" size="sm">
+                {theme.contentCount} contenus
+              </Badge>
+              {theme.progress !== undefined && (
+                <div className="flex-1">
+                  <ProgressBar
+                    value={theme.progress}
+                    showLabel
+                    color={theme.color}
+                    size="md"
+                  />
+                </div>
+              )}
+            </div>
           </div>
-        </Card>
+        </div>
       </motion.div>
 
       {/* Tabs */}
-      <div className="mb-4 overflow-x-auto">
+      <div className="mb-6 overflow-x-auto scrollbar-none -mx-5 px-5">
         <Tabs tabs={contentTypeTabs} activeTab={activeTab} onChange={setActiveTab} />
       </div>
 
       {/* Content List */}
-      <div className="space-y-3">
-        {filtered.map((item, i) => (
-          <motion.div
-            key={item.id}
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: i * 0.05 }}
-          >
-            <Card className="p-4">
-              <div className="flex items-start gap-3">
-                <ContentTypeIcon type={item.type} />
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-semibold text-ivory-200 mb-1">
-                    {item.title}
-                  </h3>
-                  {item.arabicText && (
-                    <p className="text-base text-gold-300 font-arabic text-right leading-loose mb-2">
-                      {item.arabicText}
+      <motion.div
+        className="space-y-4"
+        variants={stagger}
+        initial="hidden"
+        animate="visible"
+        key={activeTab}
+      >
+        {filtered.map((item) => {
+          const style = typeStyles[item.type] || typeStyles.note;
+          return (
+            <motion.div key={item.id} variants={fadeUp}>
+              <div
+                className="rounded-2xl p-5 transition-all duration-200"
+                style={{
+                  background: style.gradient,
+                  boxShadow: 'var(--shadow-card)',
+                  border: `1px solid ${style.borderAccent}`,
+                }}
+              >
+                <div className="flex items-start gap-3">
+                  <ContentTypeIcon type={item.type} />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-semibold tracking-tight mb-1.5" style={{ color: 'var(--text-primary)' }}>
+                      {item.title}
+                    </h3>
+                    {item.arabicText && (
+                      <p className="text-base font-arabic text-right leading-[2] mb-3" style={{ color: '#d4ad4a' }}>
+                        {item.arabicText}
+                      </p>
+                    )}
+                    {item.contentAr && !item.arabicText && (
+                      <p className="text-base font-arabic text-right leading-[2] mb-3" style={{ color: '#d4ad4a' }}>
+                        {item.contentAr}
+                      </p>
+                    )}
+                    <p className="text-sm line-clamp-4 leading-[1.8]" style={{ color: 'var(--text-secondary)' }}>
+                      {item.content}
                     </p>
-                  )}
-                  {item.contentAr && !item.arabicText && (
-                    <p className="text-base text-gold-300 font-arabic text-right leading-loose mb-2">
-                      {item.contentAr}
-                    </p>
-                  )}
-                  <p className="text-sm text-ivory-400 line-clamp-3">{item.content}</p>
-                  {item.source && (
-                    <p className="text-xs text-primary-400 mt-2">{item.source}</p>
-                  )}
-                  {item.reference && (
-                    <p className="text-xs text-ivory-400 mt-1">{item.reference}</p>
-                  )}
+                    {item.source && (
+                      <p className="text-xs mt-3 font-medium" style={{ color: '#2e9e8c' }}>
+                        {item.source}
+                      </p>
+                    )}
+                    {item.reference && (
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                        {item.reference}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
-            </Card>
-          </motion.div>
-        ))}
-      </div>
+            </motion.div>
+          );
+        })}
+      </motion.div>
 
       {filtered.length === 0 && (
         <EmptyState

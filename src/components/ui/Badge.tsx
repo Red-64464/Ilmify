@@ -11,18 +11,18 @@ export interface BadgeProps extends Omit<React.HTMLAttributes<HTMLSpanElement>, 
   children: React.ReactNode;
 }
 
-const variantClasses: Record<BadgeVariant, string> = {
-  default: 'bg-white/10 text-[var(--text-secondary)]',
-  green: 'bg-primary-500/15 text-primary-400',
-  gold: 'bg-gold-500/15 text-gold-400',
-  teal: 'bg-teal-500/15 text-teal-400',
-  red: 'bg-red-500/15 text-red-400',
-  blue: 'bg-blue-500/15 text-blue-400',
+const variantStyles: Record<BadgeVariant, React.CSSProperties> = {
+  default: { background: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary)' },
+  green: { background: 'rgba(26, 122, 107, 0.12)', color: '#5fbfae' },
+  gold: { background: 'rgba(196, 154, 61, 0.12)', color: '#d4ad4a' },
+  teal: { background: 'rgba(18, 163, 147, 0.12)', color: '#56e2cc' },
+  red: { background: 'rgba(239, 68, 68, 0.1)', color: '#f87171' },
+  blue: { background: 'rgba(59, 130, 246, 0.1)', color: '#60a5fa' },
 };
 
 const sizeClasses: Record<BadgeSize, string> = {
-  sm: 'px-2 py-0.5 text-xs',
-  md: 'px-3 py-1 text-sm',
+  sm: 'px-2.5 py-0.5 text-[11px]',
+  md: 'px-3 py-1 text-xs',
 };
 
 const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
@@ -30,10 +30,10 @@ const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
     return (
       <span
         ref={ref}
-        className={`inline-flex items-center font-medium rounded-full whitespace-nowrap
-          ${variantClasses[variant]}
+        className={`inline-flex items-center font-medium rounded-full whitespace-nowrap tracking-wide
           ${sizeClasses[size]}
           ${className}`}
+        style={variantStyles[variant]}
         {...props}
       >
         {children}

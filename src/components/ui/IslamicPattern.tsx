@@ -9,7 +9,7 @@ export function IslamicPattern({ className = '', opacity = 0.03 }: { className?:
             <path d="M30 22L38 30L30 38L22 30Z" fill="none" stroke="currentColor" strokeWidth="0.3" />
           </pattern>
         </defs>
-        <rect width="100%" height="100%" fill="url(#islamic-pattern)" className="text-gold-400" />
+        <rect width="100%" height="100%" fill="url(#islamic-pattern)" style={{ color: '#d4ad4a' }} />
       </svg>
     </div>
   );
@@ -17,13 +17,19 @@ export function IslamicPattern({ className = '', opacity = 0.03 }: { className?:
 
 export function IslamicDivider({ className = '' }: { className?: string }) {
   return (
-    <div className={`flex items-center gap-4 my-6 ${className}`}>
-      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gold-500/30 to-transparent" />
-      <svg width="16" height="16" viewBox="0 0 16 16" className="text-gold-500/40">
+    <div className={`flex items-center gap-4 my-8 ${className}`}>
+      <div
+        className="flex-1 h-px"
+        style={{ background: 'linear-gradient(90deg, transparent, rgba(196,154,61,0.15), transparent)' }}
+      />
+      <svg width="16" height="16" viewBox="0 0 16 16" style={{ color: 'rgba(196,154,61,0.25)' }}>
         <path d="M8 0L16 8L8 16L0 8Z" fill="none" stroke="currentColor" strokeWidth="1" />
         <circle cx="8" cy="8" r="2" fill="currentColor" />
       </svg>
-      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gold-500/30 to-transparent" />
+      <div
+        className="flex-1 h-px"
+        style={{ background: 'linear-gradient(90deg, transparent, rgba(196,154,61,0.15), transparent)' }}
+      />
     </div>
   );
 }
