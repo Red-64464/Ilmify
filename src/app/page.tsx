@@ -1,25 +1,33 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
-  Compass, Brain, Layers, BookOpen, Star, Sun,
-  ChevronRight, BookMarked,
+  FileText, GraduationCap, BookOpen, Star, Sun,
+  ChevronRight, BookMarked, Plus, LogIn, UserPlus,
 } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import SectionHeader from '@/components/ui/SectionHeader';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import Badge from '@/components/ui/Badge';
-import { themes } from '@/data/themes';
-import { books } from '@/data/books';
+import Button from '@/components/ui/Button';
+import SearchInput from '@/components/ui/SearchInput';
+import { useAuth } from '@/contexts/AuthContext';
+import { topicRepository } from '@/lib/repositories/topicRepository';
+import { courseRepository } from '@/lib/repositories/courseRepository';
+import { bookRepository } from '@/lib/repositories/bookRepository';
 import { dailyReminders } from '@/data/daily';
 
 const quickLinks = [
-  { href: '/explore', icon: Compass, label: 'Explorer', color: '#2e9e8c', gradient: 'linear-gradient(135deg, rgba(26,122,107,0.12), rgba(18,163,147,0.06))' },
-  { href: '/quiz', icon: Brain, label: 'Quiz', color: '#7c7cf0', gradient: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(139,92,246,0.06))' },
-  { href: '/flashcards', icon: Layers, label: 'Flashcards', color: '#28c4b0', gradient: 'linear-gradient(135deg, rgba(18,163,147,0.1), rgba(40,196,176,0.06))' },
-  { href: '/library', icon: BookOpen, label: 'Bibliothèque', color: '#d4ad4a', gradient: 'linear-gradient(135deg, rgba(196,154,61,0.1), rgba(168,128,49,0.06))' },
+  { href: '/topics', icon: FileText, label: 'Mes Topics', color: '#2e9e8c', gradient: 'linear-gradient(135deg, rgba(26,122,107,0.12), rgba(18,163,147,0.06))' },
+  { href: '/courses', icon: GraduationCap, label: 'Cours', color: '#d4ad4a', gradient: 'linear-gradient(135deg, rgba(196,154,61,0.1), rgba(168,128,49,0.06))' },
+  { href: '/library', icon: BookOpen, label: 'Bibliothèque', color: '#6366f1', gradient: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(139,92,246,0.06))' },
+  { href: '/explore', icon: Star, label: 'Explorer', color: '#28c4b0', gradient: 'linear-gradient(135deg, rgba(18,163,147,0.1), rgba(40,196,176,0.06))' },
+];
+  { href: '/library', icon: BookOpen, label: 'Bibliothèque', color: '#6366f1', gradient: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(139,92,246,0.06))' },
+  { href: '/explore', icon: Star, label: 'Explorer', color: '#28c4b0', gradient: 'linear-gradient(135deg, rgba(18,163,147,0.1), rgba(40,196,176,0.06))' },
 ];
 
 const typeIcons: Record<string, typeof Star> = {
@@ -45,11 +53,95 @@ const fadeUp = {
 };
 
 export default function HomePage() {
+  const { user, isLoading } = useAuth();
+  const router = useRouter();
   const daily = useMemo(() => getDailyReminder(), []);
+  const [search, setSearch] = useState('');
 
-  const inProgress = themes.filter((t) => t.progress && t.progress > 0 && t.progress < 100);
-  const readingBooks = books.filter((b) => b.status === 'reading');
+  const [recentTopics, setRecentTopics] = useState<{ id: string; title: string; updatedAt: string; icon?: string }[]>([]);
+  const [readingBooks, setReadingBooks] = useState<{ id: string; title: string; author: string; progress?: number }[]>([]);
+  const [featuredCourses, setFeaturedCourses] = useState<{ id: string; title: string; description?: string; icon?: string }[]>([]);
+
+  useEffect(() => {
+    if (user) {
+      const topics = topicRepository.getByUser(user.id).slice(0, 4);
+      setRecentTopics(topics.map((t) => ({ id: t.id, title: t.title, updatedAt: t.updatedAt, icon: t.icon })));
+    }
+    const books = bookRepository.getAll().filter((b) => b.status === 'reading');
+    setReadingBooks(books.map((b) => ({ id: b.id, title: b.title, author: b.author, progress: b.progress })));
+    const courses = courseRepository.getAllPages().slice(0, 3);
+    setFeaturedCourses(courses.map((c) => ({ id: c.id, title: c.title, description: c.description, icon: c.icon })));
+  }, [user]);
+
   const DailyIcon = daily ? typeIcons[daily.type] || Star : Star;
+
+  // If not logged in, show welcome screen
+  if (!isLoading && !user) {
+    return (
+      <motion.div
+        className="min-h-[80vh] flex flex-col items-center justify-center py-10"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] as const }}
+      >
+        <div
+          className="mb-6 flex h-20 w-20 items-center justify-center rounded-3xl text-3xl font-bold text-white"
+          style={{
+            background: 'linear-gradient(135deg, #1a7a6b, #12a393)',
+            boxShadow: '0 4px 24px rgba(26, 122, 107, 0.3)',
+          }}
+        >
+          ☪
+        </div>
+        <h1 className="text-3xl font-bold font-heading tracking-tight mb-2" style={{ color: '#d4ad4a' }}>
+          Ilmify
+        </h1>
+        <p className="text-sm text-center max-w-xs leading-relaxed mb-8" style={{ color: 'var(--text-secondary)' }}>
+          Votre espace personnel de savoir islamique. Organisez, étudiez et approfondissez vos connaissances.
+        </p>
+
+        {/* Daily reminder */}
+        {daily && (
+          <div
+            className="w-full max-w-sm rounded-2xl p-5 mb-8"
+            style={{
+              background: 'rgba(196,154,61,0.05)',
+              border: '1px solid rgba(196,154,61,0.08)',
+            }}
+          >
+            <Badge variant="gold" size="sm" className="mb-2">Rappel du jour</Badge>
+            <p className="text-sm leading-[1.8]" style={{ color: 'var(--text-primary)' }}>
+              {daily.content}
+            </p>
+            {daily.source && (
+              <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>{daily.source}</p>
+            )}
+          </div>
+        )}
+
+        <div className="flex flex-col gap-3 w-full max-w-xs">
+          <Button
+            variant="primary"
+            size="lg"
+            iconLeft={<LogIn size={18} />}
+            onClick={() => router.push('/login')}
+            className="w-full"
+          >
+            Se connecter
+          </Button>
+          <Button
+            variant="secondary"
+            size="lg"
+            iconLeft={<UserPlus size={18} />}
+            onClick={() => router.push('/signup')}
+            className="w-full"
+          >
+            Créer un compte
+          </Button>
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div
@@ -80,14 +172,23 @@ export default function HomePage() {
             <h1 className="text-2xl sm:text-3xl font-bold font-heading tracking-tight mb-2"
               style={{ color: '#d4ad4a' }}
             >
-              As-salamu alaykum
+              As-salamu alaykum{user ? `, ${user.displayName}` : ''}
             </h1>
             <p className="text-sm sm:text-base max-w-md leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-              Bienvenue sur <span style={{ color: '#2e9e8c' }} className="font-semibold">Ilmify</span>, votre compagnon
+              Bienvenue sur <span style={{ color: '#2e9e8c' }} className="font-semibold">Ilmify</span>, votre espace
               de savoir islamique.
             </p>
           </div>
         </div>
+      </motion.section>
+
+      {/* ===== Search ===== */}
+      <motion.section variants={fadeUp}>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Rechercher dans tout Ilmify..."
+        />
       </motion.section>
 
       {/* ===== Daily Reminder ===== */}
@@ -166,39 +267,95 @@ export default function HomePage() {
         </div>
       </motion.section>
 
-      {/* ===== Continue Learning ===== */}
-      {inProgress.length > 0 && (
+      {/* ===== Quick Actions ===== */}
+      {user && (
+        <motion.section variants={fadeUp}>
+          <SectionHeader title="Actions rapides" />
+          <div className="flex gap-3 mt-5 overflow-x-auto scrollbar-none -mx-5 px-5">
+            <Button
+              variant="primary"
+              size="sm"
+              iconLeft={<Plus size={14} />}
+              onClick={() => router.push('/topics')}
+            >
+              Nouveau topic
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              iconLeft={<BookOpen size={14} />}
+              onClick={() => router.push('/library')}
+            >
+              Ajouter un livre
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              iconLeft={<GraduationCap size={14} />}
+              onClick={() => router.push('/courses')}
+            >
+              Voir les cours
+            </Button>
+          </div>
+        </motion.section>
+      )}
+
+      {/* ===== Recent Topics ===== */}
+      {recentTopics.length > 0 && (
         <motion.section variants={fadeUp}>
           <SectionHeader
-            title="Continuer l'apprentissage"
-            seeAllHref="/explore"
+            title="Topics récents"
+            seeAllHref="/topics"
             seeAllLabel="Voir tout"
           />
           <div className="mt-5 space-y-3">
-            {inProgress.slice(0, 4).map((theme) => (
-              <Link key={theme.id} href={`/explore/${theme.id}`}>
-                <Card glowColor="green" className="p-4 sm:p-5 mb-3">
-                  <div className="flex items-center gap-4">
-                    <div
-                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
-                      style={{
-                        background: `linear-gradient(135deg, ${theme.color}18, ${theme.color}08)`,
-                      }}
-                    >
-                      <Star size={18} style={{ color: theme.color }} />
-                    </div>
+            {recentTopics.map((topic) => (
+              <Link key={topic.id} href={`/topics/${topic.id}`}>
+                <Card glowColor="green" className="p-4 mb-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg">{topic.icon || '📝'}</span>
                     <div className="flex-1 min-w-0">
                       <h3 className="text-sm font-semibold tracking-tight truncate" style={{ color: 'var(--text-primary)' }}>
-                        {theme.title}
+                        {topic.title}
                       </h3>
-                      <ProgressBar
-                        value={theme.progress || 0}
-                        showLabel
-                        color={theme.color}
-                        className="mt-2"
-                      />
+                      <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                        {new Date(topic.updatedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                      </p>
                     </div>
-                    <ChevronRight size={16} style={{ color: 'var(--text-muted)' }} className="shrink-0" />
+                    <ChevronRight size={16} style={{ color: 'var(--text-muted)' }} />
+                  </div>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </motion.section>
+      )}
+
+      {/* ===== Featured Courses ===== */}
+      {featuredCourses.length > 0 && (
+        <motion.section variants={fadeUp}>
+          <SectionHeader
+            title="Cours disponibles"
+            seeAllHref="/courses"
+            seeAllLabel="Voir tout"
+          />
+          <div className="mt-5 space-y-3">
+            {featuredCourses.map((course) => (
+              <Link key={course.id} href={`/courses/${course.id}`}>
+                <Card glowColor="gold" className="p-4 mb-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg">{course.icon || '📚'}</span>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-semibold tracking-tight truncate" style={{ color: 'var(--text-primary)' }}>
+                        {course.title}
+                      </h3>
+                      {course.description && (
+                        <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>
+                          {course.description}
+                        </p>
+                      )}
+                    </div>
+                    <ChevronRight size={16} style={{ color: 'var(--text-muted)' }} />
                   </div>
                 </Card>
               </Link>

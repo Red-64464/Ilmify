@@ -1,25 +1,34 @@
 'use client';
 
 import { useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   User, Star, Brain, Layers, BookOpen, Settings,
-  Info, Shield, Heart,
+  Info, Shield, Heart, LogOut, GraduationCap, FileText,
+  Moon, Type,
 } from 'lucide-react';
 import Card from '@/components/ui/Card';
+import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
+import EmptyState from '@/components/ui/EmptyState';
+import { useAuth } from '@/contexts/AuthContext';
 import { themes } from '@/data/themes';
 import { quizQuestions } from '@/data/quiz';
 import { flashcards } from '@/data/flashcards';
 import { books } from '@/data/books';
 
 const menuItems = [
+  { icon: Heart, label: 'Favoris', desc: 'Gérer vos favoris', href: '/favorites' },
   { icon: Settings, label: 'Paramètres', desc: 'Personnaliser l\'application' },
-  { icon: Heart, label: 'Favoris', desc: 'Gérer vos favoris' },
   { icon: Shield, label: 'Confidentialité', desc: 'Paramètres de confidentialité' },
-  { icon: Info, label: 'À propos', desc: 'Version et informations' },
+  { icon: Info, label: 'À propos', desc: 'Ilmify v0.2.0' },
 ];
 
 export default function ProfilePage() {
+  const { user, isAdmin, logout } = useAuth();
+  const router = useRouter();
+
   const stats = useMemo(() => {
     const themesExplored = themes.filter((t) => t.progress && t.progress > 0).length;
     const avgQuizScore = quizQuestions.length > 0
@@ -38,6 +47,25 @@ export default function ProfilePage() {
     ];
   }, []);
 
+  const handleLogout = async () => {
+    await logout();
+    router.push('/');
+  };
+
+  if (!user) {
+    return (
+      <div className="pb-10">
+        <EmptyState
+          icon={User}
+          title="Non connecté"
+          description="Connectez-vous pour accéder à votre profil et vos données personnelles."
+          actionLabel="Se connecter"
+          onAction={() => router.push('/login')}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="pb-10">
       {/* Avatar & Name */}
@@ -53,9 +81,63 @@ export default function ProfilePage() {
         >
           <User size={36} style={{ color: 'var(--text-secondary)' }} />
         </div>
-        <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Étudiant</h1>
-        <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Apprenant sur Ilmify</p>
+        <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
+          {user.displayName}
+        </h1>
+        <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>@{user.username}</p>
+        {isAdmin && (
+          <Badge variant="gold" size="sm" className="mt-2">
+            <Shield size={10} className="mr-1" />
+            Administrateur
+          </Badge>
+        )}
       </motion.div>
+
+      {/* Admin shortcuts */}
+      {isAdmin && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+          className="mb-8"
+        >
+          <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--text-secondary)' }}>
+            Administration
+          </h3>
+          <div className="grid grid-cols-2 gap-3">
+            <Card
+              hoverable
+              className="p-4 cursor-pointer"
+              onClick={() => router.push('/courses')}
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={{ background: 'rgba(196,154,61,0.12)' }}>
+                  <GraduationCap size={16} style={{ color: '#d4ad4a' }} />
+                </div>
+                <div className="min-w-0">
+                  <h4 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Cours</h4>
+                  <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Gérer les cours</p>
+                </div>
+              </div>
+            </Card>
+            <Card
+              hoverable
+              className="p-4 cursor-pointer"
+              onClick={() => router.push('/admin')}
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={{ background: 'rgba(99,102,241,0.12)' }}>
+                  <Settings size={16} style={{ color: '#6366f1' }} />
+                </div>
+                <div className="min-w-0">
+                  <h4 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Admin</h4>
+                  <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Panneau admin</p>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </motion.div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 mb-10">
@@ -86,7 +168,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Menu */}
-      <div className="space-y-2">
+      <div className="space-y-2 mb-8">
         {menuItems.map((item, i) => (
           <motion.div
             key={item.label}
@@ -94,7 +176,11 @@ export default function ProfilePage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25, delay: 0.2 + i * 0.05 }}
           >
-            <Card hoverable className="p-4 cursor-pointer">
+            <Card
+              hoverable
+              className="p-4 cursor-pointer"
+              onClick={'href' in item && item.href ? () => router.push(item.href!) : undefined}
+            >
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/5">
                   <item.icon size={18} style={{ color: 'var(--text-muted)' }} />
@@ -108,6 +194,23 @@ export default function ProfilePage() {
           </motion.div>
         ))}
       </div>
+
+      {/* Logout */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.4 }}
+      >
+        <Button
+          variant="ghost"
+          size="md"
+          iconLeft={<LogOut size={16} />}
+          onClick={handleLogout}
+          className="w-full"
+        >
+          Se déconnecter
+        </Button>
+      </motion.div>
     </div>
   );
 }

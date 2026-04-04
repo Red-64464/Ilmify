@@ -1,17 +1,20 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { BookOpen, Star } from 'lucide-react';
+import { BookOpen, Star, Plus } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import Card from '@/components/ui/Card';
 import SearchInput from '@/components/ui/SearchInput';
 import Badge from '@/components/ui/Badge';
 import Tabs from '@/components/ui/Tabs';
+import Button from '@/components/ui/Button';
+import Modal from '@/components/ui/Modal';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import EmptyState from '@/components/ui/EmptyState';
-import { books } from '@/data/books';
+import { useAuth } from '@/contexts/AuthContext';
+import { bookRepository } from '@/lib/repositories/bookRepository';
 
 const statusTabs = [
   { id: 'all', label: 'Tous' },
@@ -40,8 +43,16 @@ const fadeUp = {
 };
 
 export default function LibraryPage() {
+  const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState('all');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newAuthor, setNewAuthor] = useState('');
+  const [newCategory, setNewCategory] = useState('');
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const books = useMemo(() => bookRepository.getAll(), [refreshKey]);
 
   const filtered = useMemo(() => {
     return books.filter((b) => {
@@ -52,11 +63,44 @@ export default function LibraryPage() {
         b.author.toLowerCase().includes(search.toLowerCase());
       return matchesTab && matchesSearch;
     });
-  }, [search, tab]);
+  }, [books, search, tab]);
+
+  const handleAddBook = useCallback(() => {
+    if (!newTitle.trim() || !newAuthor.trim()) return;
+    bookRepository.create({
+      title: newTitle.trim(),
+      author: newAuthor.trim(),
+      description: '',
+      category: newCategory || 'Autre',
+      language: 'fr',
+      status: 'to-read',
+      tags: [],
+    });
+    setShowAddModal(false);
+    setNewTitle('');
+    setNewAuthor('');
+    setNewCategory('');
+    setRefreshKey((k) => k + 1);
+  }, [newTitle, newAuthor, newCategory]);
 
   return (
     <div className="pb-10">
-      <PageHeader title="Bibliothèque" subtitle={`${books.length} livres`} />
+      <PageHeader
+        title="Bibliothèque"
+        subtitle={`${books.length} livres`}
+        rightAction={
+          user ? (
+            <Button
+              variant="primary"
+              size="sm"
+              iconLeft={<Plus size={14} />}
+              onClick={() => setShowAddModal(true)}
+            >
+              Ajouter
+            </Button>
+          ) : undefined
+        }
+      />
 
       <div className="mb-5 overflow-x-auto scrollbar-none -mx-5 px-5">
         <Tabs tabs={statusTabs} activeTab={tab} onChange={setTab} />
@@ -156,6 +200,80 @@ export default function LibraryPage() {
           description="Essayez de modifier vos filtres ou votre recherche."
         />
       )}
+
+      {/* Add book modal */}
+      <Modal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        title="Ajouter un livre"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+              Titre
+            </label>
+            <input
+              type="text"
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              placeholder="Titre du livre"
+              autoFocus
+              className="w-full rounded-xl px-4 py-3 text-sm outline-none placeholder:text-[var(--text-muted)]"
+              style={{
+                background: 'var(--bg-secondary)',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--border-subtle)',
+              }}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+              Auteur
+            </label>
+            <input
+              type="text"
+              value={newAuthor}
+              onChange={(e) => setNewAuthor(e.target.value)}
+              placeholder="Nom de l'auteur"
+              className="w-full rounded-xl px-4 py-3 text-sm outline-none placeholder:text-[var(--text-muted)]"
+              style={{
+                background: 'var(--bg-secondary)',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--border-subtle)',
+              }}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+              Catégorie
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {['Aqida', 'Hadith', 'Sira', 'Fiqh', 'Tafsir', 'Adhkar', 'Autre'].map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setNewCategory(newCategory === cat ? '' : cat)}
+                  className="px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 cursor-pointer"
+                  style={{
+                    background: newCategory === cat ? 'rgba(196, 154, 61, 0.15)' : 'rgba(255,255,255,0.04)',
+                    color: newCategory === cat ? '#d4ad4a' : 'var(--text-muted)',
+                    border: newCategory === cat ? '1px solid rgba(196, 154, 61, 0.2)' : '1px solid transparent',
+                  }}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex gap-2 pt-2">
+            <Button variant="secondary" size="md" onClick={() => setShowAddModal(false)} className="flex-1">
+              Annuler
+            </Button>
+            <Button variant="primary" size="md" onClick={handleAddBook} disabled={!newTitle.trim() || !newAuthor.trim()} className="flex-1">
+              Ajouter
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
