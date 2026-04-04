@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -45,7 +45,7 @@ const fadeUp = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] as const } },
 };
 
-export default function SearchPage() {
+function SearchPageInner() {
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(searchParams.get('q') || '');
   const [filter, setFilter] = useState('all');
@@ -171,5 +171,13 @@ export default function SearchPage() {
       )}
     </div>
     </AuthGuard>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense>
+      <SearchPageInner />
+    </Suspense>
   );
 }

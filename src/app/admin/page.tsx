@@ -50,8 +50,13 @@ export default function AdminPage() {
     refreshUsers();
   }, [refreshUsers]);
 
+  useEffect(() => {
+    if (!isAdmin) {
+      router.replace('/');
+    }
+  }, [isAdmin, router]);
+
   if (!isAdmin) {
-    router.replace('/');
     return null;
   }
 
