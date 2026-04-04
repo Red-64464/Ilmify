@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Layers, BookOpen, Plus, Trash2, Upload, Smile, Edit3, FileJson } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
@@ -24,7 +23,7 @@ const DECK_COLORS = [
 ];
 
 export default function FlashcardsPage() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [expandedDeck, setExpandedDeck] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [showAddDeck, setShowAddDeck] = useState(false);
@@ -61,8 +60,9 @@ export default function FlashcardsPage() {
   const [decks, setDecks] = useState<FlashcardDeck[]>([]);
 
   useEffect(() => {
+    if (authLoading) return;
     flashcardRepository.getAllDecks().then(setDecks).catch(() => {});
-  }, [refreshKey]);
+  }, [refreshKey, authLoading]);
 
   const handleAddDeck = useCallback(async () => {
     if (!newTitle.trim() || !user) return;
@@ -288,15 +288,14 @@ export default function FlashcardsPage() {
                     className="mt-4 pt-4 flex flex-wrap items-center gap-3"
                     style={{ borderTop: '1px solid rgba(46,158,140,0.2)' }}
                   >
-                    <Link
-                      href={`/flashcards/${deck.id}`}
-                      className="inline-flex items-center gap-2 text-sm font-medium transition-colors"
-                      style={{ color: '#2e9e8c' }}
-                      onClick={(e) => e.stopPropagation()}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); window.location.href = `/flashcards/${deck.id}`; }}
+                      className="inline-flex items-center gap-2 text-sm font-medium transition-colors cursor-pointer"
+                      style={{ color: 'var(--accent)' }}
                     >
                       <BookOpen size={14} />
                       Étudier
-                    </Link>
+                    </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); setShowAddCard(deck.id); }}
                       className="inline-flex items-center gap-2 text-sm font-medium cursor-pointer transition-colors"

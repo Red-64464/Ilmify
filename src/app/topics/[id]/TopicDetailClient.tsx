@@ -17,7 +17,7 @@ import { useToast } from '@/components/ui/Toast';
 import type { Topic, TopicBlock } from '@/types';
 
 export default function TopicDetailClient({ id: propId }: { id: string }) {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const params = useParams();
   const id = (params?.id as string) || propId;
@@ -30,6 +30,8 @@ export default function TopicDetailClient({ id: propId }: { id: string }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!id || id === '_placeholder') return;
     setLoading(true);
     topicRepository.getById(id).then((t) => {
       setTopic(t);
@@ -38,7 +40,7 @@ export default function TopicDetailClient({ id: propId }: { id: string }) {
         setEditBlocks(t.blocks);
       }
     }).catch(() => {}).finally(() => setLoading(false));
-  }, [id]);
+  }, [id, authLoading]);
 
   const isOwner = user && topic && user.id === topic.userId;
 
@@ -178,7 +180,7 @@ export default function TopicDetailClient({ id: propId }: { id: string }) {
                   <button
                     onClick={handleTogglePin}
                     className="p-2 rounded-lg transition-colors cursor-pointer"
-                    style={{ color: topic.isPinned ? '#2e9e8c' : 'var(--text-muted)' }}
+                    style={{ color: topic.isPinned ? 'var(--accent)' : 'var(--text-muted)' }}
                     title={topic.isPinned ? 'Désépingler' : 'Épingler'}
                   >
                     <Pin size={16} />

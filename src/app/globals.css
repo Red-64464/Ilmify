@@ -109,6 +109,11 @@
   --text-secondary: #c8bca5;
   --text-muted: rgba(200, 188, 165, 0.55);
 
+  /* Accent */
+  --accent: #2e9e8c;
+  --accent-light: rgba(26, 122, 107, 0.15);
+  --gold: #d4ad4a;
+
   /* Glows */
   --glow-green: rgba(26, 122, 107, 0.08);
   --glow-gold: rgba(196, 154, 61, 0.06);

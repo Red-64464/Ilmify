@@ -30,7 +30,7 @@ const fadeUp = {
 };
 
 export default function CoursesPage() {
-  const { isAdmin, user } = useAuth();
+  const { isAdmin, user, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const [search, setSearch] = useState('');
   const [showCreateFolder, setShowCreateFolder] = useState(false);
@@ -45,20 +45,24 @@ export default function CoursesPage() {
   const [filteredPages, setFilteredPages] = useState<CoursePage[]>([]);
 
   useEffect(() => {
+    if (authLoading) return;
     courseRepository.getFolders().then(setFolders).catch(() => {});
     courseRepository.getAllPages().then(setAllPages).catch(() => {});
-  }, [refreshKey]);
+  }, [refreshKey, authLoading]);
 
   useEffect(() => {
+    if (authLoading) return;
     if (!search) { setFilteredPages([]); return; }
     courseRepository.searchPages(search).then(setFilteredPages).catch(() => {});
-  }, [search, refreshKey]);
+  }, [search, refreshKey, authLoading]);
 
   const [error, setError] = useState('');
+  const [creating, setCreating] = useState(false);
 
   const handleCreateFolder = useCallback(async () => {
-    if (!newFolderTitle.trim() || !user) return;
+    if (!newFolderTitle.trim() || !user || creating) return;
     try {
+      setCreating(true);
       setError('');
       await courseRepository.createFolder(user.id, {
         title: newFolderTitle.trim(),
@@ -72,12 +76,15 @@ export default function CoursesPage() {
       setRefreshKey((k) => k + 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur lors de la création');
+    } finally {
+      setCreating(false);
     }
-  }, [newFolderTitle, newFolderDesc, folders.length, user]);
+  }, [newFolderTitle, newFolderDesc, folders.length, user, creating]);
 
   const handleCreatePage = useCallback(async () => {
-    if (!newPageTitle.trim() || !newPageFolder || !user) return;
+    if (!newPageTitle.trim() || !newPageFolder || !user || creating) return;
     try {
+      setCreating(true);
       setError('');
       const page = await courseRepository.createPage(user.id, {
         folderId: newPageFolder,
@@ -89,11 +96,12 @@ export default function CoursesPage() {
       setShowCreatePage(false);
       setNewPageTitle('');
       setNewPageFolder('');
-      router.push(`/courses/${page.id}`);
+      window.location.href = `/courses/${page.id}`;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur lors de la création');
+      setCreating(false);
     }
-  }, [newPageTitle, newPageFolder, allPages, router, user]);
+  }, [newPageTitle, newPageFolder, allPages, user, creating]);
 
   const handleDeleteFolder = useCallback(async (id: string) => {
     try {
@@ -157,7 +165,7 @@ export default function CoursesPage() {
               {filteredPages.map((page) => (
                 <div
                   key={page.id}
-                  onClick={() => router.push(`/courses/${page.id}`)}
+                  onClick={() => { window.location.href = `/courses/${page.id}`; }}
                   className="cursor-pointer"
                 >
                   <Card glowColor="gold" className="p-4">
@@ -238,7 +246,7 @@ export default function CoursesPage() {
                     {pages.map((page) => (
                       <div
                         key={page.id}
-                        onClick={() => router.push(`/courses/${page.id}`)}
+                        onClick={() => { window.location.href = `/courses/${page.id}`; }}
                         className="cursor-pointer"
                       >
                         <Card glowColor="none" className="p-4">

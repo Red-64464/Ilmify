@@ -35,7 +35,7 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
         <Search
           size={18}
           className="absolute left-4 pointer-events-none transition-colors duration-200"
-          style={{ color: focused ? '#2e9e8c' : 'var(--text-muted)' }}
+          style={{ color: focused ? 'var(--accent)' : 'var(--text-muted)' }}
         />
         <input
           ref={ref}

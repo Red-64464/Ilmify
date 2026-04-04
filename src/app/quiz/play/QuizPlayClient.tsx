@@ -184,7 +184,7 @@ export default function QuizPlayClient() {
               let optionInlineStyle: React.CSSProperties = { border: '1px solid rgba(46,158,140,0.3)' };
               if (showResult && isCorrectOption) { optionStyle = 'border-green-500 bg-green-500/10'; optionInlineStyle = {}; }
               else if (showResult && isSelected && !isCorrectOption) { optionStyle = 'border-red-500 bg-red-500/10'; optionInlineStyle = {}; }
-              else if (isSelected) { optionStyle = ''; optionInlineStyle = { border: '1px solid #2e9e8c', background: 'rgba(46,158,140,0.1)' }; }
+              else if (isSelected) { optionStyle = ''; optionInlineStyle = { border: '1px solid var(--accent)', background: 'var(--accent-light)' }; }
 
               return (
                 <button
@@ -206,7 +206,7 @@ export default function QuizPlayClient() {
               let optionInlineStyle: React.CSSProperties = { border: '1px solid rgba(46,158,140,0.3)' };
               if (showResult && isCorrectOption) { optionStyle = 'border-green-500 bg-green-500/10'; optionInlineStyle = {}; }
               else if (showResult && isSelected && !isCorrectOption) { optionStyle = 'border-red-500 bg-red-500/10'; optionInlineStyle = {}; }
-              else if (isSelected) { optionStyle = ''; optionInlineStyle = { border: '1px solid #2e9e8c', background: 'rgba(46,158,140,0.1)' }; }
+              else if (isSelected) { optionStyle = ''; optionInlineStyle = { border: '1px solid var(--accent)', background: 'var(--accent-light)' }; }
 
               return (
                 <button
@@ -247,7 +247,7 @@ export default function QuizPlayClient() {
                           ...(selectedAnswer !== idx && !(showResult && idx === current.correctAnswer)
                             ? { border: '1px solid rgba(46,158,140,0.3)', color: 'var(--text-secondary)' }
                             : selectedAnswer === idx && !showResult
-                              ? { border: '1px solid #2e9e8c', background: 'rgba(46,158,140,0.1)', color: 'var(--text-primary)' }
+                              ? { border: '1px solid var(--accent)', background: 'var(--accent-light)', color: 'var(--text-primary)' }
                               : { color: 'var(--text-primary)' }),
                         }}
                       >

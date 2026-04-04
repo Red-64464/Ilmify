@@ -6,13 +6,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   User, Star, Brain, Layers, BookOpen, Settings,
   Info, Shield, Heart, LogOut, GraduationCap,
-  Camera, Edit3, Lock, Save, X, Check,
+  Camera, Edit3, Lock, Save, X, Check, Palette,
 } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAppTheme } from '@/contexts/ThemeContext';
 import AuthGuard from '@/components/layout/AuthGuard';
 import { topicRepository } from '@/lib/repositories/topicRepository';
 import { bookRepository } from '@/lib/repositories/bookRepository';
@@ -27,6 +28,7 @@ const menuItems = [
 
 export default function ProfilePage() {
   const { user, isAdmin, logout, updateUser, updatePassword } = useAuth();
+  const { currentTheme, setThemeById, themes } = useAppTheme();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -163,7 +165,7 @@ export default function ProfilePage() {
             onClick={() => fileInputRef.current?.click()}
             className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full cursor-pointer transition-transform hover:scale-110"
             style={{
-              background: 'linear-gradient(135deg, #2e9e8c, #1a7a6b)',
+              background: 'linear-gradient(135deg, var(--accent), #1a7a6b)',
               boxShadow: '0 2px 8px rgba(46,158,140,0.3)',
               border: '2px solid var(--bg-primary)',
             }}
@@ -213,7 +215,7 @@ export default function ProfilePage() {
               setShowChangePassword(true);
             }}
           >
-            Mot de passe
+            Changer le mot de passe
           </Button>
         </div>
       </motion.div>
@@ -291,6 +293,58 @@ export default function ProfilePage() {
           </motion.div>
         ))}
       </div>
+
+      {/* Theme Customization */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.15 }}
+        className="mb-8"
+      >
+        <div className="flex items-center gap-2 mb-3">
+          <Palette size={16} style={{ color: 'var(--text-secondary)' }} />
+          <h3 className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+            Personnaliser les couleurs
+          </h3>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          {themes.map((theme) => (
+            <button
+              key={theme.id}
+              onClick={() => setThemeById(theme.id)}
+              className="relative rounded-xl p-3 text-center transition-all duration-300 cursor-pointer"
+              style={{
+                background: theme.colors.bgCard,
+                border: currentTheme.id === theme.id
+                  ? `2px solid ${theme.colors.accent}`
+                  : '2px solid transparent',
+                boxShadow: currentTheme.id === theme.id
+                  ? `0 0 16px ${theme.colors.accentGlow}`
+                  : 'none',
+              }}
+            >
+              <div
+                className="mx-auto mb-2 h-8 w-8 rounded-full"
+                style={{ background: theme.preview }}
+              />
+              <p
+                className="text-[11px] font-medium leading-tight"
+                style={{ color: currentTheme.id === theme.id ? theme.colors.accent : theme.colors.textSecondary }}
+              >
+                {theme.name}
+              </p>
+              {currentTheme.id === theme.id && (
+                <div
+                  className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full"
+                  style={{ background: theme.colors.accent }}
+                >
+                  <Check size={10} style={{ color: '#fff' }} />
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
+      </motion.div>
 
       {/* Menu */}
       <div className="space-y-2 mb-8">

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, Edit3, Save, Trash2, GraduationCap,
@@ -15,9 +15,11 @@ import { courseRepository } from '@/lib/repositories/courseRepository';
 import { useToast } from '@/components/ui/Toast';
 import type { CoursePage, TopicBlock } from '@/types';
 
-export default function CourseDetailClient({ id }: { id: string }) {
-  const { isAdmin } = useAuth();
+export default function CourseDetailClient({ id: propId }: { id: string }) {
+  const { isAdmin, user, isLoading: authLoading } = useAuth();
   const router = useRouter();
+  const params = useParams();
+  const id = (params?.id as string) || propId;
   const { toast } = useToast();
   const [page, setPage] = useState<CoursePage | null>(null);
   const [loading, setLoading] = useState(true);
@@ -28,6 +30,8 @@ export default function CourseDetailClient({ id }: { id: string }) {
   const [folder, setFolder] = useState<{ id: string; title: string; icon?: string } | null>(null);
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!id || id === '_placeholder') return;
     setLoading(true);
     courseRepository.getPageById(id).then((p) => {
       setPage(p);
@@ -37,7 +41,7 @@ export default function CourseDetailClient({ id }: { id: string }) {
         courseRepository.getFolderById(p.folderId).then(setFolder).catch(() => {});
       }
     }).catch(() => {}).finally(() => setLoading(false));
-  }, [id]);
+  }, [id, authLoading]);
 
   const handleSave = useCallback(async () => {
     if (!page) return;

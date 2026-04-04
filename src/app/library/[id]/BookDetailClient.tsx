@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useParams } from 'next/navigation';
 import { BookOpen, Star, FileQuestion, BookMarked, Plus, Upload, Link2, Image } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import Badge from '@/components/ui/Badge';
@@ -23,14 +24,18 @@ const fadeUp = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] as const } },
 };
 
-export default function BookDetailClient({ id }: { id: string }) {
-  const { user } = useAuth();
+export default function BookDetailClient({ id: propId }: { id: string }) {
+  const { user, isLoading: authLoading } = useAuth();
+  const params = useParams();
+  const id = (params?.id as string) || propId;
   const [refreshKey, setRefreshKey] = useState(0);
   const [book, setBook] = useState<Book | null>(null);
   const [passages, setPassages] = useState<BookPassage[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!id || id === '_placeholder') return;
     setLoading(true);
     Promise.all([
       bookRepository.getById(id),
@@ -39,7 +44,7 @@ export default function BookDetailClient({ id }: { id: string }) {
       setBook(b);
       setPassages(p);
     }).catch(() => {}).finally(() => setLoading(false));
-  }, [id, refreshKey]);
+  }, [id, refreshKey, authLoading]);
 
   // Add passage state
   const [showAddPassage, setShowAddPassage] = useState(false);
@@ -215,7 +220,7 @@ export default function BookDetailClient({ id }: { id: string }) {
                   border: '1px solid rgba(26,122,107,0.08)',
                 }}
               >
-                <p className="text-xs mb-1.5 font-medium" style={{ color: '#2e9e8c' }}>Notes personnelles</p>
+                <p className="text-xs mb-1.5 font-medium" style={{ color: 'var(--accent)' }}>Notes personnelles</p>
                 <p className="text-sm leading-[1.8]" style={{ color: 'var(--text-secondary)' }}>
                   {book.personalNotes}
                 </p>

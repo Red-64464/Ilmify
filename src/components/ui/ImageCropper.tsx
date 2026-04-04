@@ -147,7 +147,7 @@ export default function ImageCropper({ imageDataUrl, onCrop, onCancel, aspectRat
             max={300}
             value={zoom * 100}
             onChange={(e) => setZoom(Number(e.target.value) / 100)}
-            className="w-40 accent-[#2e9e8c]"
+            className="w-40 accent-emerald-600"
             style={{ height: 4 }}
           />
           <button
@@ -184,7 +184,7 @@ export default function ImageCropper({ imageDataUrl, onCrop, onCancel, aspectRat
           <button
             onClick={handleCrop}
             className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium cursor-pointer transition-colors"
-            style={{ background: 'rgba(46,158,140,0.15)', color: '#2e9e8c', border: '1px solid rgba(46,158,140,0.25)' }}
+            style={{ background: 'var(--accent-light)', color: 'var(--accent)', border: '1px solid rgba(46,158,140,0.25)' }}
           >
             <Check size={14} />
             Valider

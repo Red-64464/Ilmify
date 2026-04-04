@@ -49,8 +49,8 @@ function NavLink({
       href={href}
       className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200"
       style={{
-        color: isActive ? '#2e9e8c' : 'var(--text-secondary)',
-        background: isActive ? 'rgba(26, 122, 107, 0.08)' : 'transparent',
+        color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
+        background: isActive ? 'var(--accent-light)' : 'transparent',
       }}
       onMouseEnter={(e) => {
         if (!isActive) {
@@ -92,7 +92,7 @@ export default function Sidebar() {
           <Image src="/logo.png" alt="Ilmify" fill className="object-contain" />
         </div>
         <div>
-          <span className="text-lg font-bold tracking-tight" style={{ color: '#2e9e8c' }}>
+          <span className="text-lg font-bold tracking-tight" style={{ color: 'var(--accent)' }}>
             Ilmify
           </span>
           <p className="text-[10px] tracking-widest uppercase" style={{ color: 'var(--text-muted)' }}>

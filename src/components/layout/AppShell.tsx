@@ -6,6 +6,7 @@ import BottomNav from './BottomNav';
 import { SplashScreen } from './SplashScreen';
 import { ToastProvider } from '@/components/ui/Toast';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { ThemeProvider } from '@/contexts/ThemeContext';
 
 const AUTH_ROUTES = ['/login', '/signup'];
 
@@ -32,9 +33,11 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
 export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
-      <ToastProvider>
-        <AppShellInner>{children}</AppShellInner>
-      </ToastProvider>
+      <ThemeProvider>
+        <ToastProvider>
+          <AppShellInner>{children}</AppShellInner>
+        </ToastProvider>
+      </ThemeProvider>
     </AuthProvider>
   );
 }

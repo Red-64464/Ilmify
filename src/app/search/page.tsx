@@ -18,7 +18,7 @@ import { searchAll, popularSearches } from '@/lib/search';
 import type { SearchResult } from '@/types';
 
 const typeConfig: Record<string, { icon: typeof Star; color: string; label: string }> = {
-  theme: { icon: Star, color: '#2e9e8c', label: 'Thème' },
+  theme: { icon: Star, color: 'var(--accent)', label: 'Thème' },
   content: { icon: FileText, color: '#d4ad4a', label: 'Contenu' },
   quiz: { icon: Brain, color: '#7c7cf0', label: 'Quiz' },
   flashcard: { icon: Layers, color: '#28c4b0', label: 'Flashcard' },

@@ -377,7 +377,7 @@ export default function AdminPage() {
                 style={{
                   background: newRole === 'user' ? 'rgba(46,158,140,0.15)' : 'var(--bg-card)',
                   border: `1px solid ${newRole === 'user' ? 'rgba(46,158,140,0.3)' : 'var(--border-light)'}`,
-                  color: newRole === 'user' ? '#2e9e8c' : 'var(--text-secondary)',
+                  color: newRole === 'user' ? 'var(--accent)' : 'var(--text-secondary)',
                 }}
               >
                 Utilisateur

@@ -2,16 +2,21 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useParams } from 'next/navigation';
 import { RotateCcw, ChevronLeft, ChevronRight, FileQuestion } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import EmptyState from '@/components/ui/EmptyState';
+import { useAuth } from '@/contexts/AuthContext';
 import { flashcardRepository } from '@/lib/repositories/flashcardRepository';
 import type { FlashcardDeck, Flashcard } from '@/types';
 
-export default function FlashcardStudyClient({ id }: { id: string }) {
+export default function FlashcardStudyClient({ id: propId }: { id: string }) {
+  const { isLoading: authLoading } = useAuth();
+  const params = useParams();
+  const id = (params?.id as string) || propId;
   const [currentIndex, setCurrentIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [deck, setDeck] = useState<FlashcardDeck | null>(null);
@@ -19,6 +24,8 @@ export default function FlashcardStudyClient({ id }: { id: string }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!id || id === '_placeholder') return;
     Promise.all([
       flashcardRepository.getDeckById(id),
       flashcardRepository.getCardsByDeck(id),
@@ -29,7 +36,7 @@ export default function FlashcardStudyClient({ id }: { id: string }) {
     }).catch(() => {
       setLoading(false);
     });
-  }, [id]);
+  }, [id, authLoading]);
 
   if (loading) {
     return (

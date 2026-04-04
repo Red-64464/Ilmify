@@ -174,7 +174,7 @@ export default function ThemeDetailClient({ id }: { id: string }) {
                       {item.content}
                     </p>
                     {item.source && (
-                      <p className="text-xs mt-3 font-medium" style={{ color: '#2e9e8c' }}>
+                      <p className="text-xs mt-3 font-medium" style={{ color: 'var(--accent)' }}>
                         {item.source}
                       </p>
                     )}

@@ -36,7 +36,7 @@ export default function BottomNav() {
               href={href}
               className="flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all duration-200"
               style={{
-                color: isActive ? '#2e9e8c' : 'var(--text-muted)',
+                color: isActive ? 'var(--accent)' : 'var(--text-muted)',
               }}
             >
               <motion.div

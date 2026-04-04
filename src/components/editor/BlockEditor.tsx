@@ -18,13 +18,13 @@ const BLOCK_TYPES: { type: BlockType; icon: React.ElementType; label: string; sh
   { type: 'heading2', icon: Heading2, label: 'Titre H2', shortcut: '/h2', color: 'var(--text-primary)' },
   { type: 'heading3', icon: Heading3, label: 'Sous-titre H3', shortcut: '/h3', color: 'var(--text-primary)' },
   { type: 'quote', icon: Quote, label: 'Citation', shortcut: '/quote', color: '#d4ad4a' },
-  { type: 'bullet-list', icon: List, label: 'Liste à puces', shortcut: '/list', color: '#2e9e8c' },
-  { type: 'numbered-list', icon: ListOrdered, label: 'Liste numérotée', shortcut: '/numbered', color: '#2e9e8c' },
+  { type: 'bullet-list', icon: List, label: 'Liste à puces', shortcut: '/list', color: 'var(--accent)' },
+  { type: 'numbered-list', icon: ListOrdered, label: 'Liste numérotée', shortcut: '/numbered', color: 'var(--accent)' },
   { type: 'callout', icon: AlertCircle, label: 'Important', shortcut: '/important', color: '#d4ad4a' },
   { type: 'reflection', icon: Lightbulb, label: 'Réflexion', shortcut: '/reflection', color: '#56e2cc' },
   { type: 'reminder', icon: Bell, label: 'Rappel', shortcut: '/reminder', color: '#f59e0b' },
   { type: 'source', icon: BookOpen, label: 'Source / Référence', shortcut: '/source', color: '#6366f1' },
-  { type: 'hadith', icon: BookMarked, label: 'Hadith', shortcut: '/hadith', color: '#2e9e8c' },
+  { type: 'hadith', icon: BookMarked, label: 'Hadith', shortcut: '/hadith', color: 'var(--accent)' },
   { type: 'verse', icon: BookOpen, label: 'Verset', shortcut: '/verse', color: '#d4ad4a' },
   { type: 'image', icon: Image, label: 'Image', shortcut: '/image', color: '#ec4899' },
   { type: 'link', icon: Link2, label: 'Lien', shortcut: '/link', color: '#3b82f6' },
@@ -394,7 +394,7 @@ function EditableBlock({
             background: 'rgba(46, 158, 140, 0.06)',
             borderRadius: '0.75rem',
             padding: '1rem',
-            borderLeft: '3px solid #2e9e8c',
+            borderLeft: '3px solid var(--accent)',
           },
           textarea: {},
           placeholder: '[Exemple] Texte du hadith...',
@@ -599,7 +599,7 @@ function EditableBlock({
                       },
                     })
                   }
-                  className="flex-1 accent-[#2e9e8c]"
+                  className="flex-1 accent-emerald-600"
                   style={{ height: '4px' }}
                 />
                 <span className="text-[10px] w-10 text-right" style={{ color: 'var(--text-muted)' }}>
@@ -899,12 +899,12 @@ function ReadOnlyBlock({ block }: { block: TopicBlock }) {
           className="my-4 rounded-xl p-4"
           style={{
             background: 'rgba(46, 158, 140, 0.06)',
-            borderLeft: '3px solid #2e9e8c',
+            borderLeft: '3px solid var(--accent)',
           }}
         >
           <div className="flex items-center gap-1.5 mb-2">
-            <BookMarked size={14} style={{ color: '#2e9e8c' }} />
-            <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: '#2e9e8c' }}>
+            <BookMarked size={14} style={{ color: 'var(--accent)' }} />
+            <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--accent)' }}>
               Hadith
             </span>
           </div>

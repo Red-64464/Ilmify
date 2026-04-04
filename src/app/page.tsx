@@ -22,7 +22,7 @@ import { bookRepository } from '@/lib/repositories/bookRepository';
 import { dailyReminders } from '@/data/daily';
 
 const quickLinks = [
-  { href: '/topics', icon: FileText, label: 'Mes Topics', color: '#2e9e8c', gradient: 'linear-gradient(135deg, rgba(26,122,107,0.12), rgba(18,163,147,0.06))' },
+  { href: '/topics', icon: FileText, label: 'Mes Topics', color: 'var(--accent)', gradient: 'linear-gradient(135deg, rgba(26,122,107,0.12), rgba(18,163,147,0.06))' },
   { href: '/courses', icon: GraduationCap, label: 'Cours', color: '#d4ad4a', gradient: 'linear-gradient(135deg, rgba(196,154,61,0.1), rgba(168,128,49,0.06))' },
   { href: '/library', icon: BookOpen, label: 'Bibliothèque', color: '#6366f1', gradient: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(139,92,246,0.06))' },
   { href: '/explore', icon: Star, label: 'Explorer', color: '#28c4b0', gradient: 'linear-gradient(135deg, rgba(18,163,147,0.1), rgba(40,196,176,0.06))' },
@@ -59,9 +59,9 @@ export default function HomePage() {
   // Navigate to search page when user types
   useEffect(() => {
     if (search.trim()) {
-      router.push(`/search?q=${encodeURIComponent(search.trim())}`);
+      window.location.href = `/search?q=${encodeURIComponent(search.trim())}`;
     }
-  }, [search, router]);
+  }, [search]);
 
   const [recentTopics, setRecentTopics] = useState<{ id: string; title: string; updatedAt: string; icon?: string }[]>([]);
   const [readingBooks, setReadingBooks] = useState<{ id: string; title: string; author: string; progress?: number }[]>([]);
@@ -176,7 +176,7 @@ export default function HomePage() {
               As-salamu alaykum{user ? `, ${user.displayName}` : ''}
             </h1>
             <p className="text-sm sm:text-base max-w-md leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-              Bienvenue sur <span style={{ color: '#2e9e8c' }} className="font-semibold">Ilmify</span>, votre espace
+              Bienvenue sur <span style={{ color: 'var(--accent)' }} className="font-semibold">Ilmify</span>, votre espace
               de savoir islamique.
             </p>
           </div>

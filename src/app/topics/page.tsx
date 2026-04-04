@@ -62,20 +62,23 @@ export default function TopicsPage() {
   }, [user, search, categoryFilter, refreshKey]);
 
   const [error, setError] = useState('');
+  const [creating, setCreating] = useState(false);
 
   const handleCreate = useCallback(async () => {
-    if (!user || !newTitle.trim()) return;
+    if (!user || !newTitle.trim() || creating) return;
     try {
+      setCreating(true);
       setError('');
       const topic = await topicRepository.create(user.id, newTitle.trim(), newCategory || undefined);
       setShowCreateModal(false);
       setNewTitle('');
       setNewCategory('');
-      router.push(`/topics/${topic.id}`);
+      window.location.href = `/topics/${topic.id}`;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur lors de la création');
+      setCreating(false);
     }
-  }, [user, newTitle, newCategory, router]);
+  }, [user, newTitle, newCategory, creating]);
 
   const handleAction = useCallback(
     async (action: string, topic: Topic) => {
@@ -146,8 +149,8 @@ export default function TopicsPage() {
               onClick={() => setCategoryFilter(cat)}
               className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-200 cursor-pointer"
               style={{
-                background: categoryFilter === cat ? 'rgba(26, 122, 107, 0.15)' : 'rgba(255,255,255,0.04)',
-                color: categoryFilter === cat ? '#2e9e8c' : 'var(--text-muted)',
+                background: categoryFilter === cat ? 'var(--accent-light)' : 'rgba(255,255,255,0.04)',
+                color: categoryFilter === cat ? 'var(--accent)' : 'var(--text-muted)',
                 border: categoryFilter === cat ? '1px solid rgba(26, 122, 107, 0.2)' : '1px solid transparent',
               }}
             >
@@ -160,7 +163,7 @@ export default function TopicsPage() {
             onClick={() => setViewMode('list')}
             className="p-1.5 rounded-lg transition-colors cursor-pointer"
             style={{
-              color: viewMode === 'list' ? '#2e9e8c' : 'var(--text-muted)',
+              color: viewMode === 'list' ? 'var(--accent)' : 'var(--text-muted)',
               background: viewMode === 'list' ? 'rgba(26, 122, 107, 0.1)' : 'transparent',
             }}
           >
@@ -170,7 +173,7 @@ export default function TopicsPage() {
             onClick={() => setViewMode('grid')}
             className="p-1.5 rounded-lg transition-colors cursor-pointer"
             style={{
-              color: viewMode === 'grid' ? '#2e9e8c' : 'var(--text-muted)',
+              color: viewMode === 'grid' ? 'var(--accent)' : 'var(--text-muted)',
               background: viewMode === 'grid' ? 'rgba(26, 122, 107, 0.1)' : 'transparent',
             }}
           >
@@ -209,7 +212,7 @@ export default function TopicsPage() {
                         <h3 className="text-sm font-semibold tracking-tight truncate" style={{ color: 'var(--text-primary)' }}>
                           {topic.title}
                         </h3>
-                        {topic.isPinned && <Pin size={12} style={{ color: '#2e9e8c' }} />}
+                        {topic.isPinned && <Pin size={12} style={{ color: 'var(--accent)' }} />}
                         {topic.isFavorite && <Heart size={12} style={{ color: '#d4ad4a' }} fill="#d4ad4a" />}
                       </div>
                       <div className="flex items-center gap-2 mt-1">
@@ -339,8 +342,8 @@ export default function TopicsPage() {
                   onClick={() => setNewCategory(newCategory === cat ? '' : cat)}
                   className="px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 cursor-pointer"
                   style={{
-                    background: newCategory === cat ? 'rgba(26, 122, 107, 0.15)' : 'rgba(255,255,255,0.04)',
-                    color: newCategory === cat ? '#2e9e8c' : 'var(--text-muted)',
+                    background: newCategory === cat ? 'var(--accent-light)' : 'rgba(255,255,255,0.04)',
+                    color: newCategory === cat ? 'var(--accent)' : 'var(--text-muted)',
                     border: newCategory === cat ? '1px solid rgba(26, 122, 107, 0.2)' : '1px solid transparent',
                   }}
                 >
@@ -356,8 +359,8 @@ export default function TopicsPage() {
             <Button variant="secondary" size="md" onClick={() => { setShowCreateModal(false); setError(''); }} className="flex-1">
               Annuler
             </Button>
-            <Button variant="primary" size="md" onClick={handleCreate} disabled={!newTitle.trim()} className="flex-1">
-              Créer
+            <Button variant="primary" size="md" onClick={handleCreate} disabled={!newTitle.trim() || creating} className="flex-1">
+              {creating ? 'Création...' : 'Créer'}
             </Button>
           </div>
         </div>
