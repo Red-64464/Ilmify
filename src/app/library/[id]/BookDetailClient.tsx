@@ -122,7 +122,7 @@ export default function BookDetailClient({ id }: { id: string }) {
               >
                 {book.coverUrl ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={book.coverUrl} alt="" className="h-full w-full object-cover" />
+                  <img src={book.coverUrl} alt="" className="h-full w-full object-contain" />
                 ) : (
                   <BookOpen size={28} style={{ color: '#d4ad4a' }} />
                 )}

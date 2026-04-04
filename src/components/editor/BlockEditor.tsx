@@ -10,6 +10,7 @@ import {
   Upload, PlusCircle, MinusCircle, Columns, Rows,
 } from 'lucide-react';
 import type { TopicBlock, BlockType } from '@/types';
+import ImageCropper from '@/components/ui/ImageCropper';
 
 // Block type definitions with metadata
 const BLOCK_TYPES: { type: BlockType; icon: React.ElementType; label: string; shortcut: string; color: string }[] = [
@@ -293,6 +294,8 @@ function EditableBlock({
   const [showSlash, setShowSlash] = useState(false);
   const [slashFilter, setSlashFilter] = useState('');
   const [showActions, setShowActions] = useState(false);
+  const [cropImage, setCropImage] = useState<string | null>(null);
+  const [cropFileName, setCropFileName] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleInput = useCallback(
@@ -623,19 +626,32 @@ function EditableBlock({
                   if (file) {
                     const reader = new FileReader();
                     reader.onload = (ev) => {
-                      onUpdate({
-                        content: file.name,
-                        metadata: {
-                          ...block.metadata,
-                          dataUrl: ev.target?.result as string,
-                          fileName: file.name,
-                        },
-                      });
+                      setCropImage(ev.target?.result as string);
+                      setCropFileName(file.name);
                     };
                     reader.readAsDataURL(file);
                   }
                 }}
               />
+            </label>
+            {cropImage && (
+              <ImageCropper
+                imageDataUrl={cropImage}
+                onCrop={(croppedDataUrl) => {
+                  onUpdate({
+                    content: cropFileName,
+                    metadata: {
+                      ...block.metadata,
+                      dataUrl: croppedDataUrl,
+                      fileName: cropFileName,
+                    },
+                  });
+                  setCropImage(null);
+                  setCropFileName('');
+                }}
+                onCancel={() => { setCropImage(null); setCropFileName(''); }}
+              />
+            )}
             </label>
           </div>
         )}
@@ -1157,8 +1173,140 @@ function ReadOnlyBlock({ block }: { block: TopicBlock }) {
   }
 }
 
+// Parse pasted text into blocks (auto-format)
+function parsePastedText(text: string): TopicBlock[] {
+  const lines = text.split('\n');
+  const blocks: TopicBlock[] = [];
+  let currentListLines: string[] = [];
+  let currentListType: 'bullet-list' | 'numbered-list' | null = null;
+
+  const flushList = () => {
+    if (currentListLines.length > 0 && currentListType) {
+      blocks.push({
+        id: generateBlockId(),
+        type: currentListType,
+        content: currentListLines.join('\n'),
+        order: blocks.length,
+      });
+      currentListLines = [];
+      currentListType = null;
+    }
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      flushList();
+      continue;
+    }
+
+    // Headings
+    if (trimmed.startsWith('## ')) {
+      flushList();
+      blocks.push({ id: generateBlockId(), type: 'heading2', content: trimmed.slice(3), order: blocks.length });
+      continue;
+    }
+    if (trimmed.startsWith('### ')) {
+      flushList();
+      blocks.push({ id: generateBlockId(), type: 'heading3', content: trimmed.slice(4), order: blocks.length });
+      continue;
+    }
+    if (trimmed.startsWith('# ')) {
+      flushList();
+      blocks.push({ id: generateBlockId(), type: 'heading2', content: trimmed.slice(2), order: blocks.length });
+      continue;
+    }
+
+    // Dividers
+    if (/^[-*_]{3,}$/.test(trimmed)) {
+      flushList();
+      blocks.push({ id: generateBlockId(), type: 'divider', content: '', order: blocks.length });
+      continue;
+    }
+
+    // Blockquote
+    if (trimmed.startsWith('> ')) {
+      flushList();
+      // Collect consecutive quote lines
+      let quoteContent = trimmed.slice(2);
+      while (i + 1 < lines.length && lines[i + 1].trim().startsWith('> ')) {
+        i++;
+        quoteContent += '\n' + lines[i].trim().slice(2);
+      }
+      blocks.push({ id: generateBlockId(), type: 'quote', content: quoteContent, order: blocks.length });
+      continue;
+    }
+
+    // Bullet list items
+    if (/^[-*+]\s/.test(trimmed)) {
+      if (currentListType !== 'bullet-list') {
+        flushList();
+        currentListType = 'bullet-list';
+      }
+      currentListLines.push(trimmed.replace(/^[-*+]\s/, ''));
+      continue;
+    }
+
+    // Numbered list items
+    if (/^\d+[.)]\s/.test(trimmed)) {
+      if (currentListType !== 'numbered-list') {
+        flushList();
+        currentListType = 'numbered-list';
+      }
+      currentListLines.push(trimmed.replace(/^\d+[.)]\s/, ''));
+      continue;
+    }
+
+    // URLs become link blocks
+    if (/^https?:\/\/\S+$/.test(trimmed)) {
+      flushList();
+      // Check if YouTube
+      if (/youtube\.com|youtu\.be/.test(trimmed)) {
+        blocks.push({ id: generateBlockId(), type: 'youtube', content: trimmed, order: blocks.length });
+      } else {
+        blocks.push({ id: generateBlockId(), type: 'link', content: trimmed, order: blocks.length });
+      }
+      continue;
+    }
+
+    // Default: paragraph
+    flushList();
+    blocks.push({ id: generateBlockId(), type: 'paragraph', content: trimmed, order: blocks.length });
+  }
+
+  flushList();
+
+  // If nothing was parsed, return a single paragraph
+  if (blocks.length === 0) {
+    blocks.push({ id: generateBlockId(), type: 'paragraph', content: text, order: 0 });
+  }
+
+  return blocks;
+}
+
 // Main editor component
 export default function BlockEditor({ blocks, onChange, readOnly = false }: BlockEditorProps) {
+  const handlePaste = useCallback(
+    (e: React.ClipboardEvent) => {
+      const text = e.clipboardData.getData('text/plain');
+      if (!text) return;
+
+      // Only auto-format if paste has multiple lines or markdown-like syntax
+      const hasFormatting = text.includes('\n') || /^(#{1,3}\s|[-*+]\s|\d+[.)]\s|>\s|https?:\/\/|[-*_]{3,})/.test(text.trim());
+      if (!hasFormatting) return;
+
+      e.preventDefault();
+      const newBlocks = parsePastedText(text);
+      // Re-order all blocks
+      const updated = [...blocks, ...newBlocks];
+      updated.forEach((b, i) => (b.order = i));
+      onChange(updated);
+    },
+    [blocks, onChange]
+  );
+
   const addBlock = useCallback(
     (afterIndex: number, type: BlockType = 'paragraph') => {
       const newBlock: TopicBlock = {
@@ -1220,7 +1368,7 @@ export default function BlockEditor({ blocks, onChange, readOnly = false }: Bloc
   }
 
   return (
-    <div className="pl-10 space-y-2">
+    <div className="pl-10 space-y-2" onPaste={handlePaste}>
       {blocks
         .sort((a, b) => a.order - b.order)
         .map((block, index) => (

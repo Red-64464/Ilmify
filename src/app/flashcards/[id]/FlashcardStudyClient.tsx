@@ -8,14 +8,14 @@ import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import EmptyState from '@/components/ui/EmptyState';
-import { flashcardDecks, flashcards } from '@/data/flashcards';
+import { flashcardRepository } from '@/lib/repositories/flashcardRepository';
 
 export default function FlashcardStudyClient({ id }: { id: string }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
 
-  const deck = flashcardDecks.find((d) => d.id === id);
-  const cards = flashcards.filter((c) => c.deckId === id);
+  const deck = flashcardRepository.getDeckById(id);
+  const cards = flashcardRepository.getCardsByDeck(id);
 
   if (!deck || cards.length === 0) {
     return (

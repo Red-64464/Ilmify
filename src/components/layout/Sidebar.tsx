@@ -14,6 +14,7 @@ import {
   Heart,
   Settings,
   Compass,
+  LogOut,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -72,7 +73,7 @@ function NavLink({
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { isAdmin } = useAuth();
+  const { isAdmin, logout, user } = useAuth();
 
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' : pathname.startsWith(href);
@@ -123,10 +124,29 @@ export default function Sidebar() {
 
       {/* Footer */}
       <div
-        className="px-7 py-5"
+        className="px-5 py-4 space-y-3"
         style={{ borderTop: '1px solid var(--border-subtle)' }}
       >
-        <p className="text-[11px] tracking-wide" style={{ color: 'var(--text-muted)' }}>
+        {user && (
+          <button
+            onClick={() => { logout(); window.location.href = '/login'; }}
+            className="flex items-center gap-3 w-full rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200 cursor-pointer"
+            style={{
+              color: '#f87171',
+              background: 'rgba(248, 113, 113, 0.06)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(248, 113, 113, 0.12)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(248, 113, 113, 0.06)';
+            }}
+          >
+            <LogOut size={18} strokeWidth={1.8} />
+            <span>Se déconnecter</span>
+          </button>
+        )}
+        <p className="text-[11px] tracking-wide px-4" style={{ color: 'var(--text-muted)' }}>
           Ilmify v0.1.0
         </p>
       </div>

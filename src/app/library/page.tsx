@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, Star, Plus, Upload, Smile } from 'lucide-react';
+import { BookOpen, Star, Plus, Upload, Smile, Trash2 } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import Card from '@/components/ui/Card';
 import SearchInput from '@/components/ui/SearchInput';
@@ -13,6 +13,7 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import EmptyState from '@/components/ui/EmptyState';
+import ImageCropper from '@/components/ui/ImageCropper';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthGuard from '@/components/layout/AuthGuard';
 import { bookRepository } from '@/lib/repositories/bookRepository';
@@ -57,6 +58,7 @@ export default function LibraryPage() {
   const [newEmoji, setNewEmoji] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [cropImage, setCropImage] = useState<string | null>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
 
   const books = useMemo(() => bookRepository.getAll(), [refreshKey]);
@@ -98,10 +100,16 @@ export default function LibraryPage() {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
-      setNewCoverUrl(ev.target?.result as string);
+      setCropImage(ev.target?.result as string);
     };
     reader.readAsDataURL(file);
   };
+
+  const handleDeleteBook = useCallback((bookId: string) => {
+    if (!confirm('Supprimer ce livre et tous ses passages ?')) return;
+    bookRepository.delete(bookId);
+    setRefreshKey((k) => k + 1);
+  }, []);
 
   return (
     <AuthGuard>
@@ -146,7 +154,22 @@ export default function LibraryPage() {
           {filtered.map((book) => (
             <motion.div key={book.id} variants={fadeUp}>
               <Link href={`/library/${book.id}`}>
-                <Card glowColor="gold" className="p-5 h-full">
+                <Card glowColor="gold" className="p-5 h-full relative group/card">
+                  {/* Delete button */}
+                  {user && (
+                    <button
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteBook(book.id); }}
+                      className="absolute top-3 right-3 p-1.5 rounded-lg opacity-0 group-hover/card:opacity-100 transition-all duration-200 cursor-pointer z-10"
+                      style={{
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        color: '#f87171',
+                        border: '1px solid rgba(239, 68, 68, 0.15)',
+                      }}
+                      title="Supprimer ce livre"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
                   <div className="flex items-start gap-3 mb-4">
                     <div
                       className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl overflow-hidden"
@@ -156,7 +179,7 @@ export default function LibraryPage() {
                     >
                       {book.coverUrl ? (
                         /* eslint-disable-next-line @next/next/no-img-element */
-                        <img src={book.coverUrl} alt="" className="h-full w-full object-cover" />
+                        <img src={book.coverUrl} alt="" className="h-full w-full object-contain" />
                       ) : (
                         <BookOpen size={20} style={{ color: '#d4ad4a' }} />
                       )}
@@ -249,7 +272,7 @@ export default function LibraryPage() {
               >
                 {newCoverUrl ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={newCoverUrl} alt="" className="h-full w-full object-cover" />
+                  <img src={newCoverUrl} alt="" className="h-full w-full object-contain" />
                 ) : (
                   <BookOpen size={16} style={{ color: 'var(--text-muted)' }} />
                 )}
@@ -401,6 +424,18 @@ export default function LibraryPage() {
           </div>
         </div>
       </Modal>
+
+      {/* Image cropper */}
+      {cropImage && (
+        <ImageCropper
+          imageDataUrl={cropImage}
+          onCrop={(croppedDataUrl) => {
+            setNewCoverUrl(croppedDataUrl);
+            setCropImage(null);
+          }}
+          onCancel={() => setCropImage(null)}
+        />
+      )}
     </div>
     </AuthGuard>
   );
