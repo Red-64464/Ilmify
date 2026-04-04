@@ -19,8 +19,13 @@ export default function BottomNav() {
   return (
     <nav className="fixed bottom-0 inset-x-0 z-50 lg:hidden">
       <div
-        className="glass safe-bottom flex items-center justify-around px-2 pt-2 pb-2"
-        style={{ borderTop: '1px solid var(--border-subtle)' }}
+        className="safe-bottom flex items-center justify-around px-3 pt-2.5 pb-2.5"
+        style={{
+          background: 'rgba(6, 18, 15, 0.92)',
+          backdropFilter: 'blur(24px) saturate(1.3)',
+          WebkitBackdropFilter: 'blur(24px) saturate(1.3)',
+          borderTop: '1px solid rgba(255,255,255,0.04)',
+        }}
       >
         {navItems.map(({ href, label, icon: Icon }) => {
           const isActive = href === '/' ? pathname === '/' : pathname.startsWith(href);
@@ -29,21 +34,31 @@ export default function BottomNav() {
             <Link
               key={href}
               href={href}
-              className="flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl transition-colors"
-              style={{ color: isActive ? '#3aaa60' : 'var(--text-muted)' }}
+              className="flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all duration-200"
+              style={{
+                color: isActive ? '#2e9e8c' : 'var(--text-muted)',
+              }}
             >
               <motion.div
-                animate={{ scale: isActive ? 1.15 : 1 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                style={
-                  isActive
-                    ? { filter: 'drop-shadow(0 0 6px rgba(58, 170, 96, 0.4))' }
-                    : undefined
-                }
+                animate={{ scale: isActive ? 1.1 : 1, y: isActive ? -1 : 0 }}
+                transition={{ type: 'spring' as const, stiffness: 400, damping: 20 }}
               >
-                <Icon size={22} strokeWidth={isActive ? 2.4 : 1.8} />
+                <Icon size={22} strokeWidth={isActive ? 2.2 : 1.6} />
               </motion.div>
-              <span className="text-[10px] font-medium leading-tight">{label}</span>
+              <span
+                className="text-[10px] font-medium leading-tight"
+                style={{ opacity: isActive ? 1 : 0.7 }}
+              >
+                {label}
+              </span>
+              {isActive && (
+                <motion.div
+                  layoutId="nav-dot"
+                  className="absolute -top-0.5 w-5 h-0.5 rounded-full"
+                  style={{ background: 'linear-gradient(90deg, #1a7a6b, #12a393)' }}
+                  transition={{ type: 'spring' as const, stiffness: 400, damping: 30 }}
+                />
+              )}
             </Link>
           );
         })}

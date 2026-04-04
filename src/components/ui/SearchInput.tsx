@@ -21,19 +21,21 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
 
     return (
       <div
-        className={`relative flex items-center rounded-xl transition-all duration-300 ${className}`}
+        className={`relative flex items-center rounded-2xl transition-all duration-300 ${className}`}
         style={{
-          background: 'var(--bg-secondary)',
+          background: 'var(--bg-card)',
           border: focused
-            ? '1px solid var(--color-primary-500, #3aaa60)'
+            ? '1px solid rgba(26, 122, 107, 0.3)'
             : '1px solid var(--border-subtle)',
-          boxShadow: focused ? '0 0 0 3px rgba(58, 170, 96, 0.15)' : 'none',
+          boxShadow: focused
+            ? '0 0 0 3px rgba(26, 122, 107, 0.08), var(--shadow-card)'
+            : 'var(--shadow-card)',
         }}
       >
         <Search
           size={18}
-          className="absolute left-3 pointer-events-none transition-colors duration-200"
-          style={{ color: focused ? 'var(--color-primary-500, #3aaa60)' : 'var(--text-muted)' }}
+          className="absolute left-4 pointer-events-none transition-colors duration-200"
+          style={{ color: focused ? '#2e9e8c' : 'var(--text-muted)' }}
         />
         <input
           ref={ref}
@@ -43,7 +45,7 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           placeholder={placeholder}
-          className="w-full bg-transparent py-3 pl-10 pr-10 text-sm outline-none"
+          className="w-full bg-transparent py-3.5 pl-11 pr-10 text-sm outline-none placeholder:text-[var(--text-muted)]"
           style={{ color: 'var(--text-primary)' }}
           {...props}
         />
@@ -51,11 +53,11 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
           <button
             type="button"
             onClick={handleClear}
-            className="absolute right-3 p-0.5 rounded-full transition-colors duration-200 hover:bg-white/10 cursor-pointer"
-            style={{ color: 'var(--text-muted)' }}
+            className="absolute right-3 p-1 rounded-full transition-colors duration-200 cursor-pointer"
+            style={{ color: 'var(--text-muted)', background: 'rgba(255,255,255,0.05)' }}
             aria-label="Clear search"
           >
-            <X size={16} />
+            <X size={14} />
           </button>
         )}
       </div>

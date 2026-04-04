@@ -20,12 +20,15 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({
   className = '',
 }) => {
   return (
-    <div className={`space-y-1 ${className}`}>
+    <div className={`space-y-1.5 ${className}`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-1 h-6 rounded-full bg-gold-500" />
+          <div
+            className="w-1 h-6 rounded-full"
+            style={{ background: 'linear-gradient(180deg, #d4ad4a, #a88031)' }}
+          />
           <h2
-            className="text-xl font-bold tracking-tight"
+            className="text-lg sm:text-xl font-bold tracking-tight"
             style={{ color: 'var(--text-primary)' }}
           >
             {title}
@@ -34,10 +37,11 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({
         {seeAllHref && (
           <Link
             href={seeAllHref}
-            className="flex items-center gap-1 text-sm font-medium text-primary-400 hover:text-primary-300 transition-colors duration-200"
+            className="flex items-center gap-1 text-xs font-medium transition-colors duration-200"
+            style={{ color: 'var(--text-muted)' }}
           >
             {seeAllLabel}
-            <ChevronRight size={16} />
+            <ChevronRight size={14} />
           </Link>
         )}
       </div>

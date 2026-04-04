@@ -10,8 +10,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     <ToastProvider>
       <SplashScreen />
       <Sidebar />
-      <main className="min-h-screen lg:pl-[280px]">
-        <div className="mx-auto max-w-5xl px-4 pb-nav sm:px-6 lg:px-8 lg:py-4">
+      <main className="relative z-10 min-h-screen lg:pl-[280px]">
+        <div className="mx-auto max-w-4xl px-5 pb-nav sm:px-8 lg:px-10 lg:py-6">
           {children}
         </div>
       </main>

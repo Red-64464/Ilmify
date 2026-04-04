@@ -21,11 +21,11 @@ export default function PageHeader({
 
   return (
     <header
-      className="sticky top-0 z-30 -mx-4 mb-6 px-4 py-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
+      className="sticky top-0 z-30 -mx-5 mb-8 px-5 py-5 sm:-mx-8 sm:px-8 lg:-mx-10 lg:px-10"
       style={{
-        background: 'rgba(13, 17, 23, 0.8)',
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
+        background: 'rgba(6, 18, 15, 0.85)',
+        backdropFilter: 'blur(20px) saturate(1.2)',
+        WebkitBackdropFilter: 'blur(20px) saturate(1.2)',
         borderBottom: '1px solid var(--border-subtle)',
       }}
     >
@@ -33,13 +33,10 @@ export default function PageHeader({
         {backButton && (
           <button
             onClick={() => router.back()}
-            className="flex h-9 w-9 items-center justify-center rounded-xl transition-colors cursor-pointer"
-            style={{ background: 'rgba(255,255,255,0.06)' }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
+            className="flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200 cursor-pointer"
+            style={{
+              background: 'var(--bg-card)',
+              boxShadow: 'var(--shadow-card)',
             }}
             aria-label="Go back"
           >
@@ -49,14 +46,14 @@ export default function PageHeader({
 
         <div className="flex-1 min-w-0">
           <h1
-            className="text-lg font-semibold truncate"
+            className="text-lg font-semibold tracking-tight truncate"
             style={{ color: 'var(--text-primary)' }}
           >
             {title}
           </h1>
           {subtitle && (
             <p
-              className="text-sm truncate mt-0.5"
+              className="text-sm truncate mt-0.5 font-arabic"
               style={{ color: 'var(--text-muted)' }}
             >
               {subtitle}

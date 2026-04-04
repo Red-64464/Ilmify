@@ -21,20 +21,42 @@ export interface ButtonProps {
   children: React.ReactNode;
 }
 
-const variantClasses: Record<ButtonVariant, string> = {
-  primary:
-    'bg-primary-600 text-white hover:bg-primary-500 active:bg-primary-700 shadow-lg shadow-primary-600/20',
-  secondary:
-    'bg-transparent border border-[var(--border-light)] text-[var(--text-primary)] hover:bg-[var(--bg-elevated)]',
-  gold: 'bg-gold-600 text-white hover:bg-gold-500 active:bg-gold-700 shadow-lg shadow-gold-600/20',
-  ghost:
-    'bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/5',
+const variantStyles: Record<ButtonVariant, { className: string; style: React.CSSProperties }> = {
+  primary: {
+    className: 'text-white font-medium',
+    style: {
+      background: 'linear-gradient(135deg, #1a7a6b, #12a393)',
+      boxShadow: '0 2px 12px rgba(26, 122, 107, 0.3), inset 0 1px 0 rgba(255,255,255,0.1)',
+    },
+  },
+  secondary: {
+    className: 'font-medium',
+    style: {
+      background: 'var(--bg-elevated)',
+      color: 'var(--text-primary)',
+      border: '1px solid var(--border-light)',
+    },
+  },
+  gold: {
+    className: 'text-white font-medium',
+    style: {
+      background: 'linear-gradient(135deg, #a88031, #c49a3d)',
+      boxShadow: '0 2px 12px rgba(196, 154, 61, 0.25), inset 0 1px 0 rgba(255,255,255,0.1)',
+    },
+  },
+  ghost: {
+    className: '',
+    style: {
+      background: 'transparent',
+      color: 'var(--text-secondary)',
+    },
+  },
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: 'px-3 py-1.5 text-sm gap-1.5 rounded-lg',
+  sm: 'px-3.5 py-1.5 text-sm gap-1.5 rounded-lg',
   md: 'px-5 py-2.5 text-sm gap-2 rounded-xl',
-  lg: 'px-7 py-3.5 text-base gap-2.5 rounded-xl',
+  lg: 'px-8 py-3.5 text-base gap-2.5 rounded-xl',
 };
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
@@ -55,6 +77,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     ref
   ) => {
     const isDisabled = disabled || loading;
+    const vs = variantStyles[variant];
 
     return (
       <motion.button
@@ -62,14 +85,15 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         type={type}
         id={id}
         onClick={onClick}
-        whileHover={isDisabled ? undefined : { scale: 1.02 }}
+        whileHover={isDisabled ? undefined : { scale: 1.02, y: -1 }}
         whileTap={isDisabled ? undefined : { scale: 0.97 }}
-        transition={{ type: 'spring', stiffness: 400, damping: 17 }}
-        className={`inline-flex items-center justify-center font-medium transition-colors duration-200 cursor-pointer
-          ${variantClasses[variant]}
+        transition={{ type: 'spring' as const, stiffness: 400, damping: 17 }}
+        className={`inline-flex items-center justify-center transition-all duration-200 cursor-pointer
+          ${vs.className}
           ${sizeClasses[size]}
           ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}
           ${className}`}
+        style={vs.style}
         disabled={isDisabled}
       >
         {loading ? (

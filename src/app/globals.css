@@ -1,82 +1,152 @@
 @import "tailwindcss";
 
 @theme {
-  /* Colors */
-  --color-primary-50: #f0faf7;
-  --color-primary-100: #d4f0e8;
-  --color-primary-200: #a8e0d0;
-  --color-primary-300: #6bc4a8;
-  --color-primary-400: #3da882;
-  --color-primary-500: #1e6b5e;
-  --color-primary-600: #1a5c50;
-  --color-primary-700: #143d35;
-  --color-primary-800: #0d2b25;
-  --color-primary-900: #0a1f1b;
-  --color-primary-950: #071513;
+  /* ============================================
+     ILMIFY PREMIUM DESIGN SYSTEM
+     Islamic modern • Serene • Luxurious
+     ============================================ */
 
-  --color-gold-50: #fdf9ef;
-  --color-gold-100: #f8efd4;
-  --color-gold-200: #f0dda8;
-  --color-gold-300: #e8cc6e;
-  --color-gold-400: #d4b65a;
-  --color-gold-500: #c9a84c;
-  --color-gold-600: #b08f3a;
-  --color-gold-700: #8a6f2d;
-  --color-gold-800: #6b5623;
-  --color-gold-900: #4d3e19;
+  /* ---- Primary (Deep Teal / Blue-Green) ---- */
+  --color-primary-50: #eef8f6;
+  --color-primary-100: #d0ece7;
+  --color-primary-200: #a1d9cf;
+  --color-primary-300: #5fbfae;
+  --color-primary-400: #2e9e8c;
+  --color-primary-500: #1a7a6b;
+  --color-primary-600: #15635a;
+  --color-primary-700: #0f4a43;
+  --color-primary-800: #0b3430;
+  --color-primary-900: #081f1d;
+  --color-primary-950: #05100f;
 
+  /* ---- Gold (Warm, Refined) ---- */
+  --color-gold-50: #fdf8ed;
+  --color-gold-100: #f6ecd0;
+  --color-gold-200: #edd9a1;
+  --color-gold-300: #e4c76e;
+  --color-gold-400: #d4ad4a;
+  --color-gold-500: #c49a3d;
+  --color-gold-600: #a88031;
+  --color-gold-700: #856427;
+  --color-gold-800: #654b1d;
+  --color-gold-900: #483615;
+
+  /* ---- Ivory (Warm Neutral Text) ---- */
   --color-ivory-50: #fefdfb;
-  --color-ivory-100: #faf7f0;
-  --color-ivory-200: #f5f0e8;
-  --color-ivory-300: #ede5d5;
-  --color-ivory-400: #ddd2bb;
-  --color-ivory-500: #c4b89d;
+  --color-ivory-100: #f8f4ec;
+  --color-ivory-200: #efe9dd;
+  --color-ivory-300: #e2d9c8;
+  --color-ivory-400: #c8bca5;
+  --color-ivory-500: #a89d87;
 
-  --color-teal-50: #f0fdfb;
-  --color-teal-100: #ccfbf1;
-  --color-teal-200: #99f6e4;
-  --color-teal-300: #5eead4;
-  --color-teal-400: #2dd4bf;
-  --color-teal-500: #14b8a6;
-  --color-teal-600: #0d9488;
-  --color-teal-700: #0f766e;
+  /* ---- Teal (Subtle Accent) ---- */
+  --color-teal-50: #effdfb;
+  --color-teal-100: #c9f8f0;
+  --color-teal-200: #94f0e0;
+  --color-teal-300: #56e2cc;
+  --color-teal-400: #28c4b0;
+  --color-teal-500: #12a393;
+  --color-teal-600: #0b8577;
+  --color-teal-700: #0c685e;
 
-  /* Fonts */
+  /* ---- Fonts ---- */
   --font-heading: 'Playfair Display', Georgia, serif;
   --font-body: 'Inter', system-ui, sans-serif;
   --font-arabic: 'Amiri', serif;
 
-  /* Animations */
-  --animate-fade-in: fade-in 0.5s ease-out;
-  --animate-slide-up: slide-up 0.5s ease-out;
-  --animate-scale-in: scale-in 0.3s ease-out;
-  --animate-glow: glow 2s ease-in-out infinite;
+  /* ---- Animations ---- */
+  --animate-fade-in: fade-in 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-slide-up: slide-up 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-scale-in: scale-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-glow: glow 3s ease-in-out infinite;
+  --animate-shimmer: shimmer 2.5s ease-in-out infinite;
 }
 
+/* ---- Keyframes ---- */
 @keyframes fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
 @keyframes slide-up {
-  from { opacity: 0; transform: translateY(20px); }
+  from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes scale-in {
-  from { opacity: 0; transform: scale(0.95); }
+  from { opacity: 0; transform: scale(0.96); }
   to { opacity: 1; transform: scale(1); }
 }
 
 @keyframes glow {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 0.8; }
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.7; }
 }
 
-/* Import Google Fonts */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ---- Import Google Fonts ---- */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&family=Amiri:wght@400;700&display=swap');
 
-/* Base styles */
+/* ============================================
+   SEMANTIC DESIGN TOKENS (CSS Custom Props)
+   ============================================ */
+:root {
+  /* Backgrounds */
+  --bg-base: #06120f;
+  --bg-secondary: #091a17;
+  --bg-card: #0c2420;
+  --bg-elevated: #0f2e29;
+  --bg-surface-hover: rgba(255, 255, 255, 0.03);
+
+  /* Borders */
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-light: rgba(255, 255, 255, 0.08);
+  --border-accent: rgba(196, 154, 61, 0.15);
+
+  /* Text */
+  --text-primary: #efe9dd;
+  --text-secondary: #c8bca5;
+  --text-muted: rgba(200, 188, 165, 0.55);
+
+  /* Glows */
+  --glow-green: rgba(26, 122, 107, 0.08);
+  --glow-gold: rgba(196, 154, 61, 0.06);
+  --glow-teal: rgba(18, 163, 147, 0.06);
+
+  /* Premium shadows */
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.15);
+  --shadow-elevated: 0 2px 8px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.2);
+  --shadow-glow-gold: 0 0 20px rgba(196, 154, 61, 0.08), 0 0 60px rgba(196, 154, 61, 0.04);
+  --shadow-glow-green: 0 0 20px rgba(26, 122, 107, 0.08), 0 0 60px rgba(26, 122, 107, 0.04);
+
+  /* Spacing scale */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+  --space-3xl: 4rem;
+
+  /* Radii */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
+  --radius-full: 9999px;
+
+  /* Bottom nav height */
+  --nav-height: 5rem;
+}
+
+/* ============================================
+   BASE STYLES
+   ============================================ */
 html {
   scroll-behavior: smooth;
   -webkit-tap-highlight-color: transparent;
@@ -84,32 +154,127 @@ html {
 
 body {
   font-family: var(--font-body);
-  background-color: var(--color-primary-900);
-  color: var(--color-ivory-200);
+  background: var(--bg-base);
+  color: var(--text-primary);
   min-height: 100dvh;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.01em;
+  line-height: 1.6;
 }
 
-/* Scrollbar styling */
+/* ============================================
+   PREMIUM SCROLLBAR
+   ============================================ */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--color-primary-900);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-primary-600);
-  border-radius: 3px;
+  background: rgba(200, 188, 165, 0.15);
+  border-radius: 100px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-gold-600);
+  background: rgba(196, 154, 61, 0.3);
 }
 
-/* Selection */
+/* ============================================
+   SELECTION
+   ============================================ */
 ::selection {
-  background-color: rgba(201, 168, 76, 0.3);
+  background-color: rgba(196, 154, 61, 0.2);
   color: var(--color-ivory-100);
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+/* Premium glass surface */
+.glass {
+  background: rgba(9, 26, 23, 0.85);
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+}
+
+/* Skeleton loader */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.03) 0%,
+    rgba(255, 255, 255, 0.06) 50%,
+    rgba(255, 255, 255, 0.03) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2.5s ease-in-out infinite;
+}
+
+/* Safe bottom padding for bottom nav */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Bottom nav padding */
+.pb-nav {
+  padding-bottom: calc(var(--nav-height) + 1rem);
+}
+
+/* Premium heading font */
+.font-heading {
+  font-family: var(--font-heading);
+}
+
+/* Arabic text font */
+.font-arabic {
+  font-family: var(--font-arabic);
+}
+
+/* Subtle scrollbar-free areas */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* ============================================
+   PREMIUM PATTERN BACKGROUND
+   ============================================ */
+.pattern-bg {
+  position: relative;
+}
+
+.pattern-bg::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(26, 122, 107, 0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 100%, rgba(196, 154, 61, 0.03) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ============================================
+   ORNAMENTAL SEPARATOR
+   ============================================ */
+.separator-ornament {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.separator-ornament::before,
+.separator-ornament::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(196, 154, 61, 0.12), transparent);
 }
