@@ -69,7 +69,6 @@ export default function LibraryPage() {
   const [newCoverUrl, setNewCoverUrl] = useState('');
   const [newEmoji, setNewEmoji] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
   const [cropImage, setCropImage] = useState<string | null>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const [books, setBooks] = useState<Book[]>([]);
@@ -78,8 +77,10 @@ export default function LibraryPage() {
 
   useEffect(() => {
     if (authLoading || !user) return;
-    bookRepository.getAll(user.id).then(setBooks).catch(() => {});
-  }, [refreshKey, authLoading, user]);
+    let cancelled = false;
+    bookRepository.getAll(user.id).then(b => { if (!cancelled) setBooks(b); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [authLoading, user]);
 
   const filtered = books.filter((b) => {
     const matchesTab = tab === 'all' || b.status === tab;
@@ -94,7 +95,7 @@ export default function LibraryPage() {
     if (!newTitle.trim() || !newAuthor.trim() || !user || addingBook) return;
     try {
       setAddingBook(true);
-      await bookRepository.create(user.id, {
+      const created = await bookRepository.create(user.id, {
         title: `${newEmoji ? newEmoji + ' ' : ''}${newTitle.trim()}`,
         author: newAuthor.trim(),
         coverUrl: newCoverUrl || undefined,
@@ -104,13 +105,13 @@ export default function LibraryPage() {
         status: 'to-read',
         tags: [],
       });
+      setBooks(prev => [created, ...prev]);
       setShowAddModal(false);
       setNewTitle('');
       setNewAuthor('');
       setNewCategory('');
       setNewCoverUrl('');
       setNewEmoji('');
-      setRefreshKey((k) => k + 1);
     } catch (err) {
       console.error('Error creating book:', err);
       toast('error', 'Erreur lors de l\'ajout du livre');
@@ -133,13 +134,13 @@ export default function LibraryPage() {
     if (!confirm('Supprimer ce livre et tous ses passages ?')) return;
     try {
       await bookRepository.delete(bookId);
-      setRefreshKey((k) => k + 1);
+      setBooks(prev => prev.filter(b => b.id !== bookId));
       toast('success', 'Livre supprimé');
     } catch (err) {
       console.error('Error deleting book:', err);
       toast('error', 'Erreur lors de la suppression');
     }
-  }, []);
+  }, [toast]);
 
   return (
     <AuthGuard>

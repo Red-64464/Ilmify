@@ -74,7 +74,6 @@ export default function CoursesPage() {
   const { isAdmin, user, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const [search, setSearch] = useState('');
-  const [refreshKey, setRefreshKey] = useState(0);
   const [allFolders, setAllFolders] = useState<CourseFolder[]>([]);
   const [allPages, setAllPages] = useState<CoursePage[]>([]);
   const [filteredPages, setFilteredPages] = useState<CoursePage[]>([]);
@@ -117,22 +116,25 @@ export default function CoursesPage() {
   // Load all data
   useEffect(() => {
     if (authLoading) return;
+    let cancelled = false;
     setDataLoading(true);
     Promise.all([
       courseRepository.getAllFolders(),
       courseRepository.getAllPages(),
     ]).then(([f, p]) => {
-      setAllFolders(f);
-      setAllPages(p);
-    }).catch(() => {}).finally(() => setDataLoading(false));
-  }, [refreshKey, authLoading, user]);
+      if (!cancelled) { setAllFolders(f); setAllPages(p); }
+    }).catch(() => {}).finally(() => { if (!cancelled) setDataLoading(false); });
+    return () => { cancelled = true; };
+  }, [authLoading, user]);
 
   // Search
   useEffect(() => {
     if (authLoading) return;
     if (!search) { setFilteredPages([]); return; }
-    courseRepository.searchPages(search).then(setFilteredPages).catch(() => {});
-  }, [search, refreshKey, authLoading, user]);
+    let cancelled = false;
+    courseRepository.searchPages(search).then(p => { if (!cancelled) setFilteredPages(p); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [search, authLoading, user]);
 
   // Current folder's children & pages
   const currentSubfolders = useMemo(
@@ -176,19 +178,19 @@ export default function CoursesPage() {
     try {
       setCreating(true);
       setError('');
-      await courseRepository.createFolder(user.id, {
+      const folder = await courseRepository.createFolder(user.id, {
         title: newFolderTitle.trim(),
         description: newFolderDesc.trim() || undefined,
         icon: newFolderIcon || '📁',
         parentId: currentFolderId || undefined,
         order: currentSubfolders.length + 1,
       });
+      setAllFolders(prev => [...prev, folder]);
       setShowCreateFolder(false);
       setNewFolderTitle('');
       setNewFolderDesc('');
       setNewFolderIcon('📁');
       setShowFolderEmojis(false);
-      setRefreshKey((k) => k + 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur lors de la création');
     } finally {
@@ -212,14 +214,14 @@ export default function CoursesPage() {
     try {
       setCreating(true);
       setError('');
-      await courseRepository.updateFolder(editingFolder.id, {
+      const updated = await courseRepository.updateFolder(editingFolder.id, {
         title: editFolderTitle.trim(),
         description: editFolderDesc.trim() || undefined,
         icon: editFolderIcon || '📁',
         parentId: editFolderParent || undefined,
       });
+      if (updated) setAllFolders(prev => prev.map(f => f.id === editingFolder.id ? updated : f));
       setEditingFolder(null);
-      setRefreshKey((k) => k + 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur lors de la modification');
     } finally {
@@ -282,9 +284,9 @@ export default function CoursesPage() {
       setCreating(true);
       setError('');
       await courseRepository.updatePage(movingPage.id, { folderId: moveTargetFolder });
+      setAllPages(prev => prev.map(p => p.id === movingPage.id ? { ...p, folderId: moveTargetFolder } : p));
       setMovingPage(null);
       setMoveTargetFolder('');
-      setRefreshKey((k) => k + 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur lors du déplacement');
     } finally {
@@ -298,7 +300,8 @@ export default function CoursesPage() {
     try {
       await courseRepository.deleteFolder(id);
       if (currentFolderId === id) setCurrentFolderId(null);
-      setRefreshKey((k) => k + 1);
+      setAllFolders(prev => prev.filter(f => f.id !== id));
+      setAllPages(prev => prev.filter(p => p.folderId !== id));
     } catch { /* ignore */ }
   }, [currentFolderId]);
 
@@ -307,7 +310,7 @@ export default function CoursesPage() {
     if (!confirm('Supprimer cette page ?')) return;
     try {
       await courseRepository.deletePage(id);
-      setRefreshKey((k) => k + 1);
+      setAllPages(prev => prev.filter(p => p.id !== id));
     } catch { /* ignore */ }
   }, []);
 
@@ -678,7 +681,7 @@ export default function CoursesPage() {
           initial="hidden"
           animate="visible"
           className="space-y-6"
-          key={`root-${refreshKey}`}
+          key="root"
         >
           {allFolders.filter((f) => !f.parentId).length > 0 ? (
             allFolders.filter((f) => !f.parentId).map((folder) => renderFolderCard(folder, false))
@@ -699,7 +702,7 @@ export default function CoursesPage() {
           initial="hidden"
           animate="visible"
           className="space-y-4"
-          key={`folder-${currentFolderId}-${refreshKey}`}
+          key={`folder-${currentFolderId}`}
         >
           {/* Sub-folders */}
           {currentSubfolders.length > 0 && (

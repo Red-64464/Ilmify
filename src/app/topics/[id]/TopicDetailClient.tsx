@@ -45,15 +45,18 @@ export default function TopicDetailClient({ id: propId }: { id: string }) {
   useEffect(() => {
     if (authLoading) return;
     if (!id || id === '_placeholder') return;
+    let cancelled = false;
     setLoading(true);
     topicRepository.getById(id).then((t) => {
+      if (cancelled) return;
       setTopic(t);
       if (t) {
         setEditTitle(t.title);
         setEditBlocks(t.blocks);
       }
-    }).catch(() => {}).finally(() => setLoading(false));
-  }, [id, authLoading, user]);
+    }).catch(() => {}).finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [id, authLoading]);
 
   const isOwner = user && topic && user.id === topic.userId;
   const [saving, setSaving] = useState(false);

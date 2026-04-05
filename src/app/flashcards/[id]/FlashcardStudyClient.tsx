@@ -38,18 +38,21 @@ export default function FlashcardStudyClient({ id: propId }: { id: string }) {
   useEffect(() => {
     if (authLoading) return;
     if (!id || id === '_placeholder') return;
+    let cancelled = false;
     Promise.all([
       flashcardRepository.getDeckById(id),
       flashcardRepository.getCardsByDeck(id),
     ]).then(([d, c]) => {
+      if (cancelled) return;
       setDeck(d);
       setAllCards(c);
       setCards(c);
       setLoading(false);
     }).catch(() => {
-      setLoading(false);
+      if (!cancelled) setLoading(false);
     });
-  }, [id, authLoading, user]);
+    return () => { cancelled = true; };
+  }, [id, authLoading]);
 
   if (loading) {
     return (

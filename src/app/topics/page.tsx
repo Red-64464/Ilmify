@@ -45,13 +45,13 @@ export default function TopicsPage() {
   const [newTitle, setNewTitle] = useState('');
   const [newCategory, setNewCategory] = useState('');
   const [contextMenu, setContextMenu] = useState<string | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
   const [showJsonImport, setShowJsonImport] = useState(false);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
+    let cancelled = false;
     setDataLoading(true);
     const loadTopics = async () => {
       try {
@@ -61,15 +61,16 @@ export default function TopicsPage() {
         if (categoryFilter !== 'Tous') {
           result = result.filter((t) => t.category === categoryFilter);
         }
-        setTopics(result);
+        if (!cancelled) setTopics(result);
       } catch {
-        setTopics([]);
+        if (!cancelled) setTopics([]);
       } finally {
-        setDataLoading(false);
+        if (!cancelled) setDataLoading(false);
       }
     };
     loadTopics();
-  }, [user, search, categoryFilter, refreshKey]);
+    return () => { cancelled = true; };
+  }, [user, search, categoryFilter]);
 
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
@@ -112,24 +113,32 @@ export default function TopicsPage() {
       setContextMenu(null);
       try {
         switch (action) {
-          case 'pin':
-            await topicRepository.togglePin(topic.id);
+          case 'pin': {
+            const updated = await topicRepository.togglePin(topic.id);
+            if (updated) setTopics(prev => prev.map(t => t.id === topic.id ? updated : t));
             break;
-          case 'favorite':
-            await topicRepository.toggleFavorite(topic.id);
+          }
+          case 'favorite': {
+            const updated = await topicRepository.toggleFavorite(topic.id);
+            if (updated) setTopics(prev => prev.map(t => t.id === topic.id ? updated : t));
             break;
+          }
           case 'archive':
             await topicRepository.archive(topic.id);
+            setTopics(prev => prev.filter(t => t.id !== topic.id));
             break;
           case 'duplicate':
-            if (user) await topicRepository.duplicate(topic.id, user.id);
+            if (user) {
+              const dup = await topicRepository.duplicate(topic.id, user.id);
+              if (dup) setTopics(prev => [dup, ...prev]);
+            }
             break;
           case 'delete':
             if (!confirm('Supprimer ce topic ?')) return;
             await topicRepository.delete(topic.id);
+            setTopics(prev => prev.filter(t => t.id !== topic.id));
             break;
         }
-        setRefreshKey((k) => k + 1);
       } catch {
         setError('Erreur lors de l\'action');
       }
@@ -223,7 +232,7 @@ export default function TopicsPage() {
           variants={stagger}
           initial="hidden"
           animate="visible"
-          key={`${categoryFilter}-${refreshKey}`}
+          key={categoryFilter}
         >
           {topics.map((topic) => (
             <motion.div key={topic.id} variants={fadeUp}>

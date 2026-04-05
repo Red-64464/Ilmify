@@ -7,6 +7,7 @@ import {
   User, Star, Brain, Layers, BookOpen, Settings,
   Info, Shield, Heart, LogOut, GraduationCap,
   Camera, Edit3, Lock, Save, X, Check, Palette,
+  Download, MessageCircle,
 } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
@@ -20,18 +21,24 @@ import { bookRepository } from '@/lib/repositories/bookRepository';
 import { flashcardRepository } from '@/lib/repositories/flashcardRepository';
 import { courseRepository } from '@/lib/repositories/courseRepository';
 import { computeBadges, detectNewBadges, getBadgeById } from '@/data/badges';
+import { useInstallGuide } from '@/components/ui/InstallGuide';
+import InstallGuide from '@/components/ui/InstallGuide';
 import { useToast } from '@/components/ui/Toast';
+
+const DISCORD_INVITE_URL = 'https://discord.gg/ilmify';
 
 const menuItems = [
   { icon: Heart, label: 'Favoris', desc: 'Gérer vos favoris', href: '/favorites' },
+  { icon: Download, label: 'Installer l\'app', desc: 'Ajouter à l\'écran d\'accueil', action: 'install' as const },
+  { icon: MessageCircle, label: 'Communauté Discord', desc: 'Rejoindre la communauté', action: 'discord' as const },
   { icon: Settings, label: 'Paramètres', desc: 'Personnaliser l\'application' },
-  { icon: Shield, label: 'Confidentialité', desc: 'Paramètres de confidentialité' },
   { icon: Info, label: 'À propos', desc: 'Ilmify v0.2.0' },
 ];
 
 export default function ProfilePage() {
   const { user, isAdmin, logout, updateUser, updatePassword } = useAuth();
   const { currentTheme, setThemeById, themes } = useAppTheme();
+  const { showGuide, openGuide, closeGuide } = useInstallGuide();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -464,11 +471,39 @@ export default function ProfilePage() {
             <Card
               hoverable
               className="p-4 cursor-pointer"
-              onClick={'href' in item && item.href ? () => router.push(item.href!) : undefined}
+              onClick={
+                'action' in item && item.action === 'install'
+                  ? openGuide
+                  : 'action' in item && item.action === 'discord'
+                    ? () => window.open(DISCORD_INVITE_URL, '_blank', 'noopener,noreferrer')
+                    : 'href' in item && item.href
+                      ? () => router.push(item.href!)
+                      : undefined
+              }
             >
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/5">
-                  <item.icon size={18} style={{ color: 'var(--text-muted)' }} />
+                <div
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+                  style={{
+                    background:
+                      'action' in item && item.action === 'discord'
+                        ? 'rgba(88,101,242,0.1)'
+                        : 'action' in item && item.action === 'install'
+                          ? 'rgba(46,158,140,0.1)'
+                          : 'rgba(255,255,255,0.05)',
+                  }}
+                >
+                  <item.icon
+                    size={18}
+                    style={{
+                      color:
+                        'action' in item && item.action === 'discord'
+                          ? '#5865f2'
+                          : 'action' in item && item.action === 'install'
+                            ? 'var(--accent)'
+                            : 'var(--text-muted)',
+                    }}
+                  />
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{item.label}</h3>
@@ -650,6 +685,9 @@ export default function ProfilePage() {
           </div>
         </div>
       </Modal>
+
+      {/* Install Guide Modal */}
+      <InstallGuide isOpen={showGuide} onClose={closeGuide} />
     </div>
     </AuthGuard>
   );

@@ -34,7 +34,6 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
   const params = useParams();
   const paramId = (params?.id as string) || propId;
   const [id, setId] = useState(paramId);
-  const [refreshKey, setRefreshKey] = useState(0);
   const [book, setBook] = useState<Book | null>(null);
   const [passages, setPassages] = useState<BookPassage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,15 +49,16 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
   useEffect(() => {
     if (authLoading) return;
     if (!id || id === '_placeholder') return;
+    let cancelled = false;
     setLoading(true);
     Promise.all([
       bookRepository.getById(id),
       bookRepository.getPassagesByBook(id),
     ]).then(([b, p]) => {
-      setBook(b);
-      setPassages(p);
-    }).catch(() => {}).finally(() => setLoading(false));
-  }, [id, refreshKey, authLoading, user]);
+      if (!cancelled) { setBook(b); setPassages(p); }
+    }).catch(() => {}).finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [id, authLoading]);
 
   // Add passage state
   const [showAddPassage, setShowAddPassage] = useState(false);
@@ -204,7 +204,7 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
     if (!passageTitle.trim() || !passageContent.trim() || !user || passageSaving) return;
     try {
       setPassageSaving(true);
-      await bookRepository.createPassage(user.id, {
+      const created = await bookRepository.createPassage(user.id, {
         bookId: id,
         title: passageTitle.trim(),
         content: passageContent.trim(),
@@ -217,6 +217,7 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
         linkUrl: passageLink.trim() || undefined,
       });
 
+      setPassages(prev => [created, ...prev]);
       setShowAddPassage(false);
       setPassageTitle('');
       setPassageContent('');
@@ -225,7 +226,6 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
       setPassageImportant(false);
       setPassageImageUrl('');
       setPassageLink('');
-      setRefreshKey((k) => k + 1);
     } catch (err) {
       console.error('Error creating passage:', err);      setPassageError('Erreur lors de l\'ajout du passage');    } finally {
       setPassageSaving(false);
@@ -272,8 +272,17 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
         imageUrl: editImageUrl || undefined,
         linkUrl: editLink.trim() || undefined,
       });
+      setPassages(prev => prev.map(p => p.id === editingPassage.id ? {
+        ...p,
+        title: editTitle.trim(),
+        content: editContent.trim(),
+        personalReflection: editReflection.trim() || undefined,
+        pageNumber: editPage ? parseInt(editPage, 10) : undefined,
+        isImportant: editImportant,
+        imageUrl: editImageUrl || undefined,
+        linkUrl: editLink.trim() || undefined,
+      } : p));
       setEditingPassage(null);
-      setRefreshKey((k) => k + 1);
     } catch (err) {
       console.error('Error updating passage:', err);
       setPassageError('Erreur lors de la modification du passage');
@@ -286,7 +295,7 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
     if (!confirm('Supprimer ce passage ?')) return;
     try {
       await bookRepository.deletePassage(passageId);
-      setRefreshKey((k) => k + 1);
+      setPassages(prev => prev.filter(p => p.id !== passageId));
     } catch { /* ignore */ }
   }, []);
 
@@ -505,7 +514,7 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
               variants={stagger}
               initial="hidden"
               animate="visible"
-              key={`${refreshKey}-cards`}
+              key="cards"
             >
               {filteredPassages.map((passage) => (
                 <motion.div key={passage.id} variants={fadeUp}>
@@ -696,7 +705,7 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
 
           {/* List View */}
           {viewMode === 'list' && (
-            <div className="space-y-2" key={`${refreshKey}-list`}>
+            <div className="space-y-2" key="list">
               {filteredPassages.map((passage) => (
                 <div
                   key={passage.id}
@@ -743,7 +752,7 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
 
           {/* Titles View */}
           {viewMode === 'titles' && (
-            <div className="space-y-1" key={`${refreshKey}-titles`}>
+            <div className="space-y-1" key="titles">
               {filteredPassages.map((passage) => (
                 <button
                   key={passage.id}

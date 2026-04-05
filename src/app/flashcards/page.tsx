@@ -26,7 +26,6 @@ export default function FlashcardsPage() {
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const [expandedDeck, setExpandedDeck] = useState<string | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
   const [showAddDeck, setShowAddDeck] = useState(false);
   const [showAddCard, setShowAddCard] = useState<string | null>(null);
   const [showImport, setShowImport] = useState<string | null>(null);
@@ -65,20 +64,23 @@ export default function FlashcardsPage() {
 
   useEffect(() => {
     if (authLoading || !user) return;
-    flashcardRepository.getAllDecks(user.id).then(setDecks).catch(() => {});
-  }, [refreshKey, authLoading, user]);
+    let cancelled = false;
+    flashcardRepository.getAllDecks(user.id).then(d => { if (!cancelled) setDecks(d); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [authLoading, user]);
 
   const handleAddDeck = useCallback(async () => {
     if (!newTitle.trim() || !user || addingDeck) return;
     try {
       setAddingDeck(true);
-      await flashcardRepository.createDeck(user.id, {
+      const created = await flashcardRepository.createDeck(user.id, {
         title: `${newEmoji ? newEmoji + ' ' : ''}${newTitle.trim()}`,
         description: newDesc.trim(),
         color: newColor,
         icon: newIcon || undefined,
         tags: newTags ? newTags.split(',').map((t) => t.trim()).filter(Boolean) : [],
       });
+      setDecks(prev => [created, ...prev]);
       setShowAddDeck(false);
       setNewTitle('');
       setNewDesc('');
@@ -86,7 +88,6 @@ export default function FlashcardsPage() {
       setNewEmoji('');
       setNewIcon('');
       setNewTags('');
-      setRefreshKey((k) => k + 1);
     } catch (err) {
       console.error('Error creating deck:', err);
     } finally {
@@ -98,7 +99,7 @@ export default function FlashcardsPage() {
     if (!confirm('Supprimer ce deck et toutes ses cartes ?')) return;
     try {
       await flashcardRepository.deleteDeck(deckId);
-      setRefreshKey((k) => k + 1);
+      setDecks(prev => prev.filter(d => d.id !== deckId));
     } catch (err) {
       console.error('Error deleting deck:', err);
     }
@@ -115,11 +116,11 @@ export default function FlashcardsPage() {
         tags: [],
         difficulty: cardDifficulty,
       });
+      setDecks(prev => prev.map(d => d.id === showAddCard ? { ...d, cardCount: d.cardCount + 1 } : d));
       setCardFront('');
       setCardBack('');
       setCardDifficulty('medium');
       setShowAddCard(null);
-      setRefreshKey((k) => k + 1);
     } catch (err) {
       console.error('Error creating card:', err);
     } finally {
@@ -147,9 +148,9 @@ export default function FlashcardsPage() {
       }
 
       const count = await flashcardRepository.importCards(user.id, showImport, validCards);
+      setDecks(prev => prev.map(d => d.id === showImport ? { ...d, cardCount: d.cardCount + count } : d));
       setImportSuccess(`${count} carte(s) importée(s) avec succès !`);
       setImportJson('');
-      setRefreshKey((k) => k + 1);
       setTimeout(() => { setShowImport(null); setImportSuccess(''); }, 1500);
     } catch {
       setImportError('JSON invalide. Vérifiez le format.');
@@ -181,12 +182,12 @@ export default function FlashcardsPage() {
           updates.title = `${editEmoji} ${editTitle.trim() || titleWithoutEmoji}`;
         }
       }
-      await flashcardRepository.updateDeck(showEditDeck, updates);
+      const updated = await flashcardRepository.updateDeck(showEditDeck, updates);
+      if (updated) setDecks(prev => prev.map(d => d.id === showEditDeck ? updated : d));
       setShowEditDeck(null);
       setEditEmoji('');
       setEditColor('');
       setEditTitle('');
-      setRefreshKey((k) => k + 1);
     } catch (err) {
       console.error('Error editing deck:', err);
     }

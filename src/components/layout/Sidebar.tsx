@@ -17,6 +17,8 @@ import {
   LogOut,
   Clock,
   Video,
+  Download,
+  MessageCircle,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -75,7 +77,9 @@ function NavLink({
   );
 }
 
-export default function Sidebar() {
+const DISCORD_INVITE_URL = 'https://discord.gg/ilmify';
+
+export default function Sidebar({ onOpenInstallGuide }: { onOpenInstallGuide?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const { isAdmin, logout, user } = useAuth();
@@ -152,6 +156,44 @@ export default function Sidebar() {
         {isAdmin && (
           <NavLink href="/admin" label="Admin" icon={Settings} isActive={isActive('/admin')} />
         )}
+
+        {/* Install & Discord */}
+        {onOpenInstallGuide && (
+          <button
+            onClick={onOpenInstallGuide}
+            className="flex items-center gap-3 w-full rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200 cursor-pointer"
+            style={{ color: 'var(--text-secondary)', background: 'transparent' }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
+              e.currentTarget.style.color = 'var(--text-primary)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = 'var(--text-secondary)';
+            }}
+          >
+            <Download size={20} strokeWidth={1.6} />
+            <span>Installer l&apos;app</span>
+          </button>
+        )}
+        <a
+          href={DISCORD_INVITE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-3 w-full rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200"
+          style={{ color: 'var(--text-secondary)', background: 'transparent' }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(88,101,242,0.06)';
+            e.currentTarget.style.color = '#5865f2';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent';
+            e.currentTarget.style.color = 'var(--text-secondary)';
+          }}
+        >
+          <MessageCircle size={20} strokeWidth={1.6} />
+          <span>Discord</span>
+        </a>
         {user && (
           <button
             onClick={async () => { await logout(); router.push('/login'); }}

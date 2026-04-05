@@ -35,56 +35,64 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let mounted = true;
 
-    // Safety timeout — never block loading forever (10s for slow mobile connections)
+    // Safety timeout — never block loading forever (8s for slow mobile connections)
     const timeout = setTimeout(() => {
-      if (mounted) setIsLoading(false);
-    }, 10000);
+      if (mounted && isLoading) {
+        setIsLoading(false);
+      }
+    }, 8000);
+
+    const buildUserFromSession = async (supaSession: import('@supabase/supabase-js').Session) => {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id' as never, supaSession.user.id)
+        .single();
+
+      if (!profile) return null;
+
+      const p = profile as unknown as Record<string, unknown>;
+      const u: User = {
+        id: p.id as string,
+        username: p.username as string,
+        displayName: p.display_name as string,
+        role: (p.role as 'admin' | 'user') || 'user',
+        createdAt: p.created_at as string,
+        avatarUrl: (p.avatar_url as string) || undefined,
+      };
+      const s: Session = {
+        userId: supaSession.user.id,
+        token: supaSession.access_token,
+        expiresAt: new Date(supaSession.expires_at! * 1000).toISOString(),
+      };
+      return { user: u, session: s };
+    };
 
     // Get initial session
     supabase.auth.getSession().then(async ({ data: { session: supaSession } }) => {
       if (!mounted) return;
       if (supaSession?.user) {
         try {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id' as never, supaSession.user.id)
-            .single();
-
-          if (mounted && profile) {
-            const p = profile as unknown as Record<string, unknown>;
-            const u: User = {
-              id: p.id as string,
-              username: p.username as string,
-              displayName: p.display_name as string,
-              role: (p.role as 'admin' | 'user') || 'user',
-              createdAt: p.created_at as string,
-              avatarUrl: (p.avatar_url as string) || undefined,
-            };
-            const s: Session = {
-              userId: supaSession.user.id,
-              token: supaSession.access_token,
-              expiresAt: new Date(supaSession.expires_at! * 1000).toISOString(),
-            };
-            setUser(u);
-            setSession(s);
-            setCachedAuth(u, s);
+          const result = await buildUserFromSession(supaSession);
+          if (mounted && result) {
+            setUser(result.user);
+            setSession(result.session);
+            setCachedAuth(result.user, result.session);
           }
         } catch {
-          // Profile fetch failed — still allow app to load
+          // Profile fetch failed — still allow app to load (user stays null → redirect to login)
         }
       }
       if (mounted) setIsLoading(false);
     }).catch(() => {
-      // getSession failed — still allow app to load (will redirect to login)
+      // getSession failed — still allow app to load
       if (mounted) setIsLoading(false);
-    }).finally(() => {
-      clearTimeout(timeout);
     });
 
-    // Listen for auth changes
+    // Listen for auth changes (token refresh, sign out, etc.)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, supaSession) => {
       if (!mounted) return;
+
       if (event === 'SIGNED_OUT' || !supaSession) {
         setUser(null);
         setSession(null);
@@ -92,33 +100,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
+      // TOKEN_REFRESHED: only update session token, don't re-fetch profile
+      if (event === 'TOKEN_REFRESHED' && supaSession) {
+        setSession(prev => prev ? {
+          ...prev,
+          token: supaSession.access_token,
+          expiresAt: new Date(supaSession.expires_at! * 1000).toISOString(),
+        } : prev);
+        return;
+      }
+
       if (supaSession?.user) {
         try {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id' as never, supaSession.user.id)
-            .single();
-
-          if (!mounted) return;
-          if (profile) {
-            const p = profile as unknown as Record<string, unknown>;
-            const u: User = {
-              id: p.id as string,
-              username: p.username as string,
-              displayName: p.display_name as string,
-              role: (p.role as 'admin' | 'user') || 'user',
-              createdAt: p.created_at as string,
-              avatarUrl: (p.avatar_url as string) || undefined,
-            };
-            const s: Session = {
-              userId: supaSession.user.id,
-              token: supaSession.access_token,
-              expiresAt: new Date(supaSession.expires_at! * 1000).toISOString(),
-            };
-            setUser(u);
-            setSession(s);
-            setCachedAuth(u, s);
+          const result = await buildUserFromSession(supaSession);
+          if (mounted && result) {
+            setUser(result.user);
+            setSession(result.session);
+            setCachedAuth(result.user, result.session);
           }
         } catch {
           // Profile fetch failed — keep current state
@@ -192,11 +190,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           createdAt: p.created_at as string,
           avatarUrl: (p.avatar_url as string) || undefined,
         };
+        const s: Session = {
+          userId: supaSession.user.id,
+          token: supaSession.access_token,
+          expiresAt: new Date(supaSession.expires_at! * 1000).toISOString(),
+        };
         setUser(u);
-        setCachedAuth(u, session);
+        setSession(s);
+        setCachedAuth(u, s);
       }
     }
-  }, [session]);
+  }, []);
 
   const isAdmin = user?.role === 'admin';
 

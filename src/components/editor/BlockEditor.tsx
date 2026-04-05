@@ -953,10 +953,10 @@ function EditableBlock({
 }
 
 // Helper to render inline formatting: URLs as clickable links, ==text== as highlights
+const INLINE_FORMAT_REGEX = /(==.+?==|https?:\/\/[^\s<]+)/g;
 function TextWithLinks({ text, style }: { text: string; style?: React.CSSProperties }) {
   // Split by highlights first, then by URLs
-  const combinedRegex = /(==.+?==|https?:\/\/[^\s<]+)/g;
-  const parts = text.split(combinedRegex);
+  const parts = text.split(INLINE_FORMAT_REGEX);
   if (parts.length === 1) {
     return <span style={style}>{text}</span>;
   }

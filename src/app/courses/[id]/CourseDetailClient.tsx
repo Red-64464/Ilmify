@@ -49,16 +49,19 @@ export default function CourseDetailClient({ id: propId }: { id: string }) {
   useEffect(() => {
     if (authLoading) return;
     if (!id || id === '_placeholder') return;
+    let cancelled = false;
     setLoading(true);
     courseRepository.getPageById(id).then((p) => {
+      if (cancelled) return;
       setPage(p);
       if (p) {
         setEditTitle(p.title);
         setEditBlocks(p.blocks);
-        courseRepository.getFolderById(p.folderId).then(setFolder).catch(() => {});
+        courseRepository.getFolderById(p.folderId).then(f => { if (!cancelled) setFolder(f); }).catch(() => {});
       }
-    }).catch(() => {}).finally(() => setLoading(false));
-  }, [id, authLoading, user]);
+    }).catch(() => {}).finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [id, authLoading]);
 
   const handleSave = useCallback(async () => {
     if (!page || saving) return;

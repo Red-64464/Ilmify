@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import Sidebar from './Sidebar';
 import BottomNav from './BottomNav';
 import { ToastProvider } from '@/components/ui/Toast';
+import InstallGuide, { useInstallGuide } from '@/components/ui/InstallGuide';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 
@@ -16,6 +17,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, isLoading } = useAuth();
+  const { showGuide, openGuide, closeGuide } = useInstallGuide();
   const isAuthRoute = AUTH_ROUTES.includes(pathname);
   const isPublicRoute = PUBLIC_ROUTES.includes(pathname);
 
@@ -29,9 +31,14 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
   // Schedule daily reminder notification via SW
   useEffect(() => {
     if (!user) return;
-    const enabled = localStorage.getItem('ilmify-daily-reminder');
-    if (enabled === null) localStorage.setItem('ilmify-daily-reminder', 'true');
-    if (enabled === 'false') return;
+    try {
+      const enabled = localStorage.getItem('ilmify-daily-reminder');
+      if (enabled === null) localStorage.setItem('ilmify-daily-reminder', 'true');
+      if (enabled === 'false') return;
+    } catch {
+      // localStorage unavailable (private mode, etc.)
+      return;
+    }
 
     if ('serviceWorker' in navigator && 'Notification' in window) {
       Notification.requestPermission().then((perm) => {
@@ -48,6 +55,18 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
       });
     }
   }, [user]);
+
+  // Keyboard shortcuts — must be before any early returns (React hooks rules)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        router.push('/search');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [router]);
 
   // While auth is loading, show a loading screen
   if (isLoading) {
@@ -66,29 +85,18 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
     return null;
   }
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        router.push('/search');
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [router]);
-
   const showNav = !isAuthRoute && !!user;
 
   return (
     <>
-      {showNav && <Sidebar />}
+      {showNav && <Sidebar onOpenInstallGuide={openGuide} />}
       <main className={`relative z-10 min-h-screen ${showNav ? 'lg:pl-[280px]' : ''}`}>
         <div className={isAuthRoute ? '' : 'mx-auto max-w-4xl px-5 pb-nav sm:px-8 lg:px-10 lg:py-6'}>
           {children}
         </div>
       </main>
       {showNav && <BottomNav />}
+      <InstallGuide isOpen={showGuide} onClose={closeGuide} />
     </>
   );
 }
