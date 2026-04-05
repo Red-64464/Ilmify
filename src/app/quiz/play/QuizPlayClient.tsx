@@ -1,27 +1,51 @@
 'use client';
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle, XCircle, ArrowRight, RotateCcw, Trophy } from 'lucide-react';
+import { CheckCircle, XCircle, ArrowRight, RotateCcw, Trophy, Loader2 } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import { ProgressBar } from '@/components/ui/ProgressBar';
-import { quizQuestions } from '@/data/quiz';
+import { useAuth } from '@/contexts/AuthContext';
+import { quizRepository } from '@/lib/repositories/quizRepository';
+import { activityRepository } from '@/lib/repositories/activityRepository';
+import { quizQuestions as staticQuestions } from '@/data/quiz';
 import type { QuizQuestion } from '@/types';
+
+async function recordActivity(userId: string) {
+  try {
+    await activityRepository.log(userId, 'quiz');
+  } catch { /* ignore */ }
+}
 
 export default function QuizPlayClient() {
   const searchParams = useSearchParams();
   const themeFilter = searchParams.get('theme');
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [allQuestions, setAllQuestions] = useState<QuizQuestion[]>([]);
+
+  useEffect(() => {
+    if (!user) {
+      setAllQuestions(staticQuestions);
+      setLoading(false);
+      return;
+    }
+    quizRepository.getAllQuestions(user.id)
+      .then((q) => setAllQuestions(q.length > 0 ? q : staticQuestions))
+      .catch(() => setAllQuestions(staticQuestions))
+      .finally(() => setLoading(false));
+  }, [user]);
 
   const questions: QuizQuestion[] = useMemo(() => {
     const filtered = themeFilter
-      ? quizQuestions.filter((q) => q.themeId === themeFilter)
-      : quizQuestions;
+      ? allQuestions.filter((q) => q.themeId === themeFilter)
+      : allQuestions;
     return filtered;
-  }, [themeFilter]);
+  }, [themeFilter, allQuestions]);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | number | null>(null);
@@ -46,14 +70,29 @@ export default function QuizPlayClient() {
   const handleSubmit = () => {
     if (showResult) return;
     setShowResult(true);
-    if (isCorrect()) {
-      setScore((s) => s + 1);
+    const correct = isCorrect();
+    if (correct) setScore((s) => s + 1);
+    // Persist mastery update
+    if (user && current?.id && !current.id.startsWith('quiz-')) {
+      quizRepository.updateMastery(current.id, correct).catch(() => {});
     }
   };
 
   const handleNext = () => {
     if (currentIndex + 1 >= questions.length) {
       setFinished(true);
+      // Save session
+      if (user) {
+        quizRepository.saveSession(user.id, {
+          themeId: themeFilter || undefined,
+          questions: questions.map(q => q.id),
+          answers: {},
+          score,
+          total: questions.length,
+        }).catch(() => {});
+        // Record activity for streak
+        recordActivity(user.id);
+      }
     } else {
       setCurrentIndex((i) => i + 1);
       setSelectedAnswer(null);
@@ -70,6 +109,17 @@ export default function QuizPlayClient() {
     setScore(0);
     setFinished(false);
   };
+
+  if (loading) {
+    return (
+      <div className="pb-10">
+        <PageHeader title="Quiz" backButton />
+        <div className="flex justify-center py-16">
+          <Loader2 className="animate-spin" size={32} style={{ color: 'var(--color-primary)' }} />
+        </div>
+      </div>
+    );
+  }
 
   if (questions.length === 0) {
     return (

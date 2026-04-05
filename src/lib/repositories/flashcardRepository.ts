@@ -98,29 +98,34 @@ export const flashcardRepository = {
       .eq('id', id)
       .select()
       .single();
-    if (error) return null;
+    if (error) throw new Error(error.message);
     return rowToDeck(data);
   },
 
   async deleteDeck(id: string): Promise<boolean> {
     const { error } = await supabase.from('flashcard_decks').delete().eq('id', id);
-    return !error;
+    if (error) throw new Error(error.message);
+    return true;
   },
 
   async refreshDeckCounts(deckId: string): Promise<void> {
-    const { data: cards } = await supabase
+    const { data: cards, error: fetchError } = await supabase
       .from('flashcards')
       .select('mastery_level')
       .eq('deck_id', deckId);
 
+    if (fetchError) throw new Error(fetchError.message);
+
     const total = cards?.length || 0;
     const mastered = cards?.filter((c) => (c.mastery_level as number) >= 80).length || 0;
 
-    await supabase.from('flashcard_decks').update({
+    const { error: updateError } = await supabase.from('flashcard_decks').update({
       card_count: total,
       mastered_count: mastered,
       to_review_count: total - mastered,
     }).eq('id', deckId);
+
+    if (updateError) throw new Error(updateError.message);
   },
 
   // Cards
@@ -163,7 +168,7 @@ export const flashcardRepository = {
       .single();
 
     const { error } = await supabase.from('flashcards').delete().eq('id', id);
-    if (error) return false;
+    if (error) throw new Error(error.message);
 
     if (card) {
       await this.refreshDeckCounts(card.deck_id as string);
@@ -188,5 +193,90 @@ export const flashcardRepository = {
 
     await this.refreshDeckCounts(deckId);
     return cardsData.length;
+  },
+
+  async searchCards(query: string, userId?: string): Promise<Flashcard[]> {
+    if (!query.trim()) return [];
+    const q = `%${query}%`;
+    let dbQuery = supabase
+      .from('flashcards')
+      .select('*')
+      .or(`front.ilike.${q},back.ilike.${q}`)
+      .order('created_at', { ascending: false })
+      .limit(20);
+    if (userId) dbQuery = dbQuery.eq('user_id', userId);
+    const { data, error } = await dbQuery;
+    if (error) return [];
+    return (data || []).map(rowToCard);
+  },
+
+  async searchDecks(query: string, userId?: string): Promise<FlashcardDeck[]> {
+    if (!query.trim()) return [];
+    const q = `%${query}%`;
+    let dbQuery = supabase
+      .from('flashcard_decks')
+      .select('*')
+      .or(`title.ilike.${q},description.ilike.${q}`)
+      .order('created_at', { ascending: false })
+      .limit(20);
+    if (userId) dbQuery = dbQuery.eq('user_id', userId);
+    const { data, error } = await dbQuery;
+    if (error) return [];
+    return (data || []).map(rowToDeck);
+  },
+
+  /**
+   * SM-2 inspired review: update mastery, review count, and schedule next review.
+   * rating: 0 = Again, 1 = Hard, 2 = Good, 3 = Easy
+   */
+  async reviewCard(cardId: string, rating: 0 | 1 | 2 | 3): Promise<void> {
+    const { data: card, error: fetchErr } = await supabase
+      .from('flashcards')
+      .select('mastery_level, review_count, deck_id')
+      .eq('id', cardId)
+      .single();
+    if (fetchErr || !card) return;
+
+    const oldMastery = (card.mastery_level as number) || 0;
+    const reviewCount = ((card.review_count as number) || 0) + 1;
+
+    // Mastery delta based on rating
+    let newMastery: number;
+    let intervalDays: number;
+    switch (rating) {
+      case 0: // Again
+        newMastery = Math.max(0, oldMastery - 30);
+        intervalDays = 0; // review again same session or today
+        break;
+      case 1: // Hard
+        newMastery = Math.max(0, oldMastery - 10);
+        intervalDays = 1;
+        break;
+      case 2: // Good
+        newMastery = Math.min(100, oldMastery + 15 + (100 - oldMastery) * 0.15);
+        intervalDays = Math.max(1, Math.round(reviewCount * 1.5));
+        break;
+      case 3: // Easy
+        newMastery = Math.min(100, oldMastery + 25 + (100 - oldMastery) * 0.25);
+        intervalDays = Math.max(3, Math.round(reviewCount * 2.5));
+        break;
+    }
+
+    const nextReview = new Date();
+    nextReview.setDate(nextReview.getDate() + intervalDays);
+
+    const { error } = await supabase
+      .from('flashcards')
+      .update({
+        mastery_level: Math.round(newMastery),
+        review_count: reviewCount,
+        last_reviewed_at: new Date().toISOString(),
+        next_review_at: nextReview.toISOString(),
+      })
+      .eq('id', cardId);
+
+    if (!error) {
+      await this.refreshDeckCounts(card.deck_id as string);
+    }
   },
 };

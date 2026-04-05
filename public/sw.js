@@ -23,6 +23,64 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Handle notification messages from the prayer-times page
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
+    self.registration.showNotification(event.data.title, {
+      body: event.data.body,
+      tag: event.data.tag || 'prayer-reminder',
+      icon: '/logo.png',
+    });
+  }
+
+  // Schedule a daily reminder notification
+  if (event.data && event.data.type === 'SCHEDULE_DAILY_REMINDER') {
+    const hour = event.data.hour || 9;
+    const minute = event.data.minute || 0;
+    scheduleDailyReminder(hour, minute, event.data.body || "N'oubliez pas votre session d'apprentissage !");
+  }
+});
+
+// Daily reminder scheduling
+let dailyReminderTimer = null;
+function scheduleDailyReminder(hour, minute, body) {
+  if (dailyReminderTimer) clearTimeout(dailyReminderTimer);
+
+  function scheduleNext() {
+    const now = new Date();
+    const target = new Date();
+    target.setHours(hour, minute, 0, 0);
+    if (target <= now) target.setDate(target.getDate() + 1);
+    const delay = target.getTime() - now.getTime();
+
+    dailyReminderTimer = setTimeout(() => {
+      self.registration.showNotification('Ilmify — Rappel quotidien 📖', {
+        body: body,
+        tag: 'daily-reminder',
+        icon: '/logo.png',
+      });
+      // Reschedule for the next day
+      scheduleNext();
+    }, delay);
+  }
+
+  scheduleNext();
+}
+
+// Handle notification click
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window' }).then((clients) => {
+      if (clients.length > 0) {
+        clients[0].focus();
+      } else {
+        self.clients.openWindow('/');
+      }
+    })
+  );
+});
+
 // Fetch: network-first for API, cache-first for static assets
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);

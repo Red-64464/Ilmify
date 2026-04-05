@@ -4,10 +4,11 @@ import { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   FileText, GraduationCap, BookOpen, Star, Sun,
   ChevronRight, BookMarked, Plus, LogIn, UserPlus,
+  Flame, Brain, Layers, Zap,
 } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import SectionHeader from '@/components/ui/SectionHeader';
@@ -19,6 +20,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { topicRepository } from '@/lib/repositories/topicRepository';
 import { courseRepository } from '@/lib/repositories/courseRepository';
 import { bookRepository } from '@/lib/repositories/bookRepository';
+import { activityRepository } from '@/lib/repositories/activityRepository';
 import { dailyReminders } from '@/data/daily';
 
 const quickLinks = [
@@ -66,6 +68,9 @@ export default function HomePage() {
   const [recentTopics, setRecentTopics] = useState<{ id: string; title: string; updatedAt: string; icon?: string }[]>([]);
   const [readingBooks, setReadingBooks] = useState<{ id: string; title: string; author: string; progress?: number }[]>([]);
   const [featuredCourses, setFeaturedCourses] = useState<{ id: string; title: string; description?: string; icon?: string }[]>([]);
+  const [streak, setStreak] = useState(0);
+  const [todayStats, setTodayStats] = useState<{ quiz: number; flashcard: number; total: number }>({ quiz: 0, flashcard: 0, total: 0 });
+  const [showFab, setShowFab] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -77,6 +82,12 @@ export default function HomePage() {
     }).catch(() => {});
     courseRepository.getAllPages().then((courses) => {
       setFeaturedCourses(courses.slice(0, 3).map((c) => ({ id: c.id, title: c.title, description: c.description, icon: c.icon })));
+    }).catch(() => {});
+    activityRepository.getStreak(user.id).then(setStreak).catch(() => {});
+    activityRepository.getTodayActivities(user.id).then((acts) => {
+      const quiz = acts.filter((a) => a.activity_type === 'quiz').reduce((s: number, a: { count: number }) => s + a.count, 0);
+      const flashcard = acts.filter((a) => a.activity_type === 'flashcard').reduce((s: number, a: { count: number }) => s + a.count, 0);
+      setTodayStats({ quiz, flashcard, total: quiz + flashcard });
     }).catch(() => {});
   }, [user]);
 
@@ -231,6 +242,50 @@ export default function HomePage() {
                   </p>
                 )}
               </div>
+            </div>
+          </div>
+        </motion.section>
+      )}
+
+      {/* ===== Learning Stats ===== */}
+      {user && (
+        <motion.section variants={fadeUp}>
+          <SectionHeader title="Mes stats" />
+          <div className="grid grid-cols-3 gap-3 mt-5">
+            <div
+              className="rounded-2xl p-4 text-center"
+              style={{
+                background: 'linear-gradient(135deg, rgba(245,158,11,0.08), rgba(245,158,11,0.03))',
+                border: '1px solid rgba(245,158,11,0.1)',
+              }}
+            >
+              <Flame size={22} className="mx-auto mb-2" style={{ color: '#f59e0b' }} />
+              <p className="text-2xl font-bold" style={{ color: '#f59e0b' }}>{streak}</p>
+              <p className="text-[10px] font-medium mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                {streak <= 1 ? 'jour' : 'jours'} de suite
+              </p>
+            </div>
+            <div
+              className="rounded-2xl p-4 text-center"
+              style={{
+                background: 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(99,102,241,0.03))',
+                border: '1px solid rgba(99,102,241,0.1)',
+              }}
+            >
+              <Brain size={22} className="mx-auto mb-2" style={{ color: '#6366f1' }} />
+              <p className="text-2xl font-bold" style={{ color: '#6366f1' }}>{todayStats.quiz}</p>
+              <p className="text-[10px] font-medium mt-0.5" style={{ color: 'var(--text-muted)' }}>Quiz aujourd&apos;hui</p>
+            </div>
+            <div
+              className="rounded-2xl p-4 text-center"
+              style={{
+                background: 'linear-gradient(135deg, rgba(46,158,140,0.08), rgba(46,158,140,0.03))',
+                border: '1px solid rgba(46,158,140,0.1)',
+              }}
+            >
+              <Layers size={22} className="mx-auto mb-2" style={{ color: '#2e9e8c' }} />
+              <p className="text-2xl font-bold" style={{ color: '#2e9e8c' }}>{todayStats.flashcard}</p>
+              <p className="text-[10px] font-medium mt-0.5" style={{ color: 'var(--text-muted)' }}>Cartes révisées</p>
             </div>
           </div>
         </motion.section>
@@ -403,6 +458,58 @@ export default function HomePage() {
             ))}
           </div>
         </motion.section>
+      )}
+
+      {/* ===== FAB Quick Add ===== */}
+      {user && (
+        <div className="fixed bottom-24 right-5 z-50 flex flex-col items-end gap-2">
+          <AnimatePresence>
+            {showFab && (
+              <>
+                {[
+                  { label: 'Topic', href: '/topics', icon: FileText, color: 'var(--accent)' },
+                  { label: 'Livre', href: '/library', icon: BookOpen, color: '#d4ad4a' },
+                  { label: 'Flashcards', href: '/flashcards', icon: Layers, color: '#6366f1' },
+                  { label: 'Quiz', href: '/quiz', icon: Zap, color: '#f59e0b' },
+                ].map((item, i) => (
+                  <motion.div
+                    key={item.label}
+                    initial={{ opacity: 0, y: 10, scale: 0.8 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.8 }}
+                    transition={{ delay: i * 0.04 }}
+                  >
+                    <Link
+                      href={item.href}
+                      className="flex items-center gap-2 rounded-full py-2 pl-4 pr-3 text-sm font-medium shadow-lg"
+                      style={{
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border-subtle)',
+                        color: 'var(--text-primary)',
+                      }}
+                    >
+                      {item.label}
+                      <item.icon size={16} style={{ color: item.color }} />
+                    </Link>
+                  </motion.div>
+                ))}
+              </>
+            )}
+          </AnimatePresence>
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setShowFab((v) => !v)}
+            className="flex h-14 w-14 items-center justify-center rounded-full shadow-xl cursor-pointer"
+            style={{
+              background: 'linear-gradient(135deg, #2e9e8c, #1a7a6b)',
+              color: '#fff',
+            }}
+          >
+            <motion.div animate={{ rotate: showFab ? 45 : 0 }} transition={{ duration: 0.2 }}>
+              <Plus size={24} />
+            </motion.div>
+          </motion.button>
+        </div>
       )}
     </motion.div>
   );

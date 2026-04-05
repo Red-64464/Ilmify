@@ -37,6 +37,7 @@ export default function AdminPage() {
   const [createError, setCreateError] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [showUserSection, setShowUserSection] = useState(true);
+  const [creatingUser, setCreatingUser] = useState(false);
   const { toast } = useToast();
 
   // Edit user modal state
@@ -98,6 +99,8 @@ export default function AdminPage() {
       setCreateError('Le mot de passe doit faire au moins 6 caractères');
       return;
     }
+    if (creatingUser) return;
+    setCreatingUser(true);
     try {
       await authService.createUserAdmin({
         username: newUsername.trim(),
@@ -111,8 +114,11 @@ export default function AdminPage() {
       setNewDisplayName('');
       setNewPassword('');
       setNewRole('user');
+      toast('success', 'Utilisateur créé');
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : 'Erreur');
+    } finally {
+      setCreatingUser(false);
     }
   };
 
@@ -120,7 +126,10 @@ export default function AdminPage() {
     try {
       await authService.deleteUserAsync(userId);
       await refreshUsers();
-    } catch { /* ignore */ }
+      toast('success', 'Utilisateur supprimé');
+    } catch {
+      toast('error', 'Erreur lors de la suppression');
+    }
     setShowDeleteConfirm(null);
   };
 

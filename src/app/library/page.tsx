@@ -62,6 +62,7 @@ export default function LibraryPage() {
   const [cropImage, setCropImage] = useState<string | null>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const [books, setBooks] = useState<Book[]>([]);
+  const [addingBook, setAddingBook] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -79,8 +80,9 @@ export default function LibraryPage() {
   });
 
   const handleAddBook = useCallback(async () => {
-    if (!newTitle.trim() || !newAuthor.trim() || !user) return;
+    if (!newTitle.trim() || !newAuthor.trim() || !user || addingBook) return;
     try {
+      setAddingBook(true);
       await bookRepository.create(user.id, {
         title: `${newEmoji ? newEmoji + ' ' : ''}${newTitle.trim()}`,
         author: newAuthor.trim(),
@@ -101,8 +103,10 @@ export default function LibraryPage() {
     } catch (err) {
       console.error('Error creating book:', err);
       toast('error', 'Erreur lors de l\'ajout du livre');
+    } finally {
+      setAddingBook(false);
     }
-  }, [user, newTitle, newAuthor, newCategory, newCoverUrl, newEmoji, toast]);
+  }, [user, newTitle, newAuthor, newCategory, newCoverUrl, newEmoji, addingBook, toast]);
 
   const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -433,8 +437,8 @@ export default function LibraryPage() {
             <Button variant="secondary" size="md" onClick={() => setShowAddModal(false)} className="flex-1">
               Annuler
             </Button>
-            <Button variant="primary" size="md" onClick={handleAddBook} disabled={!newTitle.trim() || !newAuthor.trim()} className="flex-1">
-              Ajouter
+            <Button variant="primary" size="md" onClick={handleAddBook} disabled={!newTitle.trim() || !newAuthor.trim() || addingBook} className="flex-1">
+              {addingBook ? 'Ajout...' : 'Ajouter'}
             </Button>
           </div>
         </div>

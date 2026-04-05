@@ -19,6 +19,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { topicRepository } from '@/lib/repositories/topicRepository';
 import { courseRepository } from '@/lib/repositories/courseRepository';
 import { bookRepository } from '@/lib/repositories/bookRepository';
+import { flashcardRepository } from '@/lib/repositories/flashcardRepository';
 import type { SearchResult } from '@/types';
 
 const typeConfig: Record<string, { icon: typeof Star; color: string; label: string }> = {
@@ -61,57 +62,98 @@ function SearchPageInner() {
   const [dynamicResults, setDynamicResults] = useState<SearchResult[]>([]);
 
   useEffect(() => {
-    const q = searchParams.get('q');
-    if (q) setQuery(q);
+    setQuery(searchParams.get('q') || '');
   }, [searchParams]);
 
-  // Fetch from Supabase when query changes
+  const [searchLoading, setSearchLoading] = useState(false);
+
+  // Fetch from Supabase when query changes (debounced + race-safe)
   useEffect(() => {
     if (!query.trim() || query.trim().length < 2) {
       setDynamicResults([]);
+      setSearchLoading(false);
       return;
     }
-    const q = query.trim();
-    const promises: Promise<SearchResult[]>[] = [];
 
-    if (user) {
+    setSearchLoading(true);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      const q = query.trim();
+      const promises: Promise<SearchResult[]>[] = [];
+
+      if (user) {
+        promises.push(
+          topicRepository.search(user.id, q).then(topics =>
+            topics.map(t => ({
+              id: t.id,
+              type: 'topic' as const,
+              title: t.title,
+              description: t.blocks?.slice(0, 3).map(b => b.content).filter(Boolean).join(' · ').slice(0, 120) || 'Topic personnel',
+            }))
+          ).catch(() => [])
+        );
+      }
+
       promises.push(
-        topicRepository.search(user.id, q).then(topics =>
-          topics.map(t => ({
-            id: t.id,
-            type: 'topic' as const,
-            title: t.title,
-            description: t.blocks?.slice(0, 3).map(b => b.content).filter(Boolean).join(' · ').slice(0, 120) || 'Topic personnel',
+        courseRepository.searchPages(q).then(pages =>
+          pages.map(p => ({
+            id: p.id,
+            type: 'course' as const,
+            title: p.title,
+            description: p.description || p.blocks?.slice(0, 3).map(b => b.content).filter(Boolean).join(' · ').slice(0, 120) || 'Page de cours',
           }))
         ).catch(() => [])
       );
-    }
 
-    promises.push(
-      courseRepository.searchPages(q).then(pages =>
-        pages.map(p => ({
-          id: p.id,
-          type: 'course' as const,
-          title: p.title,
-          description: p.description || p.blocks?.slice(0, 3).map(b => b.content).filter(Boolean).join(' · ').slice(0, 120) || 'Page de cours',
-        }))
-      ).catch(() => [])
-    );
+      promises.push(
+        bookRepository.search(q, user?.id).then(books =>
+          books.map(b => ({
+            id: b.id,
+            type: 'book' as const,
+            title: b.title,
+            description: `${b.author}${b.description ? ' — ' + b.description.slice(0, 100) : ''}`,
+          }))
+        ).catch(() => [])
+      );
 
-    promises.push(
-      bookRepository.search(q, user?.id).then(books =>
-        books.map(b => ({
-          id: b.id,
-          type: 'book' as const,
-          title: b.title,
-          description: `${b.author}${b.description ? ' — ' + b.description.slice(0, 100) : ''}`,
-        }))
-      ).catch(() => [])
-    );
+      // Search flashcard decks
+      promises.push(
+        flashcardRepository.searchDecks(q, user?.id).then(decks =>
+          decks.map(d => ({
+            id: d.id,
+            type: 'flashcard' as const,
+            title: d.title,
+            description: d.description || `${d.cardCount} cartes`,
+          }))
+        ).catch(() => [])
+      );
 
-    Promise.all(promises).then(arrays => {
-      setDynamicResults(arrays.flat());
-    });
+      // Search book passages
+      if (user) {
+        promises.push(
+          bookRepository.searchPassages(q, user.id).then(passages =>
+            passages.map(p => ({
+              id: p.bookId,
+              type: 'passage' as const,
+              title: p.title,
+              description: p.content.slice(0, 120),
+            }))
+          ).catch(() => [])
+        );
+      }
+
+      Promise.all(promises).then(arrays => {
+        if (!controller.signal.aborted) {
+          setDynamicResults(arrays.flat());
+          setSearchLoading(false);
+        }
+      });
+    }, 300);
+
+    return () => {
+      controller.abort();
+      clearTimeout(timeout);
+    };
   }, [query, user]);
 
   // Merge static and dynamic results, deduplicate by id
@@ -189,7 +231,7 @@ function SearchPageInner() {
               content: result.themeId ? `/explore/${result.themeId}` : '#',
               quiz: '/quiz',
               flashcard: '/flashcards',
-              passage: result.themeId ? `/explore/${result.themeId}` : '/library',
+              passage: `/library/${result.id}`,
             };
             const href = hrefMap[result.type] || '#';
 

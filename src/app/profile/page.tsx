@@ -39,6 +39,7 @@ export default function ProfilePage() {
   const [editDisplayName, setEditDisplayName] = useState('');
   const [editUsername, setEditUsername] = useState('');
   const [editError, setEditError] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
 
   // Change password state
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -47,6 +48,7 @@ export default function ProfilePage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
 
   // Dynamic stats from Supabase
   const [topicCount, setTopicCount] = useState(0);
@@ -114,43 +116,51 @@ export default function ProfilePage() {
     setShowEditProfile(true);
   };
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     if (!editDisplayName.trim() || !editUsername.trim()) {
       setEditError('Tous les champs sont requis');
       return;
     }
+    if (savingProfile) return;
+    setSavingProfile(true);
     try {
       updateUser({ displayName: editDisplayName.trim(), username: editUsername.trim() });
       setShowEditProfile(false);
     } catch (err) {
       setEditError(err instanceof Error ? err.message : 'Erreur');
+    } finally {
+      setSavingProfile(false);
     }
   };
 
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
     setPasswordError('');
     setPasswordSuccess(false);
     if (!oldPassword || !newPassword || !confirmPassword) {
       setPasswordError('Tous les champs sont requis');
       return;
     }
-    if (newPassword.length < 4) {
-      setPasswordError('Le nouveau mot de passe doit faire au moins 4 caractères');
+    if (newPassword.length < 6) {
+      setPasswordError('Le nouveau mot de passe doit faire au moins 6 caractères');
       return;
     }
     if (newPassword !== confirmPassword) {
       setPasswordError('Les mots de passe ne correspondent pas');
       return;
     }
+    if (savingPassword) return;
+    setSavingPassword(true);
     try {
-      updatePassword(oldPassword, newPassword);
+      await updatePassword(oldPassword, newPassword);
       setPasswordSuccess(true);
       setOldPassword('');
       setNewPassword('');
       setConfirmPassword('');
       setTimeout(() => setShowChangePassword(false), 1200);
     } catch (err) {
-      setPasswordError(err instanceof Error ? err.message : 'Erreur');
+      setPasswordError(err instanceof Error ? err.message : 'Erreur lors du changement de mot de passe');
+    } finally {
+      setSavingPassword(false);
     }
   };
 

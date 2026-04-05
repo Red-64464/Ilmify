@@ -115,13 +115,14 @@ export const bookRepository = {
       .eq('id', id)
       .select()
       .single();
-    if (error) return null;
+    if (error) throw new Error(error.message);
     return rowToBook(data);
   },
 
   async delete(id: string): Promise<boolean> {
     const { error } = await supabase.from('books').delete().eq('id', id);
-    return !error;
+    if (error) throw new Error(error.message);
+    return true;
   },
 
   async search(query: string, userId?: string): Promise<Book[]> {
@@ -208,14 +209,14 @@ export const bookRepository = {
       .eq('id', id)
       .select()
       .single();
-    if (error) return null;
+    if (error) throw new Error(error.message);
     return rowToPassage(data);
   },
 
   async deletePassage(id: string): Promise<boolean> {
     const passage = await this.getPassageById(id);
     const { error } = await supabase.from('book_passages').delete().eq('id', id);
-    if (error) return false;
+    if (error) throw new Error(error.message);
 
     if (passage) {
       const { count } = await supabase
@@ -237,5 +238,20 @@ export const bookRepository = {
     const passage = await this.getPassageById(id);
     if (!passage) return null;
     return this.updatePassage(id, { isImportant: !passage.isImportant });
+  },
+
+  async searchPassages(query: string, userId?: string): Promise<BookPassage[]> {
+    if (!query.trim()) return [];
+    const q = `%${query}%`;
+    let dbQuery = supabase
+      .from('book_passages')
+      .select('*')
+      .or(`title.ilike.${q},content.ilike.${q}`)
+      .order('added_at', { ascending: false })
+      .limit(20);
+    if (userId) dbQuery = dbQuery.eq('user_id', userId);
+    const { data, error } = await dbQuery;
+    if (error) return [];
+    return (data || []).map(rowToPassage);
   },
 };

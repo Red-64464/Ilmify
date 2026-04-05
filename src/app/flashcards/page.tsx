@@ -57,6 +57,9 @@ export default function FlashcardsPage() {
   const [editTitle, setEditTitle] = useState('');
   const [showEditEmoji, setShowEditEmoji] = useState(false);
 
+  const [addingDeck, setAddingDeck] = useState(false);
+  const [addingCard, setAddingCard] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [decks, setDecks] = useState<FlashcardDeck[]>([]);
 
   useEffect(() => {
@@ -65,8 +68,9 @@ export default function FlashcardsPage() {
   }, [refreshKey, authLoading, user]);
 
   const handleAddDeck = useCallback(async () => {
-    if (!newTitle.trim() || !user) return;
+    if (!newTitle.trim() || !user || addingDeck) return;
     try {
+      setAddingDeck(true);
       await flashcardRepository.createDeck(user.id, {
         title: `${newEmoji ? newEmoji + ' ' : ''}${newTitle.trim()}`,
         description: newDesc.trim(),
@@ -84,8 +88,10 @@ export default function FlashcardsPage() {
       setRefreshKey((k) => k + 1);
     } catch (err) {
       console.error('Error creating deck:', err);
+    } finally {
+      setAddingDeck(false);
     }
-  }, [user, newTitle, newDesc, newColor, newEmoji, newIcon, newTags]);
+  }, [user, newTitle, newDesc, newColor, newEmoji, newIcon, newTags, addingDeck]);
 
   const handleDeleteDeck = useCallback(async (deckId: string) => {
     if (!confirm('Supprimer ce deck et toutes ses cartes ?')) return;
@@ -98,8 +104,9 @@ export default function FlashcardsPage() {
   }, []);
 
   const handleAddCard = useCallback(async () => {
-    if (!cardFront.trim() || !cardBack.trim() || !showAddCard || !user) return;
+    if (!cardFront.trim() || !cardBack.trim() || !showAddCard || !user || addingCard) return;
     try {
+      setAddingCard(true);
       await flashcardRepository.createCard(user.id, {
         deckId: showAddCard,
         front: cardFront.trim(),
@@ -114,13 +121,16 @@ export default function FlashcardsPage() {
       setRefreshKey((k) => k + 1);
     } catch (err) {
       console.error('Error creating card:', err);
+    } finally {
+      setAddingCard(false);
     }
-  }, [user, cardFront, cardBack, cardDifficulty, showAddCard]);
+  }, [user, cardFront, cardBack, cardDifficulty, showAddCard, addingCard]);
 
   const handleImportJson = useCallback(async () => {
-    if (!importJson.trim() || !showImport || !user) return;
+    if (!importJson.trim() || !showImport || !user || importing) return;
     setImportError('');
     setImportSuccess('');
+    setImporting(true);
     try {
       const parsed = JSON.parse(importJson);
       const cards = Array.isArray(parsed) ? parsed : parsed.cards || parsed.flashcards || [parsed];
@@ -142,8 +152,10 @@ export default function FlashcardsPage() {
       setTimeout(() => { setShowImport(null); setImportSuccess(''); }, 1500);
     } catch {
       setImportError('JSON invalide. Vérifiez le format.');
+    } finally {
+      setImporting(false);
     }
-  }, [importJson, showImport, user]);
+  }, [importJson, showImport, user, importing]);
 
   const handleFileImport = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -440,8 +452,8 @@ export default function FlashcardsPage() {
             <Button variant="secondary" size="md" onClick={() => setShowAddDeck(false)} className="flex-1">
               Annuler
             </Button>
-            <Button variant="primary" size="md" onClick={handleAddDeck} disabled={!newTitle.trim()} className="flex-1">
-              Créer
+            <Button variant="primary" size="md" onClick={handleAddDeck} disabled={!newTitle.trim() || addingDeck} className="flex-1">
+              {addingDeck ? 'Création...' : 'Créer'}
             </Button>
           </div>
         </div>
@@ -500,8 +512,8 @@ export default function FlashcardsPage() {
             <Button variant="secondary" size="md" onClick={() => setShowAddCard(null)} className="flex-1">
               Annuler
             </Button>
-            <Button variant="primary" size="md" onClick={handleAddCard} disabled={!cardFront.trim() || !cardBack.trim()} className="flex-1">
-              Ajouter
+            <Button variant="primary" size="md" onClick={handleAddCard} disabled={!cardFront.trim() || !cardBack.trim() || addingCard} className="flex-1">
+              {addingCard ? 'Ajout...' : 'Ajouter'}
             </Button>
           </div>
         </div>
@@ -563,8 +575,8 @@ export default function FlashcardsPage() {
             <Button variant="secondary" size="md" onClick={() => { setShowImport(null); setImportError(''); setImportSuccess(''); }} className="flex-1">
               Annuler
             </Button>
-            <Button variant="primary" size="md" onClick={handleImportJson} disabled={!importJson.trim()} className="flex-1">
-              Importer
+            <Button variant="primary" size="md" onClick={handleImportJson} disabled={!importJson.trim() || importing} className="flex-1">
+              {importing ? 'Import...' : 'Importer'}
             </Button>
           </div>
         </div>

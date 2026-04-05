@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useParams } from 'next/navigation';
-import { RotateCcw, ChevronLeft, ChevronRight, FileQuestion } from 'lucide-react';
+import { RotateCcw, ChevronLeft, ChevronRight, FileQuestion, RefreshCw } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
@@ -11,6 +11,7 @@ import { ProgressBar } from '@/components/ui/ProgressBar';
 import EmptyState from '@/components/ui/EmptyState';
 import { useAuth } from '@/contexts/AuthContext';
 import { flashcardRepository } from '@/lib/repositories/flashcardRepository';
+import { activityRepository } from '@/lib/repositories/activityRepository';
 import type { FlashcardDeck, Flashcard } from '@/types';
 
 export default function FlashcardStudyClient({ id: propId }: { id: string }) {
@@ -78,6 +79,27 @@ export default function FlashcardStudyClient({ id: propId }: { id: string }) {
   const handleNext = () => {
     setFlipped(false);
     setCurrentIndex((i) => (i < cards.length - 1 ? i + 1 : 0));
+  };
+
+  const handleRate = async (rating: 0 | 1 | 2 | 3) => {
+    // Optimistic local mastery update
+    const deltas = [-30, -10, 15, 25];
+    const delta = deltas[rating];
+    const oldM = current.masteryLevel;
+    const newM = Math.max(0, Math.min(100, oldM + delta));
+    setCards((prev) => prev.map((c) => c.id === current.id ? { ...c, masteryLevel: Math.round(newM), reviewCount: c.reviewCount + 1 } : c));
+
+    // Persist in background
+    flashcardRepository.reviewCard(current.id, rating).catch(() => {});
+    if (user) activityRepository.log(user.id, 'flashcard').catch(() => {});
+
+    // Advance to next card
+    setFlipped(false);
+    if (currentIndex < cards.length - 1) {
+      setCurrentIndex((i) => i + 1);
+    } else {
+      setCurrentIndex(0);
+    }
   };
 
   const masteryColor =
@@ -178,6 +200,47 @@ export default function FlashcardStudyClient({ id: propId }: { id: string }) {
           size="md"
         />
       </div>
+
+      {/* Rating Buttons (shown when flipped) */}
+      {flipped && (
+        <div className="max-w-md mx-auto mb-6">
+          <p className="text-xs text-center mb-3" style={{ color: 'var(--text-muted)' }}>Comment était-ce ?</p>
+          <div className="grid grid-cols-4 gap-2">
+            <button
+              onClick={() => handleRate(0)}
+              className="flex flex-col items-center gap-1 rounded-xl py-3 px-2 text-xs font-medium transition-colors"
+              style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}
+            >
+              <RefreshCw size={16} />
+              À revoir
+            </button>
+            <button
+              onClick={() => handleRate(1)}
+              className="flex flex-col items-center gap-1 rounded-xl py-3 px-2 text-xs font-medium transition-colors"
+              style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}
+            >
+              <span className="text-base">😓</span>
+              Difficile
+            </button>
+            <button
+              onClick={() => handleRate(2)}
+              className="flex flex-col items-center gap-1 rounded-xl py-3 px-2 text-xs font-medium transition-colors"
+              style={{ background: 'rgba(46,158,140,0.12)', color: '#2e9e8c', border: '1px solid rgba(46,158,140,0.3)' }}
+            >
+              <span className="text-base">👍</span>
+              Bien
+            </button>
+            <button
+              onClick={() => handleRate(3)}
+              className="flex flex-col items-center gap-1 rounded-xl py-3 px-2 text-xs font-medium transition-colors"
+              style={{ background: 'rgba(58,170,96,0.12)', color: '#3aaa60', border: '1px solid rgba(58,170,96,0.3)' }}
+            >
+              <span className="text-base">🌟</span>
+              Facile
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Navigation */}
       <div className="flex items-center justify-center gap-3 max-w-md mx-auto">

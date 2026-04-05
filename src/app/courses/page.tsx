@@ -107,11 +107,13 @@ export default function CoursesPage() {
       window.location.href = `/courses/${page.id}`;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur lors de la création');
+    } finally {
       setCreating(false);
     }
   }, [newPageTitle, newPageFolder, allPages, user, creating]);
 
   const handleDeleteFolder = useCallback(async (id: string) => {
+    if (!confirm('Supprimer ce dossier et tout son contenu ?')) return;
     try {
       await courseRepository.deleteFolder(id);
       setRefreshKey((k) => k + 1);
@@ -364,8 +366,8 @@ export default function CoursesPage() {
             <Button variant="secondary" size="md" onClick={() => { setShowCreateFolder(false); setError(''); }} className="flex-1">
               Annuler
             </Button>
-            <Button variant="primary" size="md" onClick={handleCreateFolder} disabled={!newFolderTitle.trim()} className="flex-1">
-              Créer
+            <Button variant="primary" size="md" onClick={handleCreateFolder} disabled={!newFolderTitle.trim() || creating} className="flex-1">
+              {creating ? 'Création...' : 'Créer'}
             </Button>
           </div>
         </div>
@@ -424,8 +426,8 @@ export default function CoursesPage() {
             <Button variant="secondary" size="md" onClick={() => { setShowCreatePage(false); setError(''); }} className="flex-1">
               Annuler
             </Button>
-            <Button variant="primary" size="md" onClick={handleCreatePage} disabled={!newPageTitle.trim()} className="flex-1">
-              Créer
+            <Button variant="primary" size="md" onClick={handleCreatePage} disabled={!newPageTitle.trim() || creating} className="flex-1">
+              {creating ? 'Création...' : 'Créer'}
             </Button>
           </div>
         </div>

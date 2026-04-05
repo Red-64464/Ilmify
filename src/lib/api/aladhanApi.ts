@@ -2,6 +2,8 @@
 
 const ALADHAN_BASE = 'https://api.aladhan.com/v1';
 
+export const DEFAULT_METHOD = 3; // Muslim World League (MWL)
+
 export interface PrayerTimings {
   Fajr: string;
   Sunrise: string;
@@ -57,7 +59,7 @@ export interface PrayerTimesResponse {
 export async function getPrayerTimesByCoords(
   latitude: number,
   longitude: number,
-  method = 12, // UOIF for France by default
+  method = DEFAULT_METHOD,
   date?: Date
 ): Promise<PrayerTimesResponse> {
   const d = date || new Date();
@@ -77,7 +79,7 @@ export async function getMonthlyPrayerTimes(
   longitude: number,
   month: number,
   year: number,
-  method = 12
+  method = DEFAULT_METHOD
 ): Promise<{ code: number; data: PrayerTimesResponse['data'][] }> {
   const res = await fetch(
     `${ALADHAN_BASE}/calendar/${year}/${month}?latitude=${latitude}&longitude=${longitude}&method=${method}`
@@ -102,3 +104,25 @@ export const CALCULATION_METHODS: { id: number; name: string }[] = [
   { id: 14, name: 'Spiritual Administration of Muslims of Russia' },
   { id: 15, name: 'Moonsighting Committee Worldwide' },
 ];
+
+// Qibla direction API
+export interface QiblaResponse {
+  code: number;
+  status: string;
+  data: {
+    latitude: number;
+    longitude: number;
+    direction: number; // degrees from North
+  };
+}
+
+export async function getQiblaDirection(
+  latitude: number,
+  longitude: number
+): Promise<QiblaResponse> {
+  const res = await fetch(
+    `${ALADHAN_BASE}/qibla/${latitude}/${longitude}`
+  );
+  if (!res.ok) throw new Error(`Aladhan API error: ${res.status}`);
+  return res.json();
+}

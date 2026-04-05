@@ -46,17 +46,25 @@ export default function TopicsPage() {
   const [contextMenu, setContextMenu] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [topics, setTopics] = useState<Topic[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
+    setDataLoading(true);
     const loadTopics = async () => {
-      let result = search
-        ? await topicRepository.search(user.id, search)
-        : await topicRepository.getByUser(user.id);
-      if (categoryFilter !== 'Tous') {
-        result = result.filter((t) => t.category === categoryFilter);
+      try {
+        let result = search
+          ? await topicRepository.search(user.id, search)
+          : await topicRepository.getByUser(user.id);
+        if (categoryFilter !== 'Tous') {
+          result = result.filter((t) => t.category === categoryFilter);
+        }
+        setTopics(result);
+      } catch {
+        setTopics([]);
+      } finally {
+        setDataLoading(false);
       }
-      setTopics(result);
     };
     loadTopics();
   }, [user, search, categoryFilter, refreshKey]);
@@ -76,6 +84,7 @@ export default function TopicsPage() {
       window.location.href = `/topics/${topic.id}`;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur lors de la création');
+    } finally {
       setCreating(false);
     }
   }, [user, newTitle, newCategory, creating]);
@@ -98,6 +107,7 @@ export default function TopicsPage() {
             if (user) await topicRepository.duplicate(topic.id, user.id);
             break;
           case 'delete':
+            if (!confirm('Supprimer ce topic ?')) return;
             await topicRepository.delete(topic.id);
             break;
         }

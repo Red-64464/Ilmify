@@ -26,6 +26,29 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
     }
   }, [isLoading, user, isAuthRoute, isPublicRoute, router]);
 
+  // Schedule daily reminder notification via SW
+  useEffect(() => {
+    if (!user) return;
+    const enabled = localStorage.getItem('ilmify-daily-reminder');
+    if (enabled === null) localStorage.setItem('ilmify-daily-reminder', 'true');
+    if (enabled === 'false') return;
+
+    if ('serviceWorker' in navigator && 'Notification' in window) {
+      Notification.requestPermission().then((perm) => {
+        if (perm === 'granted') {
+          navigator.serviceWorker.ready.then((reg) => {
+            reg.active?.postMessage({
+              type: 'SCHEDULE_DAILY_REMINDER',
+              hour: 9,
+              minute: 0,
+              body: "N'oubliez pas votre session d'apprentissage quotidienne ! 📖",
+            });
+          });
+        }
+      });
+    }
+  }, [user]);
+
   // While auth is loading, show a loading screen
   if (isLoading) {
     return (

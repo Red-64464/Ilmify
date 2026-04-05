@@ -100,13 +100,14 @@ export const courseRepository = {
       .eq('id', id)
       .select()
       .single();
-    if (error) return null;
+    if (error) throw new Error(error.message);
     return rowToFolder(data);
   },
 
   async deleteFolder(id: string): Promise<boolean> {
     const { error } = await supabase.from('course_folders').delete().eq('id', id);
-    return !error;
+    if (error) throw new Error(error.message);
+    return true;
   },
 
   // Pages
@@ -186,7 +187,8 @@ export const courseRepository = {
 
   async deletePage(id: string): Promise<boolean> {
     const { error } = await supabase.from('course_pages').delete().eq('id', id);
-    return !error;
+    if (error) throw new Error(error.message);
+    return true;
   },
 
   async searchPages(query: string): Promise<CoursePage[]> {

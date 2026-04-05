@@ -260,6 +260,76 @@ create policy "Users insert own favorites"
 create policy "Users delete own favorites"
   on public.favorites for delete using (auth.uid() = user_id);
 
+-- 10. Quiz Questions (user-owned)
+create table public.quiz_questions (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  theme_id text not null default '',
+  type text not null default 'mcq' check (type in ('mcq', 'true-false', 'short-answer', 'association')),
+  question text not null,
+  options text[],
+  correct_answer text not null,
+  explanation text not null default '',
+  source text,
+  difficulty text not null default 'medium' check (difficulty in ('easy', 'medium', 'hard')),
+  mastery_level real not null default 0,
+  error_count int not null default 0,
+  review_count int not null default 0,
+  last_reviewed_at timestamptz,
+  tags text[] not null default '{}',
+  proof text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.quiz_questions enable row level security;
+
+create policy "Users see own quiz questions"
+  on public.quiz_questions for select using (auth.uid() = user_id);
+create policy "Users insert own quiz questions"
+  on public.quiz_questions for insert with check (auth.uid() = user_id);
+create policy "Users update own quiz questions"
+  on public.quiz_questions for update using (auth.uid() = user_id);
+create policy "Users delete own quiz questions"
+  on public.quiz_questions for delete using (auth.uid() = user_id);
+
+-- 11. Quiz Sessions (history)
+create table public.quiz_sessions (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  theme_id text,
+  questions text[] not null default '{}',
+  answers jsonb not null default '{}',
+  score int not null default 0,
+  total int not null default 0,
+  completed_at timestamptz not null default now()
+);
+
+alter table public.quiz_sessions enable row level security;
+
+create policy "Users see own quiz sessions"
+  on public.quiz_sessions for select using (auth.uid() = user_id);
+create policy "Users insert own quiz sessions"
+  on public.quiz_sessions for insert with check (auth.uid() = user_id);
+
+-- 12. Activity Streak Tracking
+create table public.user_activity (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  activity_date date not null default current_date,
+  activity_type text not null default 'general',
+  count int not null default 1,
+  unique(user_id, activity_date, activity_type)
+);
+
+alter table public.user_activity enable row level security;
+
+create policy "Users see own activity"
+  on public.user_activity for select using (auth.uid() = user_id);
+create policy "Users insert own activity"
+  on public.user_activity for insert with check (auth.uid() = user_id);
+create policy "Users update own activity"
+  on public.user_activity for update using (auth.uid() = user_id);
+
 -- 10. Storage bucket for images (covers, avatars, editor images)
 insert into storage.buckets (id, name, public) values ('images', 'images', true);
 

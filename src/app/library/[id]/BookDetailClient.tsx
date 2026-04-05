@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useParams } from 'next/navigation';
-import { BookOpen, Star, FileQuestion, BookMarked, Plus, Upload, Link2, Image, Search, Edit3, Trash2, LayoutGrid, List, AlignJustify, ExternalLink } from 'lucide-react';
+import { BookOpen, Star, FileQuestion, BookMarked, Plus, Upload, Link2, Image, Search, Edit3, Trash2, LayoutGrid, List, AlignJustify, ExternalLink, Download } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
@@ -13,6 +13,7 @@ import { ProgressBar } from '@/components/ui/ProgressBar';
 import EmptyState from '@/components/ui/EmptyState';
 import { useAuth } from '@/contexts/AuthContext';
 import { bookRepository } from '@/lib/repositories/bookRepository';
+import { exportPassagesToPdf } from '@/lib/exportPdf';
 import type { Book, BookPassage } from '@/types';
 
 const stagger = {
@@ -67,6 +68,7 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
   const [passageLink, setPassageLink] = useState('');
   const passageImageRef = useRef<HTMLInputElement>(null);
   const [passageSaving, setPassageSaving] = useState(false);
+  const [passageError, setPassageError] = useState('');
 
   // Search and view mode
   const [passageSearch, setPassageSearch] = useState('');
@@ -115,8 +117,7 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
       setPassageLink('');
       setRefreshKey((k) => k + 1);
     } catch (err) {
-      console.error('Error creating passage:', err);
-    } finally {
+      console.error('Error creating passage:', err);      setPassageError('Erreur lors de l\'ajout du passage');    } finally {
       setPassageSaving(false);
     }
   }, [id, passageTitle, passageContent, passagePage, passageReflection, passageImportant, user, passageSaving]);
@@ -165,12 +166,14 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
       setRefreshKey((k) => k + 1);
     } catch (err) {
       console.error('Error updating passage:', err);
+      setPassageError('Erreur lors de la modification du passage');
     } finally {
       setPassageSaving(false);
     }
   }, [editingPassage, editTitle, editContent, editPage, editReflection, editImportant, editImageUrl, editLink, passageSaving]);
 
   const handleDeletePassage = useCallback(async (passageId: string) => {
+    if (!confirm('Supprimer ce passage ?')) return;
     try {
       await bookRepository.deletePassage(passageId);
       setRefreshKey((k) => k + 1);
@@ -328,14 +331,26 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
             ({passages.length})
           </span>
         </div>
-        <Button
-          variant="primary"
-          size="sm"
-          iconLeft={<Plus size={14} />}
-          onClick={() => setShowAddPassage(true)}
-        >
-          Ajouter
-        </Button>
+        <div className="flex items-center gap-2">
+          {passages.length > 0 && (
+            <Button
+              variant="secondary"
+              size="sm"
+              iconLeft={<Download size={14} />}
+              onClick={() => exportPassagesToPdf(book.title, book.author, passages)}
+            >
+              PDF
+            </Button>
+          )}
+          <Button
+            variant="primary"
+            size="sm"
+            iconLeft={<Plus size={14} />}
+            onClick={() => setShowAddPassage(true)}
+          >
+            Ajouter
+          </Button>
+        </div>
       </div>
 
       {/* Search & View Mode */}

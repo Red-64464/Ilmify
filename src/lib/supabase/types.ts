@@ -363,6 +363,117 @@ export interface Database {
         };
         Relationships: [];
       };
+      quiz_questions: {
+        Row: {
+          id: string;
+          user_id: string;
+          theme_id: string | null;
+          type: string;
+          question: string;
+          options: Json;
+          correct_answer: Json;
+          explanation: string;
+          source: string | null;
+          difficulty: string;
+          mastery_level: number;
+          error_count: number;
+          review_count: number;
+          last_reviewed_at: string | null;
+          tags: string[];
+          proof: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          theme_id?: string | null;
+          type?: string;
+          question: string;
+          options?: Json;
+          correct_answer: Json;
+          explanation?: string;
+          source?: string | null;
+          difficulty?: string;
+          mastery_level?: number;
+          error_count?: number;
+          review_count?: number;
+          last_reviewed_at?: string | null;
+          tags?: string[];
+          proof?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          theme_id?: string | null;
+          type?: string;
+          question?: string;
+          options?: Json;
+          correct_answer?: Json;
+          explanation?: string;
+          source?: string | null;
+          difficulty?: string;
+          mastery_level?: number;
+          error_count?: number;
+          review_count?: number;
+          last_reviewed_at?: string | null;
+          tags?: string[];
+          proof?: string | null;
+        };
+        Relationships: [];
+      };
+      quiz_sessions: {
+        Row: {
+          id: string;
+          user_id: string;
+          theme_id: string | null;
+          questions: string[];
+          answers: Json;
+          score: number;
+          total: number;
+          completed_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          theme_id?: string | null;
+          questions?: string[];
+          answers?: Json;
+          score: number;
+          total: number;
+          completed_at?: string;
+        };
+        Update: {
+          theme_id?: string | null;
+          questions?: string[];
+          answers?: Json;
+          score?: number;
+          total?: number;
+        };
+        Relationships: [];
+      };
+      user_activity: {
+        Row: {
+          id: string;
+          user_id: string;
+          activity_date: string;
+          activity_type: string;
+          count: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          activity_date: string;
+          activity_type: string;
+          count?: number;
+          created_at?: string;
+        };
+        Update: {
+          activity_date?: string;
+          activity_type?: string;
+          count?: number;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

@@ -14,7 +14,7 @@ interface AuthContextValue {
   signup: (data: SignupData) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (updates: { displayName?: string; username?: string; avatarUrl?: string }) => void;
-  updatePassword: (oldPassword: string, newPassword: string) => void;
+  updatePassword: (oldPassword: string, newPassword: string) => Promise<void>;
   refreshUser: () => void;
 }
 
@@ -83,6 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, supaSession) => {
+      if (!mounted) return;
       if (event === 'SIGNED_OUT' || !supaSession) {
         setUser(null);
         setSession(null);
@@ -91,29 +92,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (supaSession?.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', supaSession.user.id)
-          .single();
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', supaSession.user.id)
+            .single();
 
-        if (profile) {
-          const u: User = {
-            id: profile.id,
-            username: profile.username,
-            displayName: profile.display_name,
-            role: profile.role as 'admin' | 'user',
-            createdAt: profile.created_at,
-            avatarUrl: profile.avatar_url || undefined,
-          };
-          const s: Session = {
-            userId: supaSession.user.id,
-            token: supaSession.access_token,
-            expiresAt: new Date(supaSession.expires_at! * 1000).toISOString(),
-          };
-          setUser(u);
-          setSession(s);
-          setCachedAuth(u, s);
+          if (!mounted) return;
+          if (profile) {
+            const u: User = {
+              id: profile.id,
+              username: profile.username,
+              displayName: profile.display_name,
+              role: profile.role as 'admin' | 'user',
+              createdAt: profile.created_at,
+              avatarUrl: profile.avatar_url || undefined,
+            };
+            const s: Session = {
+              userId: supaSession.user.id,
+              token: supaSession.access_token,
+              expiresAt: new Date(supaSession.expires_at! * 1000).toISOString(),
+            };
+            setUser(u);
+            setSession(s);
+            setCachedAuth(u, s);
+          }
+        } catch {
+          // Profile fetch failed — keep current state
         }
       }
     });
@@ -161,7 +167,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, [user, session]);
 
-  const updatePassword = useCallback(async (_oldPassword: string, newPassword: string) => {
+  const updatePassword = useCallback(async (_oldPassword: string, newPassword: string): Promise<void> => {
     if (!user) throw new Error('Non connecté');
     await authService.updatePasswordAsync(newPassword);
   }, [user]);

@@ -87,7 +87,7 @@ export const topicRepository = {
       .eq('id', id)
       .select()
       .single();
-    if (error) return null;
+    if (error) throw new Error(error.message);
     return rowToTopic(data);
   },
 
@@ -113,7 +113,8 @@ export const topicRepository = {
 
   async delete(id: string): Promise<boolean> {
     const { error } = await supabase.from('topics').delete().eq('id', id);
-    return !error;
+    if (error) throw new Error(error.message);
+    return true;
   },
 
   async duplicate(id: string, userId: string): Promise<Topic | null> {
