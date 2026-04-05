@@ -109,10 +109,6 @@ export default function TopicsPage() {
     [user]
   );
 
-  if (!user) {
-    return null;
-  }
-
   return (
     <AuthGuard>
     <div className="pb-10">

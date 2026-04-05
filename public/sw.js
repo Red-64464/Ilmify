@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ilmify-v1';
+const CACHE_NAME = 'ilmify-v2';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -27,9 +27,10 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Skip non-GET requests and Supabase API calls (always network)
+  // Skip non-GET requests, Supabase API calls, and Next.js chunks (always network)
   if (event.request.method !== 'GET') return;
   if (url.hostname.includes('supabase')) return;
+  if (url.pathname.startsWith('/_next/')) return;
 
   // For navigation requests: network-first with offline fallback
   if (event.request.mode === 'navigate') {
@@ -45,10 +46,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // For static assets (fonts, images, CSS, JS): cache-first
+  // For static assets (fonts, images): cache-first
   if (
     url.pathname.startsWith('/fonts/') ||
-    url.pathname.startsWith('/_next/static/') ||
     url.pathname.endsWith('.png') ||
     url.pathname.endsWith('.jpg') ||
     url.pathname.endsWith('.svg') ||

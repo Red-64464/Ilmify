@@ -155,7 +155,7 @@ export default function ProfilePage() {
   };
 
   if (!user) {
-    return null;
+    return <AuthGuard><></></AuthGuard>;
   }
 
   return (

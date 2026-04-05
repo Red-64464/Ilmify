@@ -15,6 +15,7 @@ import {
   Settings,
   Compass,
   LogOut,
+  Clock,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -31,6 +32,7 @@ const toolsNav = [
   { href: '/quiz', label: 'Quiz', icon: Brain },
   { href: '/flashcards', label: 'Flashcards', icon: Layers },
   { href: '/favorites', label: 'Favoris', icon: Heart },
+  { href: '/prayer-times', label: 'Horaires de Prière', icon: Clock },
 ] as const;
 
 function NavLink({

@@ -33,35 +33,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Listen to Supabase auth state changes
   useEffect(() => {
+    let mounted = true;
+
+    // Safety timeout — never block loading forever
+    const timeout = setTimeout(() => {
+      if (mounted) setIsLoading(false);
+    }, 5000);
+
     // Get initial session
     supabase.auth.getSession().then(async ({ data: { session: supaSession } }) => {
+      if (!mounted) return;
       if (supaSession?.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', supaSession.user.id)
-          .single();
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', supaSession.user.id)
+            .single();
 
-        if (profile) {
-          const u: User = {
-            id: profile.id,
-            username: profile.username,
-            displayName: profile.display_name,
-            role: profile.role as 'admin' | 'user',
-            createdAt: profile.created_at,
-            avatarUrl: profile.avatar_url || undefined,
-          };
-          const s: Session = {
-            userId: supaSession.user.id,
-            token: supaSession.access_token,
-            expiresAt: new Date(supaSession.expires_at! * 1000).toISOString(),
-          };
-          setUser(u);
-          setSession(s);
-          setCachedAuth(u, s);
+          if (mounted && profile) {
+            const u: User = {
+              id: profile.id,
+              username: profile.username,
+              displayName: profile.display_name,
+              role: profile.role as 'admin' | 'user',
+              createdAt: profile.created_at,
+              avatarUrl: profile.avatar_url || undefined,
+            };
+            const s: Session = {
+              userId: supaSession.user.id,
+              token: supaSession.access_token,
+              expiresAt: new Date(supaSession.expires_at! * 1000).toISOString(),
+            };
+            setUser(u);
+            setSession(s);
+            setCachedAuth(u, s);
+          }
+        } catch {
+          // Profile fetch failed — still allow app to load
         }
       }
-      setIsLoading(false);
+      if (mounted) setIsLoading(false);
+    }).catch(() => {
+      // getSession failed — still allow app to load (will redirect to login)
+      if (mounted) setIsLoading(false);
+    }).finally(() => {
+      clearTimeout(timeout);
     });
 
     // Listen for auth changes
@@ -101,7 +118,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      clearTimeout(timeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const login = useCallback(async (credentials: AuthCredentials) => {

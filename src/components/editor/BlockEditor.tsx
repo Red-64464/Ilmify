@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import type { TopicBlock, BlockType } from '@/types';
 import ImageCropper from '@/components/ui/ImageCropper';
+import QuranSearchModal from '@/components/islamic/QuranSearchModal';
+import HadithSearchModal from '@/components/islamic/HadithSearchModal';
 
 // Block type definitions with metadata
 const BLOCK_TYPES: { type: BlockType; icon: React.ElementType; label: string; shortcut: string; color: string }[] = [
@@ -41,6 +43,8 @@ const BLOCK_TYPES: { type: BlockType; icon: React.ElementType; label: string; sh
   { type: 'qa', icon: HelpCircle, label: 'Question / Réponse', shortcut: '/qa', color: '#8b5cf6' },
   { type: 'table', icon: Table2, label: 'Tableau', shortcut: '/table', color: '#14b8a6' },
   { type: 'divider', icon: Minus, label: 'Séparateur', shortcut: '/divider', color: 'var(--text-muted)' },
+  { type: 'verse', icon: BookOpen, label: '🔍 Verset (QuranEnc)', shortcut: '/quranenc', color: '#d4ad4a' },
+  { type: 'hadith', icon: BookMarked, label: '🔍 Hadith (HadeethEnc)', shortcut: '/hadeethenc', color: 'var(--accent)' },
 ];
 
 function generateBlockId(): string {
@@ -62,7 +66,7 @@ function SlashMenu({
   filter,
   onClose,
 }: {
-  onSelect: (type: BlockType) => void;
+  onSelect: (type: BlockType, shortcut?: string) => void;
   filter: string;
   onClose: () => void;
 }) {
@@ -92,9 +96,9 @@ function SlashMenu({
         ) : (
           filtered.map((bt) => (
             <button
-              key={bt.type}
+              key={bt.type + bt.shortcut}
               onClick={() => {
-                onSelect(bt.type);
+                onSelect(bt.type, bt.shortcut);
                 onClose();
               }}
               className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors duration-150 cursor-pointer"
@@ -289,6 +293,8 @@ function EditableBlock({
   onMoveDown,
   isFirst,
   isLast,
+  onOpenQuranModal,
+  onOpenHadithModal,
 }: {
   block: TopicBlock;
   onUpdate: (updates: Partial<TopicBlock>) => void;
@@ -298,6 +304,8 @@ function EditableBlock({
   onMoveDown: () => void;
   isFirst: boolean;
   isLast: boolean;
+  onOpenQuranModal?: () => void;
+  onOpenHadithModal?: () => void;
 }) {
   const [showSlash, setShowSlash] = useState(false);
   const [slashFilter, setSlashFilter] = useState('');
@@ -581,19 +589,19 @@ function EditableBlock({
     >
       {/* Left action bar */}
       <div
-        className="absolute -left-2 sm:-left-10 top-1 flex flex-col gap-0.5 transition-opacity duration-200"
-        style={{ opacity: showActions ? 0.7 : 0 }}
+        className="absolute -left-8 sm:-left-10 top-1 flex flex-col gap-0.5 transition-opacity duration-200"
+        style={{ opacity: showActions ? 0.7 : 0.3 }}
       >
         <button
           onClick={() => setShowSlash(true)}
-          className="flex h-6 w-6 items-center justify-center rounded transition-colors cursor-pointer"
+          className="flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded transition-colors cursor-pointer"
           style={{ color: 'var(--text-muted)' }}
           title="Ajouter un bloc"
         >
           <Plus size={14} />
         </button>
         <button
-          className="flex h-6 w-6 items-center justify-center rounded cursor-grab"
+          className="flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded cursor-grab"
           style={{ color: 'var(--text-muted)' }}
           title="Déplacer"
         >
@@ -916,8 +924,16 @@ function EditableBlock({
         {showSlash && (
           <SlashMenu
             filter={slashFilter}
-            onSelect={(type) => {
-              onUpdate({ type, content: '' });
+            onSelect={(type, shortcut) => {
+              if (shortcut === '/quranenc' && onOpenQuranModal) {
+                onOpenQuranModal();
+                onDelete();
+              } else if (shortcut === '/hadeethenc' && onOpenHadithModal) {
+                onOpenHadithModal();
+                onDelete();
+              } else {
+                onUpdate({ type, content: '' });
+              }
               setShowSlash(false);
             }}
             onClose={() => setShowSlash(false)}
@@ -1094,6 +1110,25 @@ function ReadOnlyBlock({ block }: { block: TopicBlock }) {
             <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--accent)' }}>
               Hadith
             </span>
+            {block.metadata?.grade && (
+              <span
+                className="ml-1 text-[10px] px-2 py-0.5 rounded-full"
+                style={{
+                  background: 'rgba(46, 158, 140, 0.12)',
+                  color: 'var(--accent)',
+                }}
+              >
+                {block.metadata.grade}
+              </span>
+            )}
+            {block.metadata?.provider && (
+              <span
+                className="ml-auto text-[9px] px-1.5 py-0.5 rounded"
+                style={{ background: 'rgba(46, 158, 140, 0.08)', color: 'var(--text-muted)' }}
+              >
+                {block.metadata.provider === 'hadeethenc' ? 'HadeethEnc' : block.metadata.provider}
+              </span>
+            )}
           </div>
           <p className="text-sm leading-[1.9]" style={{ color: 'var(--text-primary)' }}>
             <TextWithLinks text={block.content} />
@@ -1102,6 +1137,16 @@ function ReadOnlyBlock({ block }: { block: TopicBlock }) {
             <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
               — {block.metadata.source}
             </p>
+          )}
+          {block.metadata?.explanation && (
+            <div className="mt-3 pt-3" style={{ borderTop: '1px solid rgba(46, 158, 140, 0.12)' }}>
+              <p className="text-[10px] font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--accent)' }}>
+                Explication
+              </p>
+              <p className="text-xs leading-[1.8]" style={{ color: 'var(--text-secondary)' }}>
+                <TextWithLinks text={block.metadata.explanation} />
+              </p>
+            </div>
           )}
         </div>
       );
@@ -1119,6 +1164,14 @@ function ReadOnlyBlock({ block }: { block: TopicBlock }) {
             <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: '#d4ad4a' }}>
               Verset
             </span>
+            {block.metadata?.provider && (
+              <span
+                className="ml-auto text-[9px] px-1.5 py-0.5 rounded"
+                style={{ background: 'rgba(196, 154, 61, 0.08)', color: 'var(--text-muted)' }}
+              >
+                {block.metadata.provider === 'quranenc' ? 'QuranEnc' : block.metadata.provider}
+              </span>
+            )}
           </div>
           {block.metadata?.arabic && (
             <p className="text-lg font-arabic text-right leading-[2] mb-3" style={{ color: '#d4ad4a' }}>
@@ -1132,6 +1185,18 @@ function ReadOnlyBlock({ block }: { block: TopicBlock }) {
             <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
               — {block.metadata.source}
             </p>
+          )}
+          {block.metadata?.footnotes && (
+            <p className="text-[10px] mt-2 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+              {block.metadata.footnotes}
+            </p>
+          )}
+          {block.metadata?.audioUrl && (
+            <div className="mt-3 pt-3" style={{ borderTop: '1px solid rgba(196, 154, 61, 0.12)' }}>
+              <audio controls className="w-full" style={{ height: '32px' }}>
+                <source src={block.metadata.audioUrl} type="audio/mpeg" />
+              </audio>
+            </div>
           )}
         </div>
       );
@@ -1655,6 +1720,9 @@ function parsePastedText(text: string): TopicBlock[] {
 
 // Main editor component
 export default function BlockEditor({ blocks, onChange, readOnly = false }: BlockEditorProps) {
+  const [showQuranModal, setShowQuranModal] = useState(false);
+  const [showHadithModal, setShowHadithModal] = useState(false);
+
   const handlePaste = useCallback(
     (e: React.ClipboardEvent) => {
       const text = e.clipboardData.getData('text/plain');
@@ -1696,6 +1764,22 @@ export default function BlockEditor({ blocks, onChange, readOnly = false }: Bloc
     (index: number, updates: Partial<TopicBlock>) => {
       const updated = [...blocks];
       updated[index] = { ...updated[index], ...updates };
+      onChange(updated);
+    },
+    [blocks, onChange]
+  );
+
+  const handleInsertIslamicBlock = useCallback(
+    (blockData: Partial<TopicBlock>) => {
+      const newBlock: TopicBlock = {
+        id: generateBlockId(),
+        type: blockData.type || 'paragraph',
+        content: blockData.content || '',
+        metadata: blockData.metadata,
+        order: blocks.length,
+      };
+      const updated = [...blocks, newBlock];
+      updated.forEach((b, i) => (b.order = i));
       onChange(updated);
     },
     [blocks, onChange]
@@ -1750,6 +1834,8 @@ export default function BlockEditor({ blocks, onChange, readOnly = false }: Bloc
             onMoveDown={() => moveBlock(index, 'down')}
             isFirst={index === 0}
             isLast={index === blocks.length - 1}
+            onOpenQuranModal={() => setShowQuranModal(true)}
+            onOpenHadithModal={() => setShowHadithModal(true)}
           />
         ))}
 
@@ -1768,6 +1854,18 @@ export default function BlockEditor({ blocks, onChange, readOnly = false }: Bloc
         <Plus size={16} />
         <span className="text-sm">Ajouter un bloc</span>
       </button>
+
+      {/* Islamic API modals */}
+      <QuranSearchModal
+        isOpen={showQuranModal}
+        onClose={() => setShowQuranModal(false)}
+        onInsert={handleInsertIslamicBlock}
+      />
+      <HadithSearchModal
+        isOpen={showHadithModal}
+        onClose={() => setShowHadithModal(false)}
+        onInsert={handleInsertIslamicBlock}
+      />
     </div>
   );
 }
