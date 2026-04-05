@@ -14,6 +14,7 @@ import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import EmptyState from '@/components/ui/EmptyState';
+import Skeleton from '@/components/ui/Skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthGuard from '@/components/layout/AuthGuard';
 import { courseRepository } from '@/lib/repositories/courseRepository';
@@ -43,18 +44,25 @@ export default function CoursesPage() {
   const [folders, setFolders] = useState<CourseFolder[]>([]);
   const [allPages, setAllPages] = useState<CoursePage[]>([]);
   const [filteredPages, setFilteredPages] = useState<CoursePage[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
 
   useEffect(() => {
     if (authLoading) return;
-    courseRepository.getFolders().then(setFolders).catch(() => {});
-    courseRepository.getAllPages().then(setAllPages).catch(() => {});
-  }, [refreshKey, authLoading]);
+    setDataLoading(true);
+    Promise.all([
+      courseRepository.getFolders(),
+      courseRepository.getAllPages(),
+    ]).then(([f, p]) => {
+      setFolders(f);
+      setAllPages(p);
+    }).catch(() => {}).finally(() => setDataLoading(false));
+  }, [refreshKey, authLoading, user]);
 
   useEffect(() => {
     if (authLoading) return;
     if (!search) { setFilteredPages([]); return; }
     courseRepository.searchPages(search).then(setFilteredPages).catch(() => {});
-  }, [search, refreshKey, authLoading]);
+  }, [search, refreshKey, authLoading, user]);
 
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
@@ -196,7 +204,20 @@ export default function CoursesPage() {
       )}
 
       {/* Folders and content */}
-      {!search && (
+      {!search && dataLoading && (
+        <div className="space-y-6">
+          {[1, 2].map((i) => (
+            <div key={i}>
+              <Skeleton variant="text" width="40%" height="1.2rem" className="mb-3" />
+              <div className="space-y-2">
+                <Skeleton variant="rectangle" height="4rem" />
+                <Skeleton variant="rectangle" height="4rem" />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {!search && !dataLoading && (
         <motion.div
           variants={stagger}
           initial="hidden"

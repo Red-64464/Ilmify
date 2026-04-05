@@ -99,7 +99,7 @@ function SearchPageInner() {
     );
 
     promises.push(
-      bookRepository.search(q).then(books =>
+      bookRepository.search(q, user?.id).then(books =>
         books.map(b => ({
           id: b.id,
           type: 'book' as const,

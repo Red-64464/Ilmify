@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
+import Script from "next/script";
 import AppShell from "@/components/layout/AppShell";
 import "./globals.css";
 
@@ -65,7 +66,9 @@ export default function RootLayout({
       </head>
       <body className="pattern-bg min-h-full flex flex-col">
         <AppShell>{children}</AppShell>
-        <script
+        <Script
+          id="sw-register"
+          strategy="afterInteractive"
           dangerouslySetInnerHTML={{
             __html: `if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js')})}`,
           }}

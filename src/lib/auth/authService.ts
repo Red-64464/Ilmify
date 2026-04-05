@@ -1,5 +1,5 @@
 import type { User, Session, AuthCredentials, SignupData } from '@/types';
-import { supabase } from '@/lib/supabase/client';
+import { supabase, supabaseUrl, supabaseAnonKey } from '@/lib/supabase/client';
 
 // Auth service interface
 export interface IAuthService {
@@ -293,6 +293,65 @@ export class SupabaseAuthService implements IAuthService {
   updateUserRole(userId: string, role: 'admin' | 'user'): User {
     this.updateUserRoleAsync(userId, role);
     return { id: userId, username: '', displayName: '', role, createdAt: '' };
+  }
+
+  async adminUpdateUserProfile(userId: string, updates: { displayName?: string; username?: string }): Promise<User> {
+    const dbUpdates: Record<string, string> = {};
+    if (updates.displayName !== undefined) dbUpdates.display_name = updates.displayName;
+    if (updates.username !== undefined) dbUpdates.username = updates.username;
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(dbUpdates)
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      if (error.message.includes('unique') || error.message.includes('duplicate')) {
+        throw new Error('Ce nom d\'utilisateur est déjà pris');
+      }
+      throw new Error(error.message);
+    }
+    return profileToUser(data);
+  }
+
+  async adminResetPassword(userId: string, newPassword: string): Promise<void> {
+    // Use Supabase service role or admin endpoint to reset password
+    // Since we use client SDK, we call an edge function or use a workaround:
+    // We sign in as the user with their email and reset via supabase auth admin
+    // For now, update via supabase.auth.admin if available, otherwise use the profiles approach
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('username')
+      .eq('id', userId)
+      .single();
+
+    if (!profile) throw new Error('Utilisateur introuvable');
+
+    // We use a Supabase RPC or direct approach - since admin API isn't available on client,
+    // we store a password_hash or use supabase edge function
+    // Workaround: Use `supabase.auth.admin.updateUserById` if supabase service role is configured
+    // For client-side, we'll create a temporary session approach
+    const email = `${profile.username}@ilmify.app`;
+
+    // Try admin API first
+    try {
+      const response = await fetch(`${supabaseUrl}/auth/v1/admin/users/${userId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'apikey': supabaseAnonKey,
+        },
+        body: JSON.stringify({ password: newPassword }),
+      });
+      if (!response.ok) {
+        throw new Error('Impossible de réinitialiser le mot de passe (permissions insuffisantes)');
+      }
+    } catch {
+      throw new Error('La réinitialisation de mot de passe nécessite une clé admin Supabase');
+    }
   }
 }
 

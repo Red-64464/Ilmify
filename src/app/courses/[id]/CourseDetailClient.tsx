@@ -29,6 +29,7 @@ export default function CourseDetailClient({ id: propId }: { id: string }) {
   const [editTitle, setEditTitle] = useState('');
   const [editBlocks, setEditBlocks] = useState<TopicBlock[]>([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [folder, setFolder] = useState<{ id: string; title: string; icon?: string } | null>(null);
 
   useEffect(() => {
@@ -52,10 +53,11 @@ export default function CourseDetailClient({ id: propId }: { id: string }) {
         courseRepository.getFolderById(p.folderId).then(setFolder).catch(() => {});
       }
     }).catch(() => {}).finally(() => setLoading(false));
-  }, [id, authLoading]);
+  }, [id, authLoading, user]);
 
   const handleSave = useCallback(async () => {
-    if (!page) return;
+    if (!page || saving) return;
+    setSaving(true);
     try {
       const updated = await courseRepository.updatePage(page.id, {
         title: editTitle,
@@ -65,11 +67,15 @@ export default function CourseDetailClient({ id: propId }: { id: string }) {
         setPage(updated);
         setIsEditing(false);
         toast('success', 'Page de cours sauvegardée');
+      } else {
+        toast('error', 'Erreur : contenu trop volumineux ou problème serveur');
       }
     } catch {
       toast('error', 'Erreur lors de la sauvegarde');
+    } finally {
+      setSaving(false);
     }
-  }, [page, editTitle, editBlocks, toast]);
+  }, [page, editTitle, editBlocks, toast, saving]);
 
   const handleDelete = useCallback(async () => {
     if (!page) return;
@@ -128,10 +134,10 @@ export default function CourseDetailClient({ id: propId }: { id: string }) {
           borderBottom: '1px solid var(--border-subtle)',
         }}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <button
             onClick={() => router.push('/courses')}
-            className="flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200 cursor-pointer"
+            className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl transition-all duration-200 cursor-pointer shrink-0"
             style={{ background: 'var(--bg-card)', boxShadow: 'var(--shadow-card)' }}
           >
             <ArrowLeft size={18} style={{ color: 'var(--text-secondary)' }} />
@@ -178,8 +184,8 @@ export default function CourseDetailClient({ id: propId }: { id: string }) {
                   <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>
                     Annuler
                   </Button>
-                  <Button variant="primary" size="sm" iconLeft={<Save size={14} />} onClick={handleSave}>
-                    Sauvegarder
+                  <Button variant="primary" size="sm" iconLeft={<Save size={14} />} onClick={handleSave} disabled={saving}>
+                    {saving ? 'Sauvegarde...' : 'Sauvegarder'}
                   </Button>
                 </>
               ) : (

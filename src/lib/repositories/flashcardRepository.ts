@@ -37,11 +37,13 @@ function rowToCard(row: Record<string, unknown>): Flashcard {
 
 export const flashcardRepository = {
   // Decks
-  async getAllDecks(): Promise<FlashcardDeck[]> {
-    const { data, error } = await supabase
+  async getAllDecks(userId?: string): Promise<FlashcardDeck[]> {
+    let query = supabase
       .from('flashcard_decks')
       .select('*')
       .order('created_at', { ascending: false });
+    if (userId) query = query.eq('user_id', userId);
+    const { data, error } = await query;
     if (error) throw new Error(error.message);
     return (data || []).map(rowToDeck);
   },

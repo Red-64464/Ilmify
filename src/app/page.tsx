@@ -42,12 +42,12 @@ function getDailyReminder() {
 
 const stagger = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.08 } },
+  visible: { transition: { staggerChildren: 0.04 } },
 };
 
 const fadeUp = {
-  hidden: { opacity: 0, y: 16 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] as const } },
+  hidden: { opacity: 0, y: 10 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] as const } },
 };
 
 export default function HomePage() {
@@ -72,7 +72,7 @@ export default function HomePage() {
     topicRepository.getByUser(user.id).then((topics) => {
       setRecentTopics(topics.slice(0, 4).map((t) => ({ id: t.id, title: t.title, updatedAt: t.updatedAt, icon: t.icon })));
     }).catch(() => {});
-    bookRepository.getAll().then((bks) => {
+    bookRepository.getAll(user.id).then((bks) => {
       setReadingBooks(bks.filter((b) => b.status === 'reading').map((b) => ({ id: b.id, title: b.title, author: b.author, progress: b.progress })));
     }).catch(() => {});
     courseRepository.getAllPages().then((courses) => {

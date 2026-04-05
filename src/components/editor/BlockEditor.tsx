@@ -74,10 +74,10 @@ function SlashMenu({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 4 }}
+      initial={{ opacity: 0, y: -4 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 4 }}
-      className="absolute left-0 top-full z-50 mt-1 w-72 rounded-xl overflow-hidden"
+      exit={{ opacity: 0, y: -4 }}
+      className="absolute left-0 bottom-full z-50 mb-1 w-[calc(100vw-3rem)] sm:w-72 rounded-xl overflow-hidden"
       style={{
         background: 'var(--bg-elevated)',
         boxShadow: 'var(--shadow-elevated)',
@@ -581,7 +581,7 @@ function EditableBlock({
     >
       {/* Left action bar */}
       <div
-        className="absolute -left-10 top-1 flex flex-col gap-0.5 transition-opacity duration-200"
+        className="absolute -left-2 sm:-left-10 top-1 flex flex-col gap-0.5 transition-opacity duration-200"
         style={{ opacity: showActions ? 0.7 : 0 }}
       >
         <button

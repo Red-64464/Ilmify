@@ -14,7 +14,7 @@ import { flashcardRepository } from '@/lib/repositories/flashcardRepository';
 import type { FlashcardDeck, Flashcard } from '@/types';
 
 export default function FlashcardStudyClient({ id: propId }: { id: string }) {
-  const { isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const params = useParams();
   const paramId = (params?.id as string) || propId;
   const [id, setId] = useState(paramId);
@@ -45,7 +45,7 @@ export default function FlashcardStudyClient({ id: propId }: { id: string }) {
     }).catch(() => {
       setLoading(false);
     });
-  }, [id, authLoading]);
+  }, [id, authLoading, user]);
 
   if (loading) {
     return (

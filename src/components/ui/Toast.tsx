@@ -78,7 +78,7 @@ function ToastItem({ toast: t, onRemove }: { toast: Toast; onRemove: (id: string
       animate={{ opacity: 1, x: 0, scale: 1 }}
       exit={{ opacity: 0, x: 80, scale: 0.95 }}
       transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-      className="relative flex items-start gap-3 rounded-xl border px-4 py-3 shadow-lg overflow-hidden min-w-[18rem] max-w-[24rem]"
+      className="relative flex items-start gap-3 rounded-xl border px-4 py-3 shadow-lg overflow-hidden min-w-0 w-full max-w-[24rem]"
       style={{
         background: style.bg,
         borderColor: style.border,
@@ -115,6 +115,9 @@ let idCounter = 0;
 
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
 
   const removeToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -128,11 +131,11 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   return (
     <ToastContext.Provider value={{ toast: addToast }}>
       {children}
-      <div className="fixed bottom-6 right-6 z-[100] flex flex-col-reverse gap-3">
+      <div className="fixed bottom-6 right-6 z-[100] flex flex-col-reverse gap-3" suppressHydrationWarning>
         <AnimatePresence mode="popLayout">
-          {toasts.map((t) => (
-            <ToastItem key={t.id} toast={t} onRemove={removeToast} />
-          ))}
+            {toasts.map((t) => (
+              <ToastItem key={t.id} toast={t} onRemove={removeToast} />
+            ))}
         </AnimatePresence>
       </div>
     </ToastContext.Provider>

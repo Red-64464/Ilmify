@@ -62,11 +62,11 @@ export default function ProfilePage() {
       setTopicCount(t.length);
       setFavoriteCount(t.filter(tp => tp.isFavorite).length);
     }).catch(() => {});
-    bookRepository.getAll().then((bks) => {
+    bookRepository.getAll(user.id).then((bks) => {
       setTotalBooks(bks.length);
       setBooksRead(bks.filter((b) => b.status === 'read').length);
     }).catch(() => {});
-    flashcardRepository.getAllDecks().then((d) => setFlashcardCount(d.reduce((a, dk) => a + dk.cardCount, 0))).catch(() => {});
+    flashcardRepository.getAllDecks(user.id).then((d) => setFlashcardCount(d.reduce((a, dk) => a + dk.cardCount, 0))).catch(() => {});
     courseRepository.getAllPages().then((p) => setCoursePageCount(p.length)).catch(() => {});
   }, [user]);
 

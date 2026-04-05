@@ -50,13 +50,15 @@ export default function TopicDetailClient({ id: propId }: { id: string }) {
         setEditBlocks(t.blocks);
       }
     }).catch(() => {}).finally(() => setLoading(false));
-  }, [id, authLoading]);
+  }, [id, authLoading, user]);
 
   const isOwner = user && topic && user.id === topic.userId;
+  const [saving, setSaving] = useState(false);
 
   const handleSave = useCallback(async () => {
-    if (!topic) return;
+    if (!topic || saving) return;
     try {
+      setSaving(true);
       const blocksToSave = JSON.parse(JSON.stringify(editBlocks)) as TopicBlock[];
       const updated = await topicRepository.update(topic.id, {
         title: editTitle,
@@ -73,8 +75,10 @@ export default function TopicDetailClient({ id: propId }: { id: string }) {
       }
     } catch {
       toast('error', 'Erreur lors de la sauvegarde');
+    } finally {
+      setSaving(false);
     }
-  }, [topic, editTitle, editBlocks, toast]);
+  }, [topic, editTitle, editBlocks, toast, saving]);
 
   const handleDelete = useCallback(async () => {
     if (!topic) return;
@@ -192,8 +196,8 @@ export default function TopicDetailClient({ id: propId }: { id: string }) {
                   <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>
                     Annuler
                   </Button>
-                  <Button variant="primary" size="sm" iconLeft={<Save size={14} />} onClick={handleSave}>
-                    Sauvegarder
+                  <Button variant="primary" size="sm" iconLeft={<Save size={14} />} onClick={handleSave} disabled={saving}>
+                    {saving ? 'Sauvegarde...' : 'Sauvegarder'}
                   </Button>
                 </>
               ) : (

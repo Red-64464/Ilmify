@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Star, FileText, Brain, BookOpen,
   Layers, Users, BarChart3, Plus, Trash2, Shield,
-  UserCog, ChevronDown, ChevronUp,
+  UserCog, ChevronDown, ChevronUp, Edit3, Lock, Save, X,
 } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import Card from '@/components/ui/Card';
@@ -16,12 +16,11 @@ import Modal from '@/components/ui/Modal';
 import AuthGuard from '@/components/layout/AuthGuard';
 import { useAuth } from '@/contexts/AuthContext';
 import { authService } from '@/lib/auth/authService';
-import { themes } from '@/data/themes';
-import { contentItems } from '@/data/content';
-import { quizQuestions } from '@/data/quiz';
-import { books } from '@/data/books';
-import { flashcardDecks, flashcards } from '@/data/flashcards';
-import { favorites } from '@/data/favorites';
+import { topicRepository } from '@/lib/repositories/topicRepository';
+import { bookRepository } from '@/lib/repositories/bookRepository';
+import { courseRepository } from '@/lib/repositories/courseRepository';
+import { flashcardRepository } from '@/lib/repositories/flashcardRepository';
+import { useToast } from '@/components/ui/Toast';
 import type { User } from '@/types';
 
 export default function AdminPage() {
@@ -38,6 +37,20 @@ export default function AdminPage() {
   const [createError, setCreateError] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [showUserSection, setShowUserSection] = useState(true);
+  const { toast } = useToast();
+
+  // Edit user modal state
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editUserDisplayName, setEditUserDisplayName] = useState('');
+  const [editUserUsername, setEditUserUsername] = useState('');
+  const [editUserPassword, setEditUserPassword] = useState('');
+  const [editUserError, setEditUserError] = useState('');
+
+  // Dynamic stats
+  const [topicCount, setTopicCount] = useState(0);
+  const [bookCount, setBookCount] = useState(0);
+  const [courseCount, setCourseCount] = useState(0);
+  const [flashcardDeckCount, setFlashcardDeckCount] = useState(0);
 
   const refreshUsers = useCallback(async () => {
     try {
@@ -48,7 +61,14 @@ export default function AdminPage() {
 
   useEffect(() => {
     refreshUsers();
-  }, [refreshUsers]);
+    // Fetch dynamic stats
+    if (currentUser) {
+      topicRepository.getByUser(currentUser.id).then(t => setTopicCount(t.length)).catch(() => {});
+    }
+    bookRepository.getAll().then(b => setBookCount(b.length)).catch(() => {});
+    courseRepository.getAllPages().then(p => setCourseCount(p.length)).catch(() => {});
+    flashcardRepository.getAllDecks().then(d => setFlashcardDeckCount(d.length)).catch(() => {});
+  }, [refreshUsers, currentUser]);
 
   useEffect(() => {
     if (!isAdmin) {
@@ -62,13 +82,10 @@ export default function AdminPage() {
 
   const stats = [
     { label: 'Utilisateurs', value: users.length, icon: Users, color: '#3b82f6' },
-    { label: 'Thèmes', value: themes.length, icon: Star, color: '#3aaa60' },
-    { label: 'Contenus', value: contentItems.length, icon: FileText, color: '#d4991a' },
-    { label: 'Questions quiz', value: quizQuestions.length, icon: Brain, color: '#6366f1' },
-    { label: 'Livres', value: books.length, icon: BookOpen, color: '#ec4899' },
-    { label: 'Decks flashcards', value: flashcardDecks.length, icon: Layers, color: '#24ad9d' },
-    { label: 'Flashcards', value: flashcards.length, icon: Layers, color: '#14b8a6' },
-    { label: 'Favoris', value: favorites.length, icon: Star, color: '#f59e0b' },
+    { label: 'Topics', value: topicCount, icon: FileText, color: '#3aaa60' },
+    { label: 'Cours', value: courseCount, icon: Brain, color: '#d4991a' },
+    { label: 'Livres', value: bookCount, icon: BookOpen, color: '#ec4899' },
+    { label: 'Decks', value: flashcardDeckCount, icon: Layers, color: '#24ad9d' },
   ];
 
   const handleCreateUser = async () => {
@@ -111,39 +128,48 @@ export default function AdminPage() {
     const newRole = currentRole === 'admin' ? 'user' : 'admin';
     try {
       await authService.updateUserRoleAsync(userId, newRole);
+      toast('success', `Rôle mis à jour: ${newRole}`);
       await refreshUsers();
-    } catch { /* ignore */ }
+    } catch { toast('error', 'Erreur lors du changement de rôle'); }
   };
 
-  const sections = [
-    {
-      title: 'Thèmes',
-      icon: Star,
-      color: '#3aaa60',
-      items: themes.map((t) => ({
-        name: t.title,
-        detail: `${t.contentCount} contenus · ${t.progress ?? 0}% progression`,
-      })),
-    },
-    {
-      title: 'Livres',
-      icon: BookOpen,
-      color: '#ec4899',
-      items: books.map((b) => ({
-        name: b.title,
-        detail: `${b.author} · ${b.status === 'read' ? 'Terminé' : b.status === 'reading' ? 'En cours' : 'À lire'}`,
-      })),
-    },
-    {
-      title: 'Decks Flashcards',
-      icon: Layers,
-      color: '#24ad9d',
-      items: flashcardDecks.map((d) => ({
-        name: d.title,
-        detail: `${d.cardCount} cartes · ${d.masteredCount} maîtrisées`,
-      })),
-    },
-  ];
+  const openEditUser = (u: User) => {
+    setEditingUser(u);
+    setEditUserDisplayName(u.displayName);
+    setEditUserUsername(u.username);
+    setEditUserPassword('');
+    setEditUserError('');
+  };
+
+  const handleSaveEditUser = async () => {
+    if (!editingUser) return;
+    setEditUserError('');
+    try {
+      if (editUserDisplayName.trim() !== editingUser.displayName || editUserUsername.trim() !== editingUser.username) {
+        await authService.adminUpdateUserProfile(editingUser.id, {
+          displayName: editUserDisplayName.trim(),
+          username: editUserUsername.trim(),
+        });
+      }
+      if (editUserPassword.trim()) {
+        if (editUserPassword.length < 6) {
+          setEditUserError('Le mot de passe doit faire au moins 6 caractères');
+          return;
+        }
+        try {
+          await authService.adminResetPassword(editingUser.id, editUserPassword);
+        } catch {
+          setEditUserError('Impossible de modifier le mot de passe (clé admin requise)');
+          return;
+        }
+      }
+      toast('success', 'Utilisateur mis à jour');
+      setEditingUser(null);
+      await refreshUsers();
+    } catch (err) {
+      setEditUserError(err instanceof Error ? err.message : 'Erreur');
+    }
+  };
 
   return (
     <AuthGuard>
@@ -262,6 +288,14 @@ export default function AdminPage() {
                     </div>
                     <div className="flex items-center gap-2 shrink-0 ml-2">
                       <button
+                        onClick={() => openEditUser(u)}
+                        className="p-1.5 rounded-lg transition-colors cursor-pointer"
+                        style={{ color: 'var(--text-muted)' }}
+                        title="Modifier"
+                      >
+                        <Edit3 size={14} />
+                      </button>
+                      <button
                         onClick={() => handleToggleRole(u.id, u.role)}
                         className="cursor-pointer"
                         title={u.role === 'admin' ? 'Retirer admin' : 'Promouvoir admin'}
@@ -292,33 +326,6 @@ export default function AdminPage() {
           )}
         </AnimatePresence>
       </motion.div>
-
-      {/* Management Sections */}
-      {sections.map((section, si) => (
-        <motion.div
-          key={section.title}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.2 + si * 0.1 }}
-          className="mb-10"
-        >
-          <h3 className="text-lg font-semibold tracking-tight mb-5 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-            <section.icon size={18} style={{ color: section.color }} />
-            {section.title}
-          </h3>
-          <Card className="divide-y divide-white/[0.06]">
-            {section.items.map((item, j) => (
-              <div key={j} className="p-4 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{item.name}</p>
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{item.detail}</p>
-                </div>
-                <Badge variant="default" size="sm">#{j + 1}</Badge>
-              </div>
-            ))}
-          </Card>
-        </motion.div>
-      ))}
 
       {/* Create User Modal */}
       <Modal
@@ -440,6 +447,74 @@ export default function AdminPage() {
           >
             Supprimer
           </Button>
+        </div>
+      </Modal>
+
+      {/* Edit User Modal */}
+      <Modal
+        isOpen={!!editingUser}
+        onClose={() => setEditingUser(null)}
+        title={`Modifier ${editingUser?.displayName || ''}`}
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+              Nom d&apos;affichage
+            </label>
+            <input
+              type="text"
+              value={editUserDisplayName}
+              onChange={(e) => setEditUserDisplayName(e.target.value)}
+              className="w-full rounded-xl px-4 py-3 text-sm outline-none"
+              style={{ background: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-primary)' }}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+              Nom d&apos;utilisateur
+            </label>
+            <input
+              type="text"
+              value={editUserUsername}
+              onChange={(e) => setEditUserUsername(e.target.value)}
+              className="w-full rounded-xl px-4 py-3 text-sm outline-none"
+              style={{ background: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-primary)' }}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+              Nouveau mot de passe <span className="font-normal" style={{ color: 'var(--text-muted)' }}>(laisser vide pour ne pas changer)</span>
+            </label>
+            <input
+              type="password"
+              value={editUserPassword}
+              onChange={(e) => setEditUserPassword(e.target.value)}
+              className="w-full rounded-xl px-4 py-3 text-sm outline-none"
+              style={{ background: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-primary)' }}
+              placeholder="Min. 6 caractères"
+            />
+          </div>
+          <AnimatePresence>
+            {editUserError && (
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="text-xs"
+                style={{ color: '#f87171' }}
+              >
+                {editUserError}
+              </motion.p>
+            )}
+          </AnimatePresence>
+          <div className="flex gap-2">
+            <Button variant="secondary" size="md" onClick={() => setEditingUser(null)} className="flex-1">
+              Annuler
+            </Button>
+            <Button variant="primary" size="md" iconLeft={<Save size={14} />} onClick={handleSaveEditUser} className="flex-1">
+              Enregistrer
+            </Button>
+          </div>
         </div>
       </Modal>
     </div>

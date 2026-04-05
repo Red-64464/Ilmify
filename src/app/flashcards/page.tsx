@@ -60,9 +60,9 @@ export default function FlashcardsPage() {
   const [decks, setDecks] = useState<FlashcardDeck[]>([]);
 
   useEffect(() => {
-    if (authLoading) return;
-    flashcardRepository.getAllDecks().then(setDecks).catch(() => {});
-  }, [refreshKey, authLoading]);
+    if (authLoading || !user) return;
+    flashcardRepository.getAllDecks(user.id).then(setDecks).catch(() => {});
+  }, [refreshKey, authLoading, user]);
 
   const handleAddDeck = useCallback(async () => {
     if (!newTitle.trim() || !user) return;
@@ -214,7 +214,7 @@ export default function FlashcardsPage() {
               key={deck.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: i * 0.05 }}
+              transition={{ duration: 0.25, delay: Math.min(i * 0.03, 0.3) }}
             >
               <Card
                 glowColor="teal"

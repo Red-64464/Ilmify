@@ -36,16 +36,20 @@ function rowToPassage(row: Record<string, unknown>): BookPassage {
     isImportant: (row.is_important as boolean) || undefined,
     themeId: (row.theme_id as string) || undefined,
     addedAt: row.added_at as string,
+    imageUrl: (row.image_url as string) || undefined,
+    linkUrl: (row.link_url as string) || undefined,
   };
 }
 
 export const bookRepository = {
   // Books
-  async getAll(): Promise<Book[]> {
-    const { data, error } = await supabase
+  async getAll(userId?: string): Promise<Book[]> {
+    let query = supabase
       .from('books')
       .select('*')
       .order('added_at', { ascending: false });
+    if (userId) query = query.eq('user_id', userId);
+    const { data, error } = await query;
     if (error) throw new Error(error.message);
     return (data || []).map(rowToBook);
   },
@@ -120,14 +124,16 @@ export const bookRepository = {
     return !error;
   },
 
-  async search(query: string): Promise<Book[]> {
-    if (!query.trim()) return this.getAll();
+  async search(query: string, userId?: string): Promise<Book[]> {
+    if (!query.trim()) return this.getAll(userId);
     const q = `%${query}%`;
-    const { data, error } = await supabase
+    let dbQuery = supabase
       .from('books')
       .select('*')
       .or(`title.ilike.${q},author.ilike.${q},category.ilike.${q}`)
       .order('added_at', { ascending: false });
+    if (userId) dbQuery = dbQuery.eq('user_id', userId);
+    const { data, error } = await dbQuery;
     if (error) throw new Error(error.message);
     return (data || []).map(rowToBook);
   },
@@ -167,6 +173,8 @@ export const bookRepository = {
         is_favorite: data.isFavorite,
         is_important: data.isImportant || false,
         theme_id: data.themeId || null,
+        image_url: data.imageUrl || null,
+        link_url: data.linkUrl || null,
       })
       .select()
       .single();
@@ -191,6 +199,8 @@ export const bookRepository = {
     if (updates.tags !== undefined) dbUpdates.tags = updates.tags;
     if (updates.isFavorite !== undefined) dbUpdates.is_favorite = updates.isFavorite;
     if (updates.isImportant !== undefined) dbUpdates.is_important = updates.isImportant;
+    if (updates.imageUrl !== undefined) dbUpdates.image_url = updates.imageUrl || null;
+    if (updates.linkUrl !== undefined) dbUpdates.link_url = updates.linkUrl || null;
 
     const { data, error } = await supabase
       .from('book_passages')

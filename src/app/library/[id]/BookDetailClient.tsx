@@ -3,11 +3,12 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useParams } from 'next/navigation';
-import { BookOpen, Star, FileQuestion, BookMarked, Plus, Upload, Link2, Image } from 'lucide-react';
+import { BookOpen, Star, FileQuestion, BookMarked, Plus, Upload, Link2, Image, Search, Edit3, Trash2, LayoutGrid, List, AlignJustify, ExternalLink } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
+import SearchInput from '@/components/ui/SearchInput';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import EmptyState from '@/components/ui/EmptyState';
 import { useAuth } from '@/contexts/AuthContext';
@@ -53,7 +54,7 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
       setBook(b);
       setPassages(p);
     }).catch(() => {}).finally(() => setLoading(false));
-  }, [id, refreshKey, authLoading]);
+  }, [id, refreshKey, authLoading, user]);
 
   // Add passage state
   const [showAddPassage, setShowAddPassage] = useState(false);
@@ -65,10 +66,32 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
   const [passageImageUrl, setPassageImageUrl] = useState('');
   const [passageLink, setPassageLink] = useState('');
   const passageImageRef = useRef<HTMLInputElement>(null);
+  const [passageSaving, setPassageSaving] = useState(false);
+
+  // Search and view mode
+  const [passageSearch, setPassageSearch] = useState('');
+  const [viewMode, setViewMode] = useState<'cards' | 'list' | 'titles'>('cards');
+
+  // Edit passage state
+  const [editingPassage, setEditingPassage] = useState<BookPassage | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editContent, setEditContent] = useState('');
+  const [editPage, setEditPage] = useState('');
+  const [editReflection, setEditReflection] = useState('');
+  const [editImportant, setEditImportant] = useState(false);
+  const [editImageUrl, setEditImageUrl] = useState('');
+  const [editLink, setEditLink] = useState('');
+  const editImageRef = useRef<HTMLInputElement>(null);
+
+  // Filtered passages
+  const filteredPassages = passageSearch.trim()
+    ? passages.filter((p) => p.title.toLowerCase().includes(passageSearch.toLowerCase()) || p.content.toLowerCase().includes(passageSearch.toLowerCase()))
+    : passages;
 
   const handleAddPassage = useCallback(async () => {
-    if (!passageTitle.trim() || !passageContent.trim() || !user) return;
+    if (!passageTitle.trim() || !passageContent.trim() || !user || passageSaving) return;
     try {
+      setPassageSaving(true);
       await bookRepository.createPassage(user.id, {
         bookId: id,
         title: passageTitle.trim(),
@@ -78,6 +101,8 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
         tags: [],
         isFavorite: false,
         isImportant: passageImportant,
+        imageUrl: passageImageUrl || undefined,
+        linkUrl: passageLink.trim() || undefined,
       });
 
       setShowAddPassage(false);
@@ -91,8 +116,10 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
       setRefreshKey((k) => k + 1);
     } catch (err) {
       console.error('Error creating passage:', err);
+    } finally {
+      setPassageSaving(false);
     }
-  }, [id, passageTitle, passageContent, passagePage, passageReflection, passageImportant, user]);
+  }, [id, passageTitle, passageContent, passagePage, passageReflection, passageImportant, user, passageSaving]);
 
   const handlePassageImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -101,6 +128,54 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
     reader.onload = (ev) => setPassageImageUrl(ev.target?.result as string);
     reader.readAsDataURL(file);
   };
+
+  const handleEditImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setEditImageUrl(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const openEditPassage = (passage: BookPassage) => {
+    setEditingPassage(passage);
+    setEditTitle(passage.title);
+    setEditContent(passage.content);
+    setEditPage(passage.pageNumber ? String(passage.pageNumber) : '');
+    setEditReflection(passage.personalReflection || '');
+    setEditImportant(passage.isImportant || false);
+    setEditImageUrl(passage.imageUrl || '');
+    setEditLink(passage.linkUrl || '');
+  };
+
+  const handleUpdatePassage = useCallback(async () => {
+    if (!editingPassage || !editTitle.trim() || !editContent.trim() || passageSaving) return;
+    try {
+      setPassageSaving(true);
+      await bookRepository.updatePassage(editingPassage.id, {
+        title: editTitle.trim(),
+        content: editContent.trim(),
+        personalReflection: editReflection.trim() || undefined,
+        pageNumber: editPage ? parseInt(editPage, 10) : undefined,
+        isImportant: editImportant,
+        imageUrl: editImageUrl || undefined,
+        linkUrl: editLink.trim() || undefined,
+      });
+      setEditingPassage(null);
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      console.error('Error updating passage:', err);
+    } finally {
+      setPassageSaving(false);
+    }
+  }, [editingPassage, editTitle, editContent, editPage, editReflection, editImportant, editImageUrl, editLink, passageSaving]);
+
+  const handleDeletePassage = useCallback(async (passageId: string) => {
+    try {
+      await bookRepository.deletePassage(passageId);
+      setRefreshKey((k) => k + 1);
+    } catch { /* ignore */ }
+  }, []);
 
   if (loading) {
     return (
@@ -240,7 +315,7 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
       </motion.div>
 
       {/* Passages Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <div
             className="w-1 h-6 rounded-full"
@@ -263,66 +338,215 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
         </Button>
       </div>
 
-      {passages.length > 0 ? (
-        <motion.div
-          className="space-y-4"
-          variants={stagger}
-          initial="hidden"
-          animate="visible"
-          key={refreshKey}
-        >
-          {passages.map((passage) => (
-            <motion.div key={passage.id} variants={fadeUp}>
-              <div
-                className="rounded-2xl p-5 transition-all duration-200"
+      {/* Search & View Mode */}
+      {passages.length > 0 && (
+        <div className="flex items-center gap-3 mb-5">
+          <div className="flex-1">
+            <SearchInput
+              value={passageSearch}
+              onChange={setPassageSearch}
+              placeholder="Rechercher un passage..."
+            />
+          </div>
+          <div className="flex items-center rounded-xl overflow-hidden shrink-0" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
+            {([
+              { mode: 'cards' as const, icon: LayoutGrid, label: 'Cartes' },
+              { mode: 'list' as const, icon: List, label: 'Liste' },
+              { mode: 'titles' as const, icon: AlignJustify, label: 'Titres' },
+            ]).map(({ mode, icon: Icon, label }) => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                title={label}
+                className="p-2 cursor-pointer transition-colors"
                 style={{
-                  background: passage.isImportant
-                    ? 'linear-gradient(135deg, rgba(196,154,61,0.05), var(--bg-card))'
-                    : 'var(--bg-card)',
-                  boxShadow: 'var(--shadow-card)',
-                  border: passage.isImportant
-                    ? '1px solid rgba(196,154,61,0.1)'
-                    : '1px solid var(--border-subtle)',
+                  background: viewMode === mode ? 'rgba(196,154,61,0.12)' : 'transparent',
+                  color: viewMode === mode ? '#d4ad4a' : 'var(--text-muted)',
                 }}
               >
-                <div className="flex items-start justify-between mb-3">
-                  <h4 className="text-sm font-semibold tracking-tight" style={{ color: 'var(--text-primary)' }}>
-                    {passage.title}
-                  </h4>
-                  <div className="flex items-center gap-2 shrink-0 ml-3">
-                    {passage.isImportant && (
-                      <Badge variant="gold" size="sm">Important</Badge>
-                    )}
-                    {passage.pageNumber && (
-                      <Badge variant="default" size="sm">p.{passage.pageNumber}</Badge>
-                    )}
-                  </div>
-                </div>
+                <Icon size={16} />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
-                <p className="text-sm leading-[1.8]" style={{ color: 'var(--text-secondary)' }}>
-                  {passage.content}
-                </p>
-
-                {passage.personalReflection && (
+      {filteredPassages.length > 0 ? (
+        <>
+          {/* Cards View */}
+          {viewMode === 'cards' && (
+            <motion.div
+              className="space-y-4"
+              variants={stagger}
+              initial="hidden"
+              animate="visible"
+              key={`${refreshKey}-cards`}
+            >
+              {filteredPassages.map((passage) => (
+                <motion.div key={passage.id} variants={fadeUp}>
                   <div
-                    className="mt-4 p-4 rounded-xl"
+                    className="rounded-2xl p-5 transition-all duration-200"
                     style={{
-                      background: 'linear-gradient(135deg, rgba(196,154,61,0.04), rgba(26,122,107,0.03))',
-                      border: '1px solid rgba(196,154,61,0.06)',
+                      background: passage.isImportant
+                        ? 'linear-gradient(135deg, rgba(196,154,61,0.05), var(--bg-card))'
+                        : 'var(--bg-card)',
+                      boxShadow: 'var(--shadow-card)',
+                      border: passage.isImportant
+                        ? '1px solid rgba(196,154,61,0.1)'
+                        : '1px solid var(--border-subtle)',
                     }}
                   >
-                    <p className="text-xs mb-1.5 font-medium" style={{ color: '#d4ad4a' }}>
-                      Réflexion
+                    <div className="flex items-start justify-between mb-3">
+                      <h4 className="text-sm font-semibold tracking-tight" style={{ color: 'var(--text-primary)' }}>
+                        {passage.title}
+                      </h4>
+                      <div className="flex items-center gap-2 shrink-0 ml-3">
+                        {passage.isImportant && (
+                          <Badge variant="gold" size="sm">Important</Badge>
+                        )}
+                        {passage.pageNumber && (
+                          <Badge variant="default" size="sm">p.{passage.pageNumber}</Badge>
+                        )}
+                        <button
+                          onClick={() => openEditPassage(passage)}
+                          className="p-1.5 rounded-lg cursor-pointer transition-colors"
+                          style={{ color: 'var(--text-muted)' }}
+                          title="Modifier"
+                        >
+                          <Edit3 size={13} />
+                        </button>
+                        <button
+                          onClick={() => handleDeletePassage(passage.id)}
+                          className="p-1.5 rounded-lg cursor-pointer transition-colors"
+                          style={{ color: 'var(--text-muted)' }}
+                          title="Supprimer"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {passage.imageUrl && (
+                      <div className="mb-3 rounded-xl overflow-hidden" style={{ maxWidth: '300px' }}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={passage.imageUrl} alt="" className="w-full rounded-xl" />
+                      </div>
+                    )}
+
+                    <p className="text-sm leading-[1.8]" style={{ color: 'var(--text-secondary)' }}>
+                      {passage.content}
                     </p>
-                    <p className="text-sm italic leading-[1.8]" style={{ color: 'var(--text-secondary)' }}>
-                      {passage.personalReflection}
+
+                    {passage.linkUrl && (
+                      <a
+                        href={passage.linkUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 mt-3 text-xs font-medium transition-colors"
+                        style={{ color: '#60a5fa' }}
+                      >
+                        <ExternalLink size={12} />
+                        {passage.linkUrl.length > 50 ? passage.linkUrl.slice(0, 50) + '...' : passage.linkUrl}
+                      </a>
+                    )}
+
+                    {passage.personalReflection && (
+                      <div
+                        className="mt-4 p-4 rounded-xl"
+                        style={{
+                          background: 'linear-gradient(135deg, rgba(196,154,61,0.04), rgba(26,122,107,0.03))',
+                          border: '1px solid rgba(196,154,61,0.06)',
+                        }}
+                      >
+                        <p className="text-xs mb-1.5 font-medium" style={{ color: '#d4ad4a' }}>
+                          Réflexion
+                        </p>
+                        <p className="text-sm italic leading-[1.8]" style={{ color: 'var(--text-secondary)' }}>
+                          {passage.personalReflection}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
+
+          {/* List View */}
+          {viewMode === 'list' && (
+            <div className="space-y-2" key={`${refreshKey}-list`}>
+              {filteredPassages.map((passage) => (
+                <div
+                  key={passage.id}
+                  className="rounded-xl p-3.5 flex items-center gap-3 group"
+                  style={{
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  {passage.isImportant && (
+                    <Star size={14} style={{ color: '#d4ad4a' }} fill="#d4ad4a" className="shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                      {passage.title}
+                    </h4>
+                    <p className="text-xs truncate mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                      {passage.content}
                     </p>
                   </div>
-                )}
-              </div>
-            </motion.div>
-          ))}
-        </motion.div>
+                  {passage.pageNumber && (
+                    <Badge variant="default" size="sm">p.{passage.pageNumber}</Badge>
+                  )}
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => openEditPassage(passage)}
+                      className="p-1.5 rounded-lg cursor-pointer"
+                      style={{ color: 'var(--text-muted)' }}
+                    >
+                      <Edit3 size={13} />
+                    </button>
+                    <button
+                      onClick={() => handleDeletePassage(passage.id)}
+                      className="p-1.5 rounded-lg cursor-pointer"
+                      style={{ color: 'var(--text-muted)' }}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Titles View */}
+          {viewMode === 'titles' && (
+            <div className="space-y-1" key={`${refreshKey}-titles`}>
+              {filteredPassages.map((passage) => (
+                <button
+                  key={passage.id}
+                  onClick={() => openEditPassage(passage)}
+                  className="w-full text-left px-3.5 py-2.5 rounded-lg flex items-center gap-2 cursor-pointer transition-colors"
+                  style={{
+                    color: 'var(--text-primary)',
+                  }}
+                >
+                  {passage.isImportant && (
+                    <Star size={12} style={{ color: '#d4ad4a' }} fill="#d4ad4a" className="shrink-0" />
+                  )}
+                  <span className="text-sm font-medium truncate flex-1">{passage.title}</span>
+                  {passage.pageNumber && (
+                    <span className="text-xs shrink-0" style={{ color: 'var(--text-muted)' }}>p.{passage.pageNumber}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </>
+      ) : passages.length > 0 ? (
+        <p className="text-sm text-center py-6" style={{ color: 'var(--text-muted)' }}>
+          Aucun passage trouvé pour &quot;{passageSearch}&quot;
+        </p>
       ) : (
         <EmptyState
           icon={BookMarked}
@@ -462,8 +686,142 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
             <Button variant="secondary" size="md" onClick={() => setShowAddPassage(false)} className="flex-1">
               Annuler
             </Button>
-            <Button variant="primary" size="md" onClick={handleAddPassage} disabled={!passageTitle.trim() || !passageContent.trim()} className="flex-1">
-              Ajouter
+            <Button variant="primary" size="md" onClick={handleAddPassage} disabled={!passageTitle.trim() || !passageContent.trim() || passageSaving} className="flex-1">
+              {passageSaving ? 'Ajout...' : 'Ajouter'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Edit Passage Modal */}
+      <Modal
+        isOpen={!!editingPassage}
+        onClose={() => setEditingPassage(null)}
+        title="Modifier le passage"
+      >
+        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+              Titre du passage
+            </label>
+            <input
+              type="text"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              autoFocus
+              className="w-full rounded-xl px-4 py-3 text-sm outline-none"
+              style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+              Contenu
+            </label>
+            <textarea
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              rows={4}
+              className="w-full rounded-xl px-4 py-3 text-sm outline-none resize-none"
+              style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+                Page (optionnel)
+              </label>
+              <input
+                type="number"
+                value={editPage}
+                onChange={(e) => setEditPage(e.target.value)}
+                className="w-full rounded-xl px-4 py-3 text-sm outline-none"
+                style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+              />
+            </div>
+            <div className="flex items-end pb-1">
+              <button
+                onClick={() => setEditImportant(!editImportant)}
+                className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm cursor-pointer transition-all w-full"
+                style={{
+                  background: editImportant ? 'rgba(196,154,61,0.12)' : 'var(--bg-secondary)',
+                  border: `1px solid ${editImportant ? 'rgba(196,154,61,0.25)' : 'var(--border-subtle)'}`,
+                  color: editImportant ? '#d4ad4a' : 'var(--text-muted)',
+                }}
+              >
+                <Star size={14} fill={editImportant ? 'currentColor' : 'none'} />
+                Important
+              </button>
+            </div>
+          </div>
+
+          {/* Photo */}
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+              Photo (optionnel)
+            </label>
+            {editImageUrl && (
+              <div className="mb-2 rounded-lg overflow-hidden" style={{ maxWidth: '200px' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={editImageUrl} alt="" className="w-full rounded-lg" />
+              </div>
+            )}
+            <button
+              onClick={() => editImageRef.current?.click()}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs cursor-pointer transition-colors"
+              style={{
+                background: 'rgba(236,72,153,0.08)',
+                border: '1px dashed rgba(236,72,153,0.25)',
+                color: '#ec4899',
+              }}
+            >
+              <Image size={12} />
+              {editImageUrl ? 'Changer la photo' : 'Ajouter une photo'}
+            </button>
+            <input
+              ref={editImageRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleEditImage}
+            />
+          </div>
+
+          {/* Link */}
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+              Lien (optionnel)
+            </label>
+            <div className="flex items-center gap-2">
+              <Link2 size={14} style={{ color: 'var(--text-muted)' }} className="shrink-0" />
+              <input
+                type="url"
+                value={editLink}
+                onChange={(e) => setEditLink(e.target.value)}
+                placeholder="https://..."
+                className="w-full rounded-xl px-4 py-3 text-sm outline-none"
+                style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: '#60a5fa' }}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+              Réflexion personnelle (optionnel)
+            </label>
+            <textarea
+              value={editReflection}
+              onChange={(e) => setEditReflection(e.target.value)}
+              rows={2}
+              className="w-full rounded-xl px-4 py-3 text-sm outline-none resize-none"
+              style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+            />
+          </div>
+          <div className="flex gap-2 pt-2">
+            <Button variant="secondary" size="md" onClick={() => setEditingPassage(null)} className="flex-1">
+              Annuler
+            </Button>
+            <Button variant="primary" size="md" onClick={handleUpdatePassage} disabled={!editTitle.trim() || !editContent.trim() || passageSaving} className="flex-1">
+              {passageSaving ? 'Sauvegarde...' : 'Enregistrer'}
             </Button>
           </div>
         </div>

@@ -124,6 +124,8 @@ export interface BookPassage {
   addedAt: string;
   themeId?: string;
   isImportant?: boolean;
+  imageUrl?: string;
+  linkUrl?: string;
 }
 
 export interface Favorite {

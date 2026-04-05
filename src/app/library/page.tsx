@@ -16,6 +16,7 @@ import ImageCropper from '@/components/ui/ImageCropper';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthGuard from '@/components/layout/AuthGuard';
 import { bookRepository } from '@/lib/repositories/bookRepository';
+import { useToast } from '@/components/ui/Toast';
 import type { Book } from '@/types';
 
 const statusTabs = [
@@ -38,12 +39,12 @@ const BOOK_EMOJIS = ['📖', '📚', '📕', '📗', '📘', '📙', '📓', '�
 
 const stagger = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.06 } },
+  visible: { transition: { staggerChildren: 0.03 } },
 };
 
 const fadeUp = {
-  hidden: { opacity: 0, y: 14 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] as const } },
+  hidden: { opacity: 0, y: 10 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: [0.16, 1, 0.3, 1] as const } },
 };
 
 export default function LibraryPage() {
@@ -61,11 +62,12 @@ export default function LibraryPage() {
   const [cropImage, setCropImage] = useState<string | null>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const [books, setBooks] = useState<Book[]>([]);
+  const { toast } = useToast();
 
   useEffect(() => {
-    if (authLoading) return;
-    bookRepository.getAll().then(setBooks).catch(() => {});
-  }, [refreshKey, authLoading]);
+    if (authLoading || !user) return;
+    bookRepository.getAll(user.id).then(setBooks).catch(() => {});
+  }, [refreshKey, authLoading, user]);
 
   const filtered = books.filter((b) => {
     const matchesTab = tab === 'all' || b.status === tab;
@@ -98,8 +100,9 @@ export default function LibraryPage() {
       setRefreshKey((k) => k + 1);
     } catch (err) {
       console.error('Error creating book:', err);
+      toast('error', 'Erreur lors de l\'ajout du livre');
     }
-  }, [user, newTitle, newAuthor, newCategory, newCoverUrl, newEmoji]);
+  }, [user, newTitle, newAuthor, newCategory, newCoverUrl, newEmoji, toast]);
 
   const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -116,8 +119,10 @@ export default function LibraryPage() {
     try {
       await bookRepository.delete(bookId);
       setRefreshKey((k) => k + 1);
+      toast('success', 'Livre supprimé');
     } catch (err) {
       console.error('Error deleting book:', err);
+      toast('error', 'Erreur lors de la suppression');
     }
   }, []);
 
