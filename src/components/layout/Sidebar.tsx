@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
   Home,
@@ -75,6 +75,7 @@ function NavLink({
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { isAdmin, logout, user } = useAuth();
 
   const isActive = (href: string) =>
@@ -131,7 +132,7 @@ export default function Sidebar() {
       >
         {user && (
           <button
-            onClick={() => { logout(); window.location.href = '/login'; }}
+            onClick={async () => { await logout(); router.push('/login'); }}
             className="flex items-center gap-3 w-full rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200 cursor-pointer"
             style={{
               color: '#f87171',

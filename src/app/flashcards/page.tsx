@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Layers, BookOpen, Plus, Trash2, Upload, Smile, Edit3, FileJson } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
@@ -24,6 +25,7 @@ const DECK_COLORS = [
 
 export default function FlashcardsPage() {
   const { user, isLoading: authLoading } = useAuth();
+  const router = useRouter();
   const [expandedDeck, setExpandedDeck] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [showAddDeck, setShowAddDeck] = useState(false);
@@ -301,7 +303,7 @@ export default function FlashcardsPage() {
                     style={{ borderTop: '1px solid rgba(46,158,140,0.2)' }}
                   >
                     <button
-                      onClick={(e) => { e.stopPropagation(); window.location.href = `/flashcards/${deck.id}`; }}
+                      onClick={(e) => { e.stopPropagation(); router.push(`/flashcards/${deck.id}`); }}
                       className="inline-flex items-center gap-2 text-sm font-medium transition-colors cursor-pointer"
                       style={{ color: 'var(--accent)' }}
                     >

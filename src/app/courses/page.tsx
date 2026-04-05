@@ -104,7 +104,7 @@ export default function CoursesPage() {
       setShowCreatePage(false);
       setNewPageTitle('');
       setNewPageFolder('');
-      window.location.href = `/courses/${page.id}`;
+      router.push(`/courses/${page.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur lors de la création');
     } finally {
@@ -175,7 +175,7 @@ export default function CoursesPage() {
               {filteredPages.map((page) => (
                 <div
                   key={page.id}
-                  onClick={() => { window.location.href = `/courses/${page.id}`; }}
+                  onClick={() => { router.push(`/courses/${page.id}`); }}
                   className="cursor-pointer"
                 >
                   <Card glowColor="gold" className="p-4">
@@ -269,7 +269,7 @@ export default function CoursesPage() {
                     {pages.map((page) => (
                       <div
                         key={page.id}
-                        onClick={() => { window.location.href = `/courses/${page.id}`; }}
+                        onClick={() => { router.push(`/courses/${page.id}`); }}
                         className="cursor-pointer"
                       >
                         <Card glowColor="none" className="p-4">

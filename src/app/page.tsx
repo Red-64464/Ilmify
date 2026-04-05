@@ -61,7 +61,7 @@ export default function HomePage() {
   // Navigate to search page when user types
   useEffect(() => {
     if (search.trim()) {
-      window.location.href = `/search?q=${encodeURIComponent(search.trim())}`;
+      router.push(`/search?q=${encodeURIComponent(search.trim())}`);
     }
   }, [search]);
 

@@ -35,10 +35,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let mounted = true;
 
-    // Safety timeout — never block loading forever
+    // Safety timeout — never block loading forever (10s for slow mobile connections)
     const timeout = setTimeout(() => {
       if (mounted) setIsLoading(false);
-    }, 5000);
+    }, 10000);
 
     // Get initial session
     supabase.auth.getSession().then(async ({ data: { session: supaSession } }) => {

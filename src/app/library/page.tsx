@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BookOpen, Star, Plus, Upload, Smile, Trash2 } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
@@ -49,6 +50,7 @@ const fadeUp = {
 
 export default function LibraryPage() {
   const { user, isLoading: authLoading } = useAuth();
+  const router = useRouter();
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -172,7 +174,7 @@ export default function LibraryPage() {
         >
           {filtered.map((book) => (
             <motion.div key={book.id} variants={fadeUp}>
-              <div onClick={() => { window.location.href = `/library/${book.id}`; }} className="cursor-pointer">
+              <div onClick={() => { router.push(`/library/${book.id}`); }} className="cursor-pointer">
                 <Card glowColor="gold" className="p-5 h-full relative group/card">
                   {/* Delete button */}
                   {user && (

@@ -81,7 +81,7 @@ export default function TopicsPage() {
       setShowCreateModal(false);
       setNewTitle('');
       setNewCategory('');
-      window.location.href = `/topics/${topic.id}`;
+      router.push(`/topics/${topic.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur lors de la création');
     } finally {
@@ -201,7 +201,7 @@ export default function TopicsPage() {
             <motion.div key={topic.id} variants={fadeUp}>
               <div
                 className="cursor-pointer relative"
-                onClick={() => { window.location.href = `/topics/${topic.id}`; }}
+                onClick={() => { router.push(`/topics/${topic.id}`); }}
               >
                 <Card glowColor="green" className="p-4">
                   <div className="flex items-start gap-3">
