@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { BookMarked, Search, Loader2, ChevronRight, ArrowLeft } from 'lucide-react';
+import { BookMarked, Search, Loader2, ChevronRight, ArrowLeft, Sparkles } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import {
   getRootCategories,
@@ -11,6 +11,7 @@ import {
   type HadeethListItem,
   type HadeethDetail,
 } from '@/lib/api/hadithApi';
+import { findBestHadithCategories, rankHadithResults } from '@/lib/ai/groq';
 import type { TopicBlock } from '@/types';
 
 interface HadithSearchModalProps {
@@ -30,6 +31,12 @@ export default function HadithSearchModal({ isOpen, onClose, onInsert }: HadithS
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [searchFilter, setSearchFilter] = useState('');
+
+  // AI search state
+  const [tab, setTab] = useState<'category' | 'ai'>('category');
+  const [aiQuery, setAiQuery] = useState('');
+  const [aiSearching, setAiSearching] = useState(false);
+  const [aiResults, setAiResults] = useState<HadeethListItem[]>([]);
 
   // Load categories
   useEffect(() => {
@@ -108,7 +115,54 @@ export default function HadithSearchModal({ isOpen, onClose, onInsert }: HadithS
     setSelectedHadith(null);
     setError('');
     setSearchFilter('');
+    setAiQuery('');
+    setAiResults([]);
   };
+
+  const handleAISearch = useCallback(async () => {
+    if (!aiQuery.trim() || aiSearching) return;
+    setAiSearching(true);
+    setError('');
+    setAiResults([]);
+    try {
+      // Load categories if not loaded
+      let cats = categories;
+      if (cats.length === 0) {
+        cats = await getRootCategories('fr');
+        setCategories(cats);
+      }
+      // Use AI to find best categories
+      const bestIds = await findBestHadithCategories(
+        aiQuery,
+        cats.map((c) => ({ id: c.id, title: c.title })),
+      );
+      // Fetch hadiths from those categories
+      const allHadiths: HadeethListItem[] = [];
+      for (const catId of bestIds.slice(0, 3)) {
+        try {
+          const result = await getHadithsByCategory(catId, 'fr');
+          allHadiths.push(...(result.data || []));
+        } catch { /* skip */ }
+      }
+      if (allHadiths.length === 0) {
+        setError('Aucun hadith trouvé pour cette recherche');
+        setAiSearching(false);
+        return;
+      }
+      // Rank results with AI
+      const rankedIds = await rankHadithResults(
+        aiQuery,
+        allHadiths.map((h) => ({ id: h.id, title: h.title, text: h.title })),
+      );
+      const ranked = rankedIds
+        .map((id) => allHadiths.find((h) => h.id === id))
+        .filter(Boolean) as HadeethListItem[];
+      setAiResults(ranked.length > 0 ? ranked : allHadiths.slice(0, 5));
+    } catch {
+      setError('Erreur lors de la recherche IA');
+    }
+    setAiSearching(false);
+  }, [aiQuery, aiSearching, categories]);
 
   const handleBack = () => {
     setError('');
@@ -123,6 +177,76 @@ export default function HadithSearchModal({ isOpen, onClose, onInsert }: HadithS
   return (
     <Modal isOpen={isOpen} onClose={() => { onClose(); handleFullReset(); }} title="Rechercher un hadith" maxWidth="38rem">
       <div className="space-y-4">
+        {/* Tabs */}
+        <div className="flex rounded-xl overflow-hidden" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
+          <button
+            onClick={() => { setTab('category'); setView('categories'); setSelectedHadith(null); }}
+            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-medium cursor-pointer transition-all"
+            style={{
+              background: tab === 'category' ? 'rgba(46,158,140,0.1)' : 'transparent',
+              color: tab === 'category' ? 'var(--accent)' : 'var(--text-muted)',
+            }}
+          >
+            <BookMarked size={13} />
+            Par catégorie
+          </button>
+          <button
+            onClick={() => { setTab('ai'); setView('categories'); setSelectedHadith(null); }}
+            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-medium cursor-pointer transition-all"
+            style={{
+              background: tab === 'ai' ? 'rgba(196,154,61,0.1)' : 'transparent',
+              color: tab === 'ai' ? '#d4ad4a' : 'var(--text-muted)',
+            }}
+          >
+            <Sparkles size={13} />
+            Recherche IA
+          </button>
+        </div>
+
+        {/* AI Search Tab */}
+        {tab === 'ai' && view !== 'detail' && (
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Ex: la patience, le jeûne, l'aumône..."
+                value={aiQuery}
+                onChange={(e) => setAiQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAISearch()}
+                className="flex-1 rounded-xl px-4 py-2.5 text-sm outline-none"
+                style={{ background: 'var(--bg-base)', border: '1px solid rgba(196,154,61,0.2)', color: 'var(--text-primary)' }}
+              />
+              <button
+                onClick={handleAISearch}
+                disabled={aiSearching || !aiQuery.trim()}
+                className="px-4 py-2.5 rounded-xl text-sm font-medium cursor-pointer transition-all"
+                style={{ background: 'rgba(196,154,61,0.12)', color: '#d4ad4a', opacity: aiSearching ? 0.6 : 1 }}
+              >
+                {aiSearching ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+              </button>
+            </div>
+            {aiResults.length > 0 && (
+              <div className="max-h-72 overflow-y-auto rounded-lg scrollbar-none" style={{ border: '1px solid var(--border-light)' }}>
+                {aiResults.map((h) => (
+                  <button
+                    key={h.id}
+                    onClick={() => handleSelectHadith(h)}
+                    className="w-full text-left px-4 py-3 text-sm transition-colors cursor-pointer"
+                    style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-subtle)' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,154,61,0.06)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    <div className="flex items-start gap-2">
+                      <Sparkles size={12} className="mt-1 shrink-0" style={{ color: '#d4ad4a' }} />
+                      <p className="line-clamp-2 leading-relaxed">{h.title}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Back button */}
         {view !== 'categories' && (
           <button
@@ -148,7 +272,7 @@ export default function HadithSearchModal({ isOpen, onClose, onInsert }: HadithS
         )}
 
         {/* Categories view */}
-        {view === 'categories' && !loading && (
+        {view === 'categories' && !loading && tab === 'category' && (
           <div className="space-y-2">
             <div className="relative">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />

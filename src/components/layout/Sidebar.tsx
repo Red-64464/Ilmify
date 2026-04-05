@@ -16,23 +16,25 @@ import {
   Compass,
   LogOut,
   Clock,
+  Video,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
-const mainNav = [
-  { href: '/', label: 'Home', icon: Home },
+const savoirNav = [
   { href: '/topics', label: 'Mes Topics', icon: FileText },
   { href: '/courses', label: 'Cours', icon: GraduationCap },
   { href: '/library', label: 'Bibliothèque', icon: BookOpen },
-  { href: '/profile', label: 'Profil', icon: User },
+  { href: '/media', label: 'Médiathèque', icon: Video },
 ] as const;
 
-const toolsNav = [
-  { href: '/explore', label: 'Explorer (Thèmes)', icon: Compass },
+const revisionNav = [
   { href: '/quiz', label: 'Quiz', icon: Brain },
   { href: '/flashcards', label: 'Flashcards', icon: Layers },
+] as const;
+
+const decouvrirNav = [
+  { href: '/explore', label: 'Explorer', icon: Compass },
   { href: '/favorites', label: 'Favoris', icon: Heart },
-  { href: '/prayer-times', label: 'Horaires de Prière', icon: Clock },
 ] as const;
 
 function NavLink({
@@ -106,30 +108,50 @@ export default function Sidebar() {
 
       {/* Main nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-0.5">
-        {mainNav.map((item) => (
-          <NavLink key={item.href} {...item} isActive={isActive(item.href)} />
-        ))}
+        {/* Home */}
+        <NavLink href="/" label="Home" icon={Home} isActive={isActive('/')} />
 
-        {/* Separator */}
-        <div className="separator-ornament my-5 px-2">
+        {/* Mon Savoir */}
+        <div className="my-4 px-2">
           <span className="text-[10px] uppercase tracking-[0.15em] font-medium" style={{ color: 'var(--text-muted)' }}>
-            Outils
+            Mon Savoir
           </span>
         </div>
-
-        {toolsNav.map((item) => (
+        {savoirNav.map((item) => (
           <NavLink key={item.href} {...item} isActive={isActive(item.href)} />
         ))}
-        {isAdmin && (
-          <NavLink href="/admin" label="Admin" icon={Settings} isActive={isActive('/admin')} />
-        )}
+
+        {/* Révision */}
+        <div className="my-4 px-2">
+          <span className="text-[10px] uppercase tracking-[0.15em] font-medium" style={{ color: 'var(--text-muted)' }}>
+            Révision
+          </span>
+        </div>
+        {revisionNav.map((item) => (
+          <NavLink key={item.href} {...item} isActive={isActive(item.href)} />
+        ))}
+
+        {/* Découvrir */}
+        <div className="my-4 px-2">
+          <span className="text-[10px] uppercase tracking-[0.15em] font-medium" style={{ color: 'var(--text-muted)' }}>
+            Découvrir
+          </span>
+        </div>
+        {decouvrirNav.map((item) => (
+          <NavLink key={item.href} {...item} isActive={isActive(item.href)} />
+        ))}
       </nav>
 
       {/* Footer */}
       <div
-        className="px-5 py-4 space-y-3"
+        className="px-3 py-3 space-y-0.5"
         style={{ borderTop: '1px solid var(--border-subtle)' }}
       >
+        <NavLink href="/prayer-times" label="Horaires de Prière" icon={Clock} isActive={isActive('/prayer-times')} />
+        <NavLink href="/profile" label="Profil" icon={User} isActive={isActive('/profile')} />
+        {isAdmin && (
+          <NavLink href="/admin" label="Admin" icon={Settings} isActive={isActive('/admin')} />
+        )}
         {user && (
           <button
             onClick={async () => { await logout(); router.push('/login'); }}
@@ -149,7 +171,7 @@ export default function Sidebar() {
             <span>Se déconnecter</span>
           </button>
         )}
-        <p className="text-[11px] tracking-wide px-4" style={{ color: 'var(--text-muted)' }}>
+        <p className="text-[11px] tracking-wide px-4 pt-1" style={{ color: 'var(--text-muted)' }}>
           Ilmify v0.1.0
         </p>
       </div>

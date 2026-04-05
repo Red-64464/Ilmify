@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   FileText, GraduationCap, BookOpen, Star, Sun,
   ChevronRight, BookMarked, Plus, LogIn, UserPlus,
-  Flame, Brain, Layers, Zap,
+  Flame, Brain, Layers, Zap, RefreshCw, Loader2,
 } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import SectionHeader from '@/components/ui/SectionHeader';
@@ -21,7 +21,8 @@ import { topicRepository } from '@/lib/repositories/topicRepository';
 import { courseRepository } from '@/lib/repositories/courseRepository';
 import { bookRepository } from '@/lib/repositories/bookRepository';
 import { activityRepository } from '@/lib/repositories/activityRepository';
-import { dailyReminders } from '@/data/daily';
+import { getRootCategories, getHadithsByCategory, getHadithDetail } from '@/lib/api/hadithApi';
+import { getVerseTranslation, getArabicVerse, SURAH_LIST } from '@/lib/api/quranApi';
 
 const quickLinks = [
   { href: '/topics', icon: FileText, label: 'Mes Topics', color: 'var(--accent)', gradient: 'linear-gradient(135deg, rgba(26,122,107,0.12), rgba(18,163,147,0.06))' },
@@ -37,9 +38,48 @@ const typeIcons: Record<string, typeof Star> = {
   reminder: Sun,
 };
 
-function getDailyReminder() {
-  const today = new Date().toISOString().split('T')[0];
-  return dailyReminders.find((r) => r.date === today) || dailyReminders[0] || null;
+interface DailyData {
+  content: string;
+  contentAr?: string;
+  source?: string;
+  type: 'hadith' | 'verse' | 'quote' | 'reminder';
+  date: string;
+}
+
+async function fetchDailyFromAPI(): Promise<DailyData> {
+  const isHadith = Math.random() > 0.5;
+  if (isHadith) {
+    try {
+      const cats = await getRootCategories('fr');
+      const randomCat = cats[Math.floor(Math.random() * cats.length)];
+      const result = await getHadithsByCategory(randomCat.id, 'fr');
+      if (result.data && result.data.length > 0) {
+        const randomH = result.data[Math.floor(Math.random() * result.data.length)];
+        const detail = await getHadithDetail(randomH.id, 'fr');
+        return {
+          content: detail.hadeeth,
+          source: detail.attribution || 'HadeethEnc',
+          type: 'hadith',
+          date: new Date().toISOString().split('T')[0],
+        };
+      }
+    } catch { /* fallback to verse */ }
+  }
+  // Fetch random verse
+  const randomSurah = Math.floor(Math.random() * 114) + 1;
+  const maxAyah = SURAH_LIST[randomSurah - 1]?.ayahCount || 7;
+  const randomAyah = Math.floor(Math.random() * maxAyah) + 1;
+  const [trans, arabic] = await Promise.all([
+    getVerseTranslation(randomSurah, randomAyah, 'french_hameedullah').catch(() => null),
+    getArabicVerse(randomSurah, randomAyah).catch(() => ''),
+  ]);
+  return {
+    content: trans?.translation || `Sourate ${randomSurah}, verset ${randomAyah}`,
+    contentAr: arabic || '',
+    source: `${SURAH_LIST[randomSurah - 1]?.name || 'Coran'}, verset ${randomAyah}`,
+    type: 'verse',
+    date: new Date().toISOString().split('T')[0],
+  };
 }
 
 const stagger = {
@@ -55,8 +95,33 @@ const fadeUp = {
 export default function HomePage() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
-  const daily = useMemo(() => getDailyReminder(), []);
+  const [daily, setDaily] = useState<DailyData | null>(null);
+  const [dailyLoading, setDailyLoading] = useState(false);
   const [search, setSearch] = useState('');
+
+  // Fetch daily reminder from APIs (cached in localStorage by date)
+  const loadDaily = useCallback(async (forceRefresh = false) => {
+    if (dailyLoading) return;
+    const today = new Date().toISOString().split('T')[0];
+    if (!forceRefresh) {
+      try {
+        const cached = localStorage.getItem('ilmify_daily');
+        if (cached) {
+          const parsed = JSON.parse(cached) as DailyData;
+          if (parsed.date === today) { setDaily(parsed); return; }
+        }
+      } catch { /* ignore */ }
+    }
+    setDailyLoading(true);
+    try {
+      const data = await fetchDailyFromAPI();
+      setDaily(data);
+      localStorage.setItem('ilmify_daily', JSON.stringify(data));
+    } catch { /* ignore */ }
+    setDailyLoading(false);
+  }, [dailyLoading]);
+
+  useEffect(() => { loadDaily(); }, []);
 
   // Navigate to search page when user types
   useEffect(() => {
@@ -128,6 +193,11 @@ export default function HomePage() {
             {daily.source && (
               <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>{daily.source}</p>
             )}
+          </div>
+        )}
+        {dailyLoading && (
+          <div className="w-full max-w-sm flex items-center justify-center py-4 mb-8">
+            <Loader2 size={18} className="animate-spin" style={{ color: '#d4ad4a' }} />
           </div>
         )}
 
@@ -204,7 +274,7 @@ export default function HomePage() {
       </motion.section>
 
       {/* ===== Daily Reminder ===== */}
-      {daily && (
+      {(daily || dailyLoading) && (
         <motion.section variants={fadeUp}>
           <div
             className="relative overflow-hidden rounded-2xl p-6"
@@ -214,6 +284,12 @@ export default function HomePage() {
               border: '1px solid rgba(196,154,61,0.08)',
             }}
           >
+            {dailyLoading ? (
+              <div className="flex items-center justify-center py-6 gap-3">
+                <Loader2 size={20} className="animate-spin" style={{ color: '#d4ad4a' }} />
+                <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Chargement du rappel...</span>
+              </div>
+            ) : daily && (
             <div className="flex items-start gap-4">
               <div
                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
@@ -224,7 +300,17 @@ export default function HomePage() {
                 <DailyIcon size={20} style={{ color: '#d4ad4a' }} />
               </div>
               <div className="min-w-0 flex-1">
-                <Badge variant="gold" size="sm" className="mb-3">Rappel du jour</Badge>
+                <div className="flex items-center gap-2 mb-3">
+                  <Badge variant="gold" size="sm">Rappel du jour</Badge>
+                  <button
+                    onClick={() => loadDaily(true)}
+                    className="p-1 rounded-lg cursor-pointer transition-colors ml-auto"
+                    style={{ color: 'var(--text-muted)' }}
+                    title="Autre rappel"
+                  >
+                    <RefreshCw size={13} />
+                  </button>
+                </div>
                 <p className="text-sm leading-[1.8]" style={{ color: 'var(--text-primary)' }}>
                   {daily.content}
                 </p>
@@ -243,6 +329,7 @@ export default function HomePage() {
                 )}
               </div>
             </div>
+            )}
           </div>
         </motion.section>
       )}

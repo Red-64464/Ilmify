@@ -245,6 +245,40 @@ export interface CoursePage {
   updatedAt: string;
 }
 
+// Media Library types
+
+export interface MediaFolder {
+  id: string;
+  title: string;
+  description?: string;
+  icon?: string;
+  parentId?: string;
+  order: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TimestampNote {
+  time: number; // seconds
+  text: string;
+}
+
+export interface MediaVideo {
+  id: string;
+  folderId: string;
+  title: string;
+  url: string;
+  thumbnailUrl?: string;
+  channelName?: string;
+  duration?: string;
+  notes: TimestampNote[];
+  tags: string[];
+  watched: boolean;
+  order: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Activity & Settings types
 
 export interface RecentActivity {

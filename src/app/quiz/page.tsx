@@ -43,7 +43,8 @@ export default function QuizPage() {
     const total = questions.length;
     const mastered = questions.filter((q) => q.masteryLevel >= 80).length;
     const toReview = questions.filter((q) => q.masteryLevel < 50).length;
-    return { total, mastered, toReview };
+    const errors = questions.filter((q) => q.errorCount > 0).length;
+    return { total, mastered, toReview, errors };
   }, [questions]);
 
   const themeGroups = useMemo(() => {
@@ -135,6 +136,37 @@ export default function QuizPage() {
           </motion.div>
         ))}
       </div>
+
+      {/* Review errors button */}
+      {stats.errors > 0 && (
+        <div className="mb-8">
+          <Link href="/quiz/play?mode=errors">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="relative overflow-hidden rounded-2xl p-5 cursor-pointer transition-all duration-200"
+              style={{
+                background: 'linear-gradient(135deg, rgba(239,68,68,0.08), rgba(239,68,68,0.02))',
+                border: '1px solid rgba(239,68,68,0.12)',
+              }}
+              whileHover={{ scale: 1.01, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl" style={{ background: 'rgba(239,68,68,0.15)' }}>
+                  <AlertCircle size={22} style={{ color: '#ef4444' }} />
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Réviser mes erreurs</h4>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{stats.errors} question{stats.errors > 1 ? 's' : ''} avec des erreurs</p>
+                </div>
+                <Play size={18} style={{ color: '#ef4444' }} />
+              </div>
+            </motion.div>
+          </Link>
+        </div>
+      )}
 
       {/* Theme Quiz Cards */}
       <h3 className="text-lg font-semibold tracking-tight mb-5 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>

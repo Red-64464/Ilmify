@@ -345,6 +345,59 @@ create policy "Users can update own images"
 create policy "Users can delete own images"
   on storage.objects for delete using (bucket_id = 'images' and auth.uid()::text = (storage.foldername(name))[1]);
 
+-- 13. Media Folders
+create table public.media_folders (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  title text not null,
+  description text,
+  icon text,
+  parent_id uuid references public.media_folders(id) on delete cascade,
+  order_num int not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.media_folders enable row level security;
+
+create policy "Users see own media folders"
+  on public.media_folders for select using (auth.uid() = user_id);
+create policy "Users insert own media folders"
+  on public.media_folders for insert with check (auth.uid() = user_id);
+create policy "Users update own media folders"
+  on public.media_folders for update using (auth.uid() = user_id);
+create policy "Users delete own media folders"
+  on public.media_folders for delete using (auth.uid() = user_id);
+
+-- 14. Media Videos
+create table public.media_videos (
+  id uuid default gen_random_uuid() primary key,
+  folder_id uuid references public.media_folders(id) on delete cascade not null,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  title text not null,
+  url text not null,
+  thumbnail_url text,
+  channel_name text,
+  duration text,
+  notes jsonb not null default '[]',
+  tags text[] not null default '{}',
+  watched boolean not null default false,
+  order_num int not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.media_videos enable row level security;
+
+create policy "Users see own media videos"
+  on public.media_videos for select using (auth.uid() = user_id);
+create policy "Users insert own media videos"
+  on public.media_videos for insert with check (auth.uid() = user_id);
+create policy "Users update own media videos"
+  on public.media_videos for update using (auth.uid() = user_id);
+create policy "Users delete own media videos"
+  on public.media_videos for delete using (auth.uid() = user_id);
+
 -- =============================================================
 -- DONE! Your database is ready.
 -- =============================================================

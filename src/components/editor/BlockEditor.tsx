@@ -14,6 +14,7 @@ import type { TopicBlock, BlockType } from '@/types';
 import ImageCropper from '@/components/ui/ImageCropper';
 import QuranSearchModal from '@/components/islamic/QuranSearchModal';
 import HadithSearchModal from '@/components/islamic/HadithSearchModal';
+import QuranAISearchModal from '@/components/islamic/QuranAISearchModal';
 
 // Block type definitions with metadata
 const BLOCK_TYPES: { type: BlockType; icon: React.ElementType; label: string; shortcut: string; color: string }[] = [
@@ -45,6 +46,7 @@ const BLOCK_TYPES: { type: BlockType; icon: React.ElementType; label: string; sh
   { type: 'divider', icon: Minus, label: 'Séparateur', shortcut: '/divider', color: 'var(--text-muted)' },
   { type: 'verse', icon: BookOpen, label: '🔍 Verset (QuranEnc)', shortcut: '/quranenc', color: '#d4ad4a' },
   { type: 'hadith', icon: BookMarked, label: '🔍 Hadith (HadeethEnc)', shortcut: '/hadeethenc', color: 'var(--accent)' },
+  { type: 'verse', icon: BookOpen, label: '✨ Verset (Recherche IA)', shortcut: '/quran-ia', color: '#d4ad4a' },
 ];
 
 function generateBlockId(): string {
@@ -295,6 +297,7 @@ function EditableBlock({
   isLast,
   onOpenQuranModal,
   onOpenHadithModal,
+  onOpenQuranAIModal,
 }: {
   block: TopicBlock;
   onUpdate: (updates: Partial<TopicBlock>) => void;
@@ -306,6 +309,7 @@ function EditableBlock({
   isLast: boolean;
   onOpenQuranModal?: () => void;
   onOpenHadithModal?: () => void;
+  onOpenQuranAIModal?: () => void;
 }) {
   const [showSlash, setShowSlash] = useState(false);
   const [slashFilter, setSlashFilter] = useState('');
@@ -583,25 +587,17 @@ function EditableBlock({
 
   return (
     <div
-      className="group relative"
+      className="group/block relative"
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
     >
-      {/* Left action bar */}
+      {/* Grip handle — centered vertically */}
       <div
-        className="absolute -left-8 sm:-left-10 top-1 flex flex-col gap-0.5 transition-opacity duration-200"
-        style={{ opacity: showActions ? 0.7 : 0.3 }}
+        className="absolute -left-7 sm:-left-8 top-1/2 -translate-y-1/2 transition-opacity duration-200"
+        style={{ opacity: showActions ? 0.6 : 0 }}
       >
         <button
-          onClick={() => setShowSlash(true)}
-          className="flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded transition-colors cursor-pointer"
-          style={{ color: 'var(--text-muted)' }}
-          title="Ajouter un bloc"
-        >
-          <Plus size={14} />
-        </button>
-        <button
-          className="flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded cursor-grab"
+          className="flex h-6 w-6 items-center justify-center rounded cursor-grab"
           style={{ color: 'var(--text-muted)' }}
           title="Déplacer"
         >
@@ -930,6 +926,9 @@ function EditableBlock({
                 onDelete();
               } else if (shortcut === '/hadeethenc' && onOpenHadithModal) {
                 onOpenHadithModal();
+                onDelete();
+              } else if (shortcut === '/quran-ia' && onOpenQuranAIModal) {
+                onOpenQuranAIModal();
                 onDelete();
               } else {
                 onUpdate({ type, content: '' });
@@ -1722,6 +1721,7 @@ function parsePastedText(text: string): TopicBlock[] {
 export default function BlockEditor({ blocks, onChange, readOnly = false }: BlockEditorProps) {
   const [showQuranModal, setShowQuranModal] = useState(false);
   const [showHadithModal, setShowHadithModal] = useState(false);
+  const [showQuranAIModal, setShowQuranAIModal] = useState(false);
 
   const handlePaste = useCallback(
     (e: React.ClipboardEvent) => {
@@ -1819,41 +1819,54 @@ export default function BlockEditor({ blocks, onChange, readOnly = false }: Bloc
     );
   }
 
+  // Insert line component — appears between blocks on hover
+  const InsertLine = ({ index }: { index: number }) => (
+    <div className="group/insert relative h-0 flex items-center justify-center" style={{ margin: '0 -0.5rem', zIndex: 5 }}>
+      <div
+        className="absolute inset-x-0 flex items-center justify-center cursor-pointer"
+        style={{ top: '-10px', bottom: '-10px' }}
+        onClick={() => addBlock(index)}
+      >
+        <div
+          className="w-full h-[2px] rounded-full transition-opacity duration-150 opacity-0 group-hover/insert:opacity-100"
+          style={{ background: 'var(--accent)', opacity: undefined }}
+        />
+        <div
+          className="absolute flex items-center justify-center w-6 h-6 rounded-full transition-all duration-150 opacity-0 group-hover/insert:opacity-100 scale-75 group-hover/insert:scale-100"
+          style={{ background: 'var(--accent)', color: '#fff' }}
+        >
+          <Plus size={14} strokeWidth={2.5} />
+        </div>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="pl-10 space-y-2" onPaste={handlePaste}>
+    <div className="pl-8 space-y-1" onPaste={handlePaste}>
+      {/* Insert line before first block */}
+      <InsertLine index={-1} />
+
       {blocks
         .sort((a, b) => a.order - b.order)
         .map((block, index) => (
-          <EditableBlock
-            key={block.id}
-            block={block}
-            onUpdate={(updates) => updateBlock(index, updates)}
-            onDelete={() => deleteBlock(index)}
-            onAddBelow={(type) => addBlock(index, type)}
-            onMoveUp={() => moveBlock(index, 'up')}
-            onMoveDown={() => moveBlock(index, 'down')}
-            isFirst={index === 0}
-            isLast={index === blocks.length - 1}
-            onOpenQuranModal={() => setShowQuranModal(true)}
-            onOpenHadithModal={() => setShowHadithModal(true)}
-          />
+          <React.Fragment key={block.id}>
+            <EditableBlock
+              block={block}
+              onUpdate={(updates) => updateBlock(index, updates)}
+              onDelete={() => deleteBlock(index)}
+              onAddBelow={(type) => addBlock(index, type)}
+              onMoveUp={() => moveBlock(index, 'up')}
+              onMoveDown={() => moveBlock(index, 'down')}
+              isFirst={index === 0}
+              isLast={index === blocks.length - 1}
+              onOpenQuranModal={() => setShowQuranModal(true)}
+              onOpenHadithModal={() => setShowHadithModal(true)}
+              onOpenQuranAIModal={() => setShowQuranAIModal(true)}
+            />
+            {/* Insert line after each block */}
+            <InsertLine index={index} />
+          </React.Fragment>
         ))}
-
-      {/* Add block button */}
-      <button
-        onClick={() => addBlock(blocks.length - 1)}
-        className="flex items-center gap-2 w-full py-3 px-3 rounded-lg transition-colors duration-200 cursor-pointer"
-        style={{ color: 'var(--text-muted)' }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = 'transparent';
-        }}
-      >
-        <Plus size={16} />
-        <span className="text-sm">Ajouter un bloc</span>
-      </button>
 
       {/* Islamic API modals */}
       <QuranSearchModal
@@ -1864,6 +1877,11 @@ export default function BlockEditor({ blocks, onChange, readOnly = false }: Bloc
       <HadithSearchModal
         isOpen={showHadithModal}
         onClose={() => setShowHadithModal(false)}
+        onInsert={handleInsertIslamicBlock}
+      />
+      <QuranAISearchModal
+        isOpen={showQuranAIModal}
+        onClose={() => setShowQuranAIModal(false)}
         onInsert={handleInsertIslamicBlock}
       />
     </div>

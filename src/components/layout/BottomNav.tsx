@@ -15,23 +15,49 @@ import {
   Layers,
   Heart,
   Clock,
+  User,
   X,
+  Video,
 } from 'lucide-react';
 
 const navItems = [
   { href: '/', label: 'Home', icon: Home },
-  { href: '/topics', label: 'Mes Topics', icon: FileText },
   { href: '/courses', label: 'Cours', icon: GraduationCap },
-  { href: '/library', label: 'Library', icon: BookOpen },
+  { href: '/library', label: 'Bibliothèque', icon: BookOpen },
 ] as const;
 
-const moreItems = [
-  { href: '/explore', label: 'Explorer', icon: Compass },
-  { href: '/quiz', label: 'Quiz', icon: Brain },
-  { href: '/flashcards', label: 'Flashcards', icon: Layers },
-  { href: '/favorites', label: 'Favoris', icon: Heart },
-  { href: '/prayer-times', label: 'Horaires de Prière', icon: Clock },
-] as const;
+const moreGroups = [
+  {
+    label: 'Mon Savoir',
+    items: [
+      { href: '/topics', label: 'Mes Topics', icon: FileText },
+      { href: '/media', label: 'Médiathèque', icon: Video },
+    ],
+  },
+  {
+    label: 'Révision',
+    items: [
+      { href: '/quiz', label: 'Quiz', icon: Brain },
+      { href: '/flashcards', label: 'Flashcards', icon: Layers },
+    ],
+  },
+  {
+    label: 'Découvrir',
+    items: [
+      { href: '/explore', label: 'Explorer', icon: Compass },
+      { href: '/favorites', label: 'Favoris', icon: Heart },
+    ],
+  },
+  {
+    label: null,
+    items: [
+      { href: '/prayer-times', label: 'Horaires de Prière', icon: Clock },
+      { href: '/profile', label: 'Profil', icon: User },
+    ],
+  },
+];
+
+const allMoreItems = moreGroups.flatMap((g) => g.items);
 
 export default function BottomNav() {
   const pathname = usePathname();
@@ -48,7 +74,7 @@ export default function BottomNav() {
     return () => document.removeEventListener('mousedown', handler);
   }, [showMore]);
 
-  const isMoreActive = moreItems.some((item) => pathname.startsWith(item.href));
+  const isMoreActive = allMoreItems.some((item) => pathname.startsWith(item.href));
 
   return (
     <nav className="fixed bottom-0 inset-x-0 z-50 lg:hidden">
@@ -76,21 +102,32 @@ export default function BottomNav() {
                 <X size={14} />
               </button>
             </div>
-            {moreItems.map(({ href, label, icon: Icon }) => {
-              const active = pathname.startsWith(href);
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  onClick={() => setShowMore(false)}
-                  className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors"
-                  style={{ color: active ? 'var(--accent)' : 'var(--text-secondary)' }}
-                >
-                  <Icon size={18} strokeWidth={active ? 2 : 1.5} />
-                  <span className="font-medium">{label}</span>
-                </Link>
-              );
-            })}
+            {moreGroups.map((group, gi) => (
+              <div key={gi}>
+                {group.label && (
+                  <div className="px-4 pt-2.5 pb-0.5">
+                    <span className="text-[10px] uppercase tracking-[0.12em] font-medium" style={{ color: 'var(--text-muted)' }}>
+                      {group.label}
+                    </span>
+                  </div>
+                )}
+                {group.items.map(({ href, label, icon: Icon }) => {
+                  const active = pathname.startsWith(href);
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      onClick={() => setShowMore(false)}
+                      className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors"
+                      style={{ color: active ? 'var(--accent)' : 'var(--text-secondary)' }}
+                    >
+                      <Icon size={18} strokeWidth={active ? 2 : 1.5} />
+                      <span className="font-medium">{label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            ))}
             <div className="h-1" />
           </motion.div>
         )}

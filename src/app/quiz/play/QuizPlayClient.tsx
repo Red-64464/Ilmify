@@ -24,6 +24,7 @@ async function recordActivity(userId: string) {
 export default function QuizPlayClient() {
   const searchParams = useSearchParams();
   const themeFilter = searchParams.get('theme');
+  const modeFilter = searchParams.get('mode');
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [allQuestions, setAllQuestions] = useState<QuizQuestion[]>([]);
@@ -34,11 +35,14 @@ export default function QuizPlayClient() {
       setLoading(false);
       return;
     }
-    quizRepository.getAllQuestions(user.id)
-      .then((q) => setAllQuestions(q.length > 0 ? q : staticQuestions))
-      .catch(() => setAllQuestions(staticQuestions))
+    const fetchQuestions = modeFilter === 'errors'
+      ? quizRepository.getErrorQuestions(user.id)
+      : quizRepository.getAllQuestions(user.id);
+    fetchQuestions
+      .then((q) => setAllQuestions(q.length > 0 ? q : modeFilter === 'errors' ? [] : staticQuestions))
+      .catch(() => setAllQuestions(modeFilter === 'errors' ? [] : staticQuestions))
       .finally(() => setLoading(false));
-  }, [user]);
+  }, [user, modeFilter]);
 
   const questions: QuizQuestion[] = useMemo(() => {
     const filtered = themeFilter
@@ -124,9 +128,9 @@ export default function QuizPlayClient() {
   if (questions.length === 0) {
     return (
       <div className="pb-10">
-        <PageHeader title="Quiz" backButton />
+        <PageHeader title={modeFilter === 'errors' ? 'Révision des erreurs' : 'Quiz'} backButton />
         <div className="text-center py-16">
-          <p style={{ color: 'var(--text-muted)' }}>Aucune question disponible.</p>
+          <p style={{ color: 'var(--text-muted)' }}>{modeFilter === 'errors' ? 'Aucune erreur à réviser. Bravo !' : 'Aucune question disponible.'}</p>
         </div>
       </div>
     );

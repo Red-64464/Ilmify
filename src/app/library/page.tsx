@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BookOpen, Star, Plus, Upload, Smile, Trash2 } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
-import Card from '@/components/ui/Card';
 import SearchInput from '@/components/ui/SearchInput';
 import Badge from '@/components/ui/Badge';
 import Tabs from '@/components/ui/Tabs';
@@ -34,6 +33,15 @@ const categoryColors: Record<string, 'gold' | 'green' | 'teal' | 'blue' | 'defau
   Adhkar: 'green',
   Tafsir: 'gold',
   Fiqh: 'blue',
+};
+
+const categoryHexColors: Record<string, string> = {
+  Aqida: '#d4ad4a',
+  Hadith: '#14b8a6',
+  Sira: '#3aaa60',
+  Adhkar: '#3aaa60',
+  Tafsir: '#d4ad4a',
+  Fiqh: '#3b82f6',
 };
 
 const BOOK_EMOJIS = ['📖', '📚', '📕', '📗', '📘', '📙', '📓', '📔', '🕌', '🕋', '☪️', '🌙', '⭐', '🤲', '📿', '🎓', '✨', '💡', '🌟', '🏆'];
@@ -172,96 +180,120 @@ export default function LibraryPage() {
           animate="visible"
           key={tab}
         >
-          {filtered.map((book) => (
+          {filtered.map((book) => {
+            const bookColor = categoryHexColors[book.category] || '#6366f1';
+            return (
             <motion.div key={book.id} variants={fadeUp}>
               <div onClick={() => { router.push(`/library/${book.id}`); }} className="cursor-pointer">
-                <Card glowColor="gold" className="p-5 h-full relative group/card">
-                  {/* Delete button */}
-                  {user && (
-                    <button
-                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteBook(book.id); }}
-                      className="absolute top-3 right-3 p-1.5 rounded-lg opacity-0 group-hover/card:opacity-100 transition-all duration-200 cursor-pointer z-10"
-                      style={{
-                        background: 'rgba(239, 68, 68, 0.1)',
-                        color: '#f87171',
-                        border: '1px solid rgba(239, 68, 68, 0.15)',
-                      }}
-                      title="Supprimer ce livre"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  )}
-                  <div className="flex items-start gap-3 mb-4">
-                    <div
-                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl overflow-hidden"
-                      style={{
-                        background: 'linear-gradient(135deg, rgba(196,154,61,0.12), rgba(196,154,61,0.05))',
-                      }}
-                    >
-                      {book.coverUrl ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img src={book.coverUrl} alt="" className="h-full w-full object-contain" />
-                      ) : (
-                        <BookOpen size={20} style={{ color: '#d4ad4a' }} />
+                <motion.div
+                  whileHover={{ y: -3, scale: 1.01 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ type: 'spring' as const, stiffness: 300, damping: 25 }}
+                  className="relative overflow-hidden rounded-2xl p-5 sm:p-6 h-full transition-all duration-300 group/card"
+                  style={{
+                    background: `linear-gradient(135deg, ${bookColor}08, var(--bg-card) 40%, ${bookColor}04)`,
+                    boxShadow: 'var(--shadow-card)',
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  {/* Ambient glow */}
+                  <div
+                    className="absolute -top-12 -right-12 w-28 h-28 rounded-full pointer-events-none"
+                    style={{ background: `radial-gradient(circle, ${bookColor}10, transparent 70%)` }}
+                  />
+
+                  <div className="relative z-10">
+                    {/* Delete button */}
+                    {user && (
+                      <button
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteBook(book.id); }}
+                        className="absolute top-0 right-0 p-1.5 rounded-lg opacity-0 group-hover/card:opacity-100 transition-all duration-200 cursor-pointer z-10"
+                        style={{
+                          background: 'rgba(239, 68, 68, 0.1)',
+                          color: '#f87171',
+                          border: '1px solid rgba(239, 68, 68, 0.15)',
+                        }}
+                        title="Supprimer ce livre"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                    <div className="flex items-start gap-3 mb-4">
+                      <div
+                        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl overflow-hidden"
+                        style={{
+                          background: `linear-gradient(135deg, ${bookColor}18, ${bookColor}08)`,
+                        }}
+                      >
+                        {book.coverUrl ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img src={book.coverUrl} alt="" className="h-full w-full object-contain" />
+                        ) : (
+                          <BookOpen size={20} style={{ color: bookColor }} />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3
+                          className="text-base font-semibold tracking-tight truncate"
+                          style={{ color: 'var(--text-primary)' }}
+                        >
+                          {book.title}
+                        </h3>
+                        <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                          {book.author}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant={categoryColors[book.category] || 'default'} size="sm">
+                          {book.category}
+                        </Badge>
+                        <Badge
+                          variant={
+                            book.status === 'read'
+                              ? 'green'
+                              : book.status === 'reading'
+                                ? 'gold'
+                                : 'default'
+                          }
+                          size="sm"
+                        >
+                          {book.status === 'read'
+                            ? 'Terminé'
+                            : book.status === 'reading'
+                              ? 'En cours'
+                              : 'À lire'}
+                        </Badge>
+                      </div>
+                      {book.status === 'reading' && book.progress !== undefined && (
+                        <div className="flex-1 max-w-[120px]">
+                          <ProgressBar value={book.progress} showLabel color={bookColor} />
+                        </div>
                       )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h3
-                        className="text-sm font-semibold tracking-tight truncate"
-                        style={{ color: 'var(--text-primary)' }}
-                      >
-                        {book.title}
-                      </h3>
-                      <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                        {book.author}
-                      </p>
-                    </div>
+
+                    {book.rating !== undefined && (
+                      <div className="flex items-center gap-0.5 mt-3">
+                        {Array.from({ length: 5 }, (_, j) => (
+                          <Star
+                            key={j}
+                            size={14}
+                            style={{
+                              color: j < (book.rating || 0) ? bookColor : 'rgba(255,255,255,0.08)',
+                            }}
+                            fill={j < (book.rating || 0) ? 'currentColor' : 'none'}
+                          />
+                        ))}
+                      </div>
+                    )}
                   </div>
-
-                  <div className="flex items-center gap-2 mb-3">
-                    <Badge variant={categoryColors[book.category] || 'default'} size="sm">
-                      {book.category}
-                    </Badge>
-                    <Badge
-                      variant={
-                        book.status === 'read'
-                          ? 'green'
-                          : book.status === 'reading'
-                            ? 'gold'
-                            : 'default'
-                      }
-                      size="sm"
-                    >
-                      {book.status === 'read'
-                        ? 'Terminé'
-                        : book.status === 'reading'
-                          ? 'En cours'
-                          : 'À lire'}
-                    </Badge>
-                  </div>
-
-                  {book.status === 'reading' && book.progress !== undefined && (
-                    <ProgressBar value={book.progress} showLabel className="mb-3" />
-                  )}
-
-                  {book.rating !== undefined && (
-                    <div className="flex items-center gap-0.5">
-                      {Array.from({ length: 5 }, (_, j) => (
-                        <Star
-                          key={j}
-                          size={14}
-                          style={{
-                            color: j < (book.rating || 0) ? '#d4ad4a' : 'rgba(255,255,255,0.08)',
-                          }}
-                          fill={j < (book.rating || 0) ? 'currentColor' : 'none'}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </Card>
+                </motion.div>
               </div>
             </motion.div>
-          ))}
+            );
+          })}
         </motion.div>
       ) : (
         <EmptyState

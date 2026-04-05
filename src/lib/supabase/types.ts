@@ -457,7 +457,6 @@ export interface Database {
           activity_date: string;
           activity_type: string;
           count: number;
-          created_at: string;
         };
         Insert: {
           id?: string;
@@ -465,12 +464,92 @@ export interface Database {
           activity_date: string;
           activity_type: string;
           count?: number;
-          created_at?: string;
         };
         Update: {
           activity_date?: string;
           activity_type?: string;
           count?: number;
+        };
+        Relationships: [];
+      };
+      media_folders: {
+        Row: {
+          id: string;
+          user_id: string;
+          title: string;
+          description: string | null;
+          icon: string | null;
+          parent_id: string | null;
+          order_num: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          title: string;
+          description?: string | null;
+          icon?: string | null;
+          parent_id?: string | null;
+          order_num?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          title?: string;
+          description?: string | null;
+          icon?: string | null;
+          parent_id?: string | null;
+          order_num?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      media_videos: {
+        Row: {
+          id: string;
+          folder_id: string;
+          user_id: string;
+          title: string;
+          url: string;
+          thumbnail_url: string | null;
+          channel_name: string | null;
+          duration: string | null;
+          notes: Json;
+          tags: string[];
+          watched: boolean;
+          order_num: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          folder_id: string;
+          user_id: string;
+          title: string;
+          url: string;
+          thumbnail_url?: string | null;
+          channel_name?: string | null;
+          duration?: string | null;
+          notes?: Json;
+          tags?: string[];
+          watched?: boolean;
+          order_num?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          title?: string;
+          url?: string;
+          thumbnail_url?: string | null;
+          channel_name?: string | null;
+          duration?: string | null;
+          notes?: Json;
+          tags?: string[];
+          watched?: boolean;
+          order_num?: number;
+          folder_id?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };

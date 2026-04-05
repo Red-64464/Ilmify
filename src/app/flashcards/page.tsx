@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Layers, BookOpen, Plus, Trash2, Upload, Smile, Edit3, FileJson } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
-import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
@@ -230,13 +229,27 @@ export default function FlashcardsPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.25, delay: Math.min(i * 0.03, 0.3) }}
             >
-              <Card
-                glowColor="teal"
-                className="p-5 relative group/deck"
+              <motion.div
+                whileHover={{ y: -3, scale: 1.01 }}
+                whileTap={{ scale: 0.98 }}
+                transition={{ type: 'spring' as const, stiffness: 300, damping: 25 }}
+                className="relative overflow-hidden rounded-2xl p-5 sm:p-6 h-full transition-all duration-300 group/deck cursor-pointer"
+                style={{
+                  background: `linear-gradient(135deg, ${deck.color}08, var(--bg-card) 40%, ${deck.color}04)`,
+                  boxShadow: 'var(--shadow-card)',
+                  border: '1px solid var(--border-subtle)',
+                }}
                 onClick={() =>
                   setExpandedDeck(expandedDeck === deck.id ? null : deck.id)
                 }
               >
+                {/* Ambient glow */}
+                <div
+                  className="absolute -top-12 -right-12 w-28 h-28 rounded-full pointer-events-none"
+                  style={{ background: `radial-gradient(circle, ${deck.color}10, transparent 70%)` }}
+                />
+
+                <div className="relative z-10">
                 {/* Action buttons */}
                 <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover/deck:opacity-100 transition-opacity z-10">
                   <button
@@ -260,15 +273,17 @@ export default function FlashcardsPage() {
                 <div className="flex items-start gap-3 mb-3">
                   <div
                     className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-lg"
-                    style={{ backgroundColor: `${deck.color}20` }}
+                    style={{
+                      background: `linear-gradient(135deg, ${deck.color}18, ${deck.color}08)`,
+                    }}
                   >
                     {deck.icon || <Layers size={20} style={{ color: deck.color }} />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                    <h3 className="text-base font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
                       {deck.title}
                     </h3>
-                    <p className="text-xs line-clamp-2 mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                    <p className="text-sm line-clamp-2 mt-0.5" style={{ color: 'var(--text-muted)' }}>
                       {deck.description}
                     </p>
                   </div>
@@ -328,7 +343,8 @@ export default function FlashcardsPage() {
                     </button>
                   </motion.div>
                 )}
-              </Card>
+                </div>
+              </motion.div>
             </motion.div>
           ))}
         </div>

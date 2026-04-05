@@ -23,14 +23,14 @@ export const activityRepository = {
     }
   },
 
-  async getTodayActivities(userId: string) {
+  async getTodayActivities(userId: string): Promise<{ activity_type: string; count: number }[]> {
     const today = new Date().toISOString().split('T')[0];
     const { data } = await supabase
       .from('user_activity')
-      .select('*')
+      .select('activity_type, count')
       .eq('user_id', userId)
       .eq('activity_date', today);
-    return data || [];
+    return (data as unknown as { activity_type: string; count: number }[]) || [];
   },
 
   async getStreak(userId: string): Promise<number> {

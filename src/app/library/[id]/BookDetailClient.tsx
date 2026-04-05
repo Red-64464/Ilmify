@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useParams } from 'next/navigation';
-import { BookOpen, Star, FileQuestion, BookMarked, Plus, Upload, Link2, Image, Search, Edit3, Trash2, LayoutGrid, List, AlignJustify, ExternalLink, Download } from 'lucide-react';
+import { BookOpen, Star, FileQuestion, BookMarked, Plus, Upload, Link2, Image, Search, Edit3, Trash2, LayoutGrid, List, AlignJustify, ExternalLink, Download, Layers, Sparkles, FileText, BookOpenCheck, RefreshCw } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
@@ -11,10 +11,13 @@ import Modal from '@/components/ui/Modal';
 import SearchInput from '@/components/ui/SearchInput';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import EmptyState from '@/components/ui/EmptyState';
+import AIResponsePanel, { CopyableText } from '@/components/ui/AIResponsePanel';
 import { useAuth } from '@/contexts/AuthContext';
 import { bookRepository } from '@/lib/repositories/bookRepository';
+import { flashcardRepository } from '@/lib/repositories/flashcardRepository';
 import { exportPassagesToPdf } from '@/lib/exportPdf';
-import type { Book, BookPassage } from '@/types';
+import { generateFlashcardsFromPassage, summarizePassage, suggestSourcesForPassage, improveReflection, type GeneratedFlashcard } from '@/lib/ai/groq';
+import type { Book, BookPassage, FlashcardDeck } from '@/types';
 
 const stagger = {
   hidden: {},
@@ -84,6 +87,111 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
   const [editImageUrl, setEditImageUrl] = useState('');
   const [editLink, setEditLink] = useState('');
   const editImageRef = useRef<HTMLInputElement>(null);
+
+  // Flashcard from passage
+  const [showFlashcard, setShowFlashcard] = useState(false);
+  const [flashcardFront, setFlashcardFront] = useState('');
+  const [flashcardBack, setFlashcardBack] = useState('');
+  const [flashcardDeckId, setFlashcardDeckId] = useState('');
+  const [flashcardDecks, setFlashcardDecks] = useState<FlashcardDeck[]>([]);
+  const [flashcardSaving, setFlashcardSaving] = useState(false);
+
+  // AI states
+  const [aiPassageId, setAiPassageId] = useState<string | null>(null);
+  const [aiMode, setAiMode] = useState<'flashcards' | 'summary' | 'sources' | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState('');
+  const [aiSummary, setAiSummary] = useState('');
+  const [aiFlashcards, setAiFlashcards] = useState<GeneratedFlashcard[]>([]);
+  const [aiSources, setAiSources] = useState<{ hadithKeywords: string[]; quranVerses: { surah: number; ayah: number; reason: string }[] } | null>(null);
+  const [aiFlashcardDeckId, setAiFlashcardDeckId] = useState('');
+  const [aiFlashcardSaving, setAiFlashcardSaving] = useState(false);
+  const [improvingReflection, setImprovingReflection] = useState(false);
+
+  useEffect(() => {
+    if (user) flashcardRepository.getAllDecks(user.id).then(setFlashcardDecks).catch(() => {});
+  }, [user]);
+
+  const openFlashcardFromPassage = (passage: BookPassage) => {
+    setFlashcardFront(passage.title);
+    setFlashcardBack(passage.content);
+    setFlashcardDeckId(flashcardDecks[0]?.id || '');
+    setShowFlashcard(true);
+  };
+
+  const handleCreateFlashcard = async () => {
+    if (!user || !flashcardDeckId || !flashcardFront.trim() || !flashcardBack.trim() || flashcardSaving) return;
+    setFlashcardSaving(true);
+    try {
+      await flashcardRepository.createCard(user.id, {
+        deckId: flashcardDeckId,
+        front: flashcardFront.trim(),
+        back: flashcardBack.trim(),
+        tags: book ? [book.title] : [],
+        difficulty: 'medium',
+      });
+      setShowFlashcard(false);
+    } catch { /* ignore */ }
+    setFlashcardSaving(false);
+  };
+
+  // ─── AI Handlers ───
+  const openAIPanel = (passage: BookPassage, mode: 'flashcards' | 'summary' | 'sources') => {
+    if (aiPassageId === passage.id && aiMode === mode) {
+      setAiPassageId(null);
+      setAiMode(null);
+      return;
+    }
+    setAiPassageId(passage.id);
+    setAiMode(mode);
+    setAiError('');
+    setAiLoading(true);
+    setAiSummary('');
+    setAiFlashcards([]);
+    setAiSources(null);
+
+    if (mode === 'flashcards') {
+      generateFlashcardsFromPassage(passage.title, passage.content, book?.title)
+        .then((cards) => { setAiFlashcards(cards); setAiFlashcardDeckId(flashcardDecks[0]?.id || ''); })
+        .catch((e) => setAiError(e.message))
+        .finally(() => setAiLoading(false));
+    } else if (mode === 'summary') {
+      summarizePassage(passage.title, passage.content)
+        .then(setAiSummary)
+        .catch((e) => setAiError(e.message))
+        .finally(() => setAiLoading(false));
+    } else if (mode === 'sources') {
+      suggestSourcesForPassage(passage.title, passage.content)
+        .then(setAiSources)
+        .catch((e) => setAiError(e.message))
+        .finally(() => setAiLoading(false));
+    }
+  };
+
+  const handleSaveAIFlashcards = async () => {
+    if (!user || !aiFlashcardDeckId || aiFlashcards.length === 0 || aiFlashcardSaving) return;
+    setAiFlashcardSaving(true);
+    try {
+      await flashcardRepository.importCards(
+        user.id,
+        aiFlashcardDeckId,
+        aiFlashcards.map((c) => ({ front: c.front, back: c.back, tags: book ? [book.title] : [], difficulty: 'medium' as const })),
+      );
+      setAiPassageId(null);
+      setAiMode(null);
+    } catch { /* ignore */ }
+    setAiFlashcardSaving(false);
+  };
+
+  const handleImproveReflection = async () => {
+    if (!editingPassage || !editReflection.trim() || improvingReflection) return;
+    setImprovingReflection(true);
+    try {
+      const improved = await improveReflection(editingPassage.title, editingPassage.content, editReflection);
+      setEditReflection(improved);
+    } catch { /* ignore */ }
+    setImprovingReflection(false);
+  };
 
   // Filtered passages
   const filteredPassages = passageSearch.trim()
@@ -423,6 +531,38 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
                           <Badge variant="default" size="sm">p.{passage.pageNumber}</Badge>
                         )}
                         <button
+                          onClick={() => openFlashcardFromPassage(passage)}
+                          className="p-1.5 rounded-lg cursor-pointer transition-colors"
+                          style={{ color: 'var(--text-muted)' }}
+                          title="Créer une flashcard"
+                        >
+                          <Layers size={13} />
+                        </button>
+                        <button
+                          onClick={() => openAIPanel(passage, 'flashcards')}
+                          className="p-1.5 rounded-lg cursor-pointer transition-colors"
+                          style={{ color: aiPassageId === passage.id && aiMode === 'flashcards' ? '#d4ad4a' : 'var(--text-muted)' }}
+                          title="✨ Flashcards IA"
+                        >
+                          <Sparkles size={13} />
+                        </button>
+                        <button
+                          onClick={() => openAIPanel(passage, 'summary')}
+                          className="p-1.5 rounded-lg cursor-pointer transition-colors"
+                          style={{ color: aiPassageId === passage.id && aiMode === 'summary' ? '#d4ad4a' : 'var(--text-muted)' }}
+                          title="Résumer"
+                        >
+                          <FileText size={13} />
+                        </button>
+                        <button
+                          onClick={() => openAIPanel(passage, 'sources')}
+                          className="p-1.5 rounded-lg cursor-pointer transition-colors"
+                          style={{ color: aiPassageId === passage.id && aiMode === 'sources' ? '#d4ad4a' : 'var(--text-muted)' }}
+                          title="Trouver des sources"
+                        >
+                          <BookOpenCheck size={13} />
+                        </button>
+                        <button
                           onClick={() => openEditPassage(passage)}
                           className="p-1.5 rounded-lg cursor-pointer transition-colors"
                           style={{ color: 'var(--text-muted)' }}
@@ -480,6 +620,71 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
                           {passage.personalReflection}
                         </p>
                       </div>
+                    )}
+
+                    {/* AI Panel */}
+                    {aiPassageId === passage.id && aiMode && (
+                      <AIResponsePanel
+                        isOpen
+                        onClose={() => { setAiPassageId(null); setAiMode(null); }}
+                        title={aiMode === 'flashcards' ? 'Flashcards IA' : aiMode === 'summary' ? 'Résumé IA' : 'Sources suggérées'}
+                        loading={aiLoading}
+                        error={aiError}
+                      >
+                        {aiMode === 'summary' && aiSummary && <CopyableText text={aiSummary} />}
+
+                        {aiMode === 'flashcards' && aiFlashcards.length > 0 && (
+                          <div className="space-y-3">
+                            {aiFlashcards.map((card, i) => (
+                              <div key={i} className="p-3 rounded-xl" style={{ background: 'rgba(196,154,61,0.04)', border: '1px solid rgba(196,154,61,0.06)' }}>
+                                <p className="text-xs font-semibold mb-1" style={{ color: '#d4ad4a' }}>Q{i + 1}</p>
+                                <p className="text-sm mb-2" style={{ color: 'var(--text-primary)' }}>{card.front}</p>
+                                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{card.back}</p>
+                              </div>
+                            ))}
+                            <div className="flex items-center gap-2 mt-3">
+                              <select
+                                value={aiFlashcardDeckId}
+                                onChange={(e) => setAiFlashcardDeckId(e.target.value)}
+                                className="flex-1 rounded-xl px-3 py-2 text-xs outline-none cursor-pointer"
+                                style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                              >
+                                {flashcardDecks.length === 0 && <option value="">Aucun deck</option>}
+                                {flashcardDecks.map(d => <option key={d.id} value={d.id}>{d.icon || '📚'} {d.title}</option>)}
+                              </select>
+                              <Button variant="primary" size="sm" onClick={handleSaveAIFlashcards} disabled={!aiFlashcardDeckId || aiFlashcardSaving}>
+                                {aiFlashcardSaving ? 'Ajout...' : `Ajouter ${aiFlashcards.length} cartes`}
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        {aiMode === 'sources' && aiSources && (
+                          <div className="space-y-4">
+                            {aiSources.quranVerses.length > 0 && (
+                              <div>
+                                <p className="text-xs font-semibold mb-2" style={{ color: '#d4ad4a' }}>📖 Versets du Coran</p>
+                                {aiSources.quranVerses.map((v, i) => (
+                                  <div key={i} className="p-2.5 rounded-lg mb-2" style={{ background: 'rgba(46,158,140,0.06)', border: '1px solid rgba(46,158,140,0.08)' }}>
+                                    <p className="text-xs font-medium" style={{ color: 'var(--accent)' }}>Sourate {v.surah}, Verset {v.ayah}</p>
+                                    <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>{v.reason}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {aiSources.hadithKeywords.length > 0 && (
+                              <div>
+                                <p className="text-xs font-semibold mb-2" style={{ color: '#d4ad4a' }}>🔍 Mots-clés hadiths</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {aiSources.hadithKeywords.map((kw, i) => (
+                                    <span key={i} className="px-2.5 py-1 rounded-lg text-[11px] font-medium" style={{ background: 'rgba(196,154,61,0.08)', color: '#d4ad4a' }}>{kw}</span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </AIResponsePanel>
                     )}
                   </div>
                 </motion.div>
@@ -830,6 +1035,22 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
               className="w-full rounded-xl px-4 py-3 text-sm outline-none resize-none"
               style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
             />
+            {editReflection.trim().length > 10 && (
+              <button
+                onClick={handleImproveReflection}
+                disabled={improvingReflection}
+                className="flex items-center gap-1.5 mt-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium cursor-pointer transition-all"
+                style={{
+                  background: 'rgba(196,154,61,0.08)',
+                  border: '1px solid rgba(196,154,61,0.15)',
+                  color: '#d4ad4a',
+                  opacity: improvingReflection ? 0.6 : 1,
+                }}
+              >
+                {improvingReflection ? <RefreshCw size={11} className="animate-spin" /> : <Sparkles size={11} />}
+                {improvingReflection ? 'Amélioration...' : 'Améliorer avec l\'IA'}
+              </button>
+            )}
           </div>
           <div className="flex gap-2 pt-2">
             <Button variant="secondary" size="md" onClick={() => setEditingPassage(null)} className="flex-1">
@@ -838,6 +1059,33 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
             <Button variant="primary" size="md" onClick={handleUpdatePassage} disabled={!editTitle.trim() || !editContent.trim() || passageSaving} className="flex-1">
               {passageSaving ? 'Sauvegarde...' : 'Enregistrer'}
             </Button>
+          </div>
+        </div>
+      </Modal>
+      {/* Flashcard from Passage Modal */}
+      <Modal isOpen={showFlashcard} onClose={() => setShowFlashcard(false)} title="Créer une flashcard">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Deck</label>
+            <select value={flashcardDeckId} onChange={(e) => setFlashcardDeckId(e.target.value)} className="w-full rounded-xl px-4 py-3 text-sm outline-none cursor-pointer" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}>
+              {flashcardDecks.length === 0 && <option value="">Aucun deck disponible</option>}
+              {flashcardDecks.map(d => <option key={d.id} value={d.id}>{d.icon || '📚'} {d.title}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Recto (question)</label>
+            <textarea value={flashcardFront} onChange={(e) => setFlashcardFront(e.target.value)} rows={2} className="w-full rounded-xl px-4 py-3 text-sm outline-none resize-none" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Verso (réponse)</label>
+            <textarea value={flashcardBack} onChange={(e) => setFlashcardBack(e.target.value)} rows={3} className="w-full rounded-xl px-4 py-3 text-sm outline-none resize-none" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }} />
+          </div>
+          {book && (
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Source : {book.title} — {book.author}</p>
+          )}
+          <div className="flex gap-2 pt-2">
+            <Button variant="secondary" size="md" onClick={() => setShowFlashcard(false)} className="flex-1">Annuler</Button>
+            <Button variant="primary" size="md" onClick={handleCreateFlashcard} disabled={!flashcardDeckId || !flashcardFront.trim() || !flashcardBack.trim() || flashcardSaving} className="flex-1">{flashcardSaving ? 'Création...' : 'Créer'}</Button>
           </div>
         </div>
       </Modal>

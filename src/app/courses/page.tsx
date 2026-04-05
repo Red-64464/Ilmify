@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   GraduationCap, FolderOpen, ChevronRight, Plus,
   Trash2, Edit3, ChevronDown, Home, FolderPlus,
-  ArrowRightLeft, Smile, FileText,
+  ArrowRightLeft, Smile, FileText, Upload,
 } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import SearchInput from '@/components/ui/SearchInput';
@@ -19,7 +19,8 @@ import Skeleton from '@/components/ui/Skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthGuard from '@/components/layout/AuthGuard';
 import { courseRepository } from '@/lib/repositories/courseRepository';
-import type { CourseFolder, CoursePage } from '@/types';
+import JsonImportModal from '@/components/editor/JsonImportModal';
+import type { CourseFolder, CoursePage, TopicBlock } from '@/types';
 
 const FOLDER_EMOJIS = ['📁', '📂', '🕌', '🕋', '☪️', '🌙', '⭐', '🤲', '📿', '🎓', '📚', '📖', '📕', '📗', '📘', '💡', '🌟', '🏆', '✨', '🔬'];
 
@@ -106,6 +107,9 @@ export default function CoursesPage() {
   // Move page state
   const [movingPage, setMovingPage] = useState<CoursePage | null>(null);
   const [moveTargetFolder, setMoveTargetFolder] = useState('');
+
+  // JSON import state
+  const [showJsonImport, setShowJsonImport] = useState(false);
 
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
@@ -246,6 +250,30 @@ export default function CoursesPage() {
       setCreating(false);
     }
   }, [newPageTitle, newPageFolder, allPages, user, creating, router]);
+
+  // Import JSON as new page
+  const handleJsonImport = useCallback(async (title: string, blocks: TopicBlock[]) => {
+    if (!user || creating) return;
+    const targetFolder = currentFolderId || allFolders.find((f) => !f.parentId)?.id;
+    if (!targetFolder) return;
+    try {
+      setCreating(true);
+      setError('');
+      const page = await courseRepository.createPage(user.id, {
+        folderId: targetFolder,
+        title,
+        blocks,
+        tags: [],
+        order: allPages.filter((p) => p.folderId === targetFolder).length + 1,
+      });
+      setShowJsonImport(false);
+      router.push(`/courses/${page.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur lors de l\'import');
+    } finally {
+      setCreating(false);
+    }
+  }, [user, creating, currentFolderId, allFolders, allPages, router]);
 
   // Move page to another folder
   const handleMovePage = useCallback(async () => {
@@ -516,6 +544,17 @@ export default function CoursesPage() {
                 }}
               >
                 Dossier
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                iconLeft={<Upload size={14} />}
+                onClick={() => {
+                  setError('');
+                  setShowJsonImport(true);
+                }}
+              >
+                JSON
               </Button>
               <Button
                 variant="primary"
@@ -1018,6 +1057,13 @@ export default function CoursesPage() {
           </div>
         </div>
       </Modal>
+      {/* JSON import modal */}
+      <JsonImportModal
+        isOpen={showJsonImport}
+        onClose={() => setShowJsonImport(false)}
+        onImport={handleJsonImport}
+        importing={creating}
+      />
     </div>
     </AuthGuard>
   );

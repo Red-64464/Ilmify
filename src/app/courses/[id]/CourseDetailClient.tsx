@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
-  ArrowLeft, Edit3, Save, Trash2, GraduationCap, FileDown,
+  ArrowLeft, Edit3, Save, Trash2, GraduationCap, FileDown, Brain, Loader2,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -12,6 +12,8 @@ import Modal from '@/components/ui/Modal';
 import BlockEditor from '@/components/editor/BlockEditor';
 import { useAuth } from '@/contexts/AuthContext';
 import { courseRepository } from '@/lib/repositories/courseRepository';
+import { quizRepository } from '@/lib/repositories/quizRepository';
+import { generateQuizFromCourse } from '@/lib/ai/groq';
 import { useToast } from '@/components/ui/Toast';
 import { exportToPdf } from '@/lib/exportPdf';
 import type { CoursePage, TopicBlock } from '@/types';
@@ -31,6 +33,7 @@ export default function CourseDetailClient({ id: propId }: { id: string }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [folder, setFolder] = useState<{ id: string; title: string; icon?: string } | null>(null);
+  const [generatingQuiz, setGeneratingQuiz] = useState(false);
 
   useEffect(() => {
     // In static export, useParams() may return '_placeholder'. Extract real ID from URL.
@@ -87,6 +90,45 @@ export default function CourseDetailClient({ id: propId }: { id: string }) {
       toast('error', 'Erreur lors de la suppression');
     }
   }, [page, toast, router]);
+
+  const handleGenerateQuiz = useCallback(async () => {
+    if (!page || !user || generatingQuiz) return;
+    setGeneratingQuiz(true);
+    try {
+      const textBlocks = page.blocks
+        .filter((b) => b.content.trim().length > 10)
+        .map((b) => ({ type: b.type, content: b.content }));
+
+      if (textBlocks.length === 0) {
+        toast('error', 'Pas assez de contenu pour générer un quiz');
+        setGeneratingQuiz(false);
+        return;
+      }
+
+      const aiQuestions = await generateQuizFromCourse(page.title, textBlocks);
+      const courseTheme = `course-${page.id}`;
+
+      for (const q of aiQuestions) {
+        await quizRepository.createQuestion(user.id, {
+          themeId: courseTheme,
+          type: q.type === 'mcq' ? 'mcq' : q.type === 'true-false' ? 'true-false' : 'short-answer',
+          question: q.question,
+          options: q.options,
+          correctAnswer: q.correctAnswer,
+          explanation: q.explanation,
+          source: page.title,
+          difficulty: 'medium',
+          tags: ['cours', page.title],
+        });
+      }
+
+      toast('success', `${aiQuestions.length} question${aiQuestions.length > 1 ? 's' : ''} générée${aiQuestions.length > 1 ? 's' : ''} par l'IA !`);
+      router.push(`/quiz/play?theme=${courseTheme}`);
+    } catch (err) {
+      toast('error', err instanceof Error ? err.message : 'Erreur lors de la génération du quiz');
+    }
+    setGeneratingQuiz(false);
+  }, [page, user, generatingQuiz, toast, router]);
 
   if (loading) {
     return (
@@ -167,14 +209,25 @@ export default function CourseDetailClient({ id: propId }: { id: string }) {
           </div>
 
           {!isEditing && (
-            <button
-              onClick={() => exportToPdf(page.title, page.blocks, folder ? `${folder.icon || ''} ${folder.title}`.trim() : undefined)}
-              className="p-2 rounded-lg transition-colors cursor-pointer"
-              style={{ color: 'var(--text-muted)' }}
-              title="Exporter en PDF"
-            >
-              <FileDown size={16} />
-            </button>
+            <>
+              <button
+                onClick={handleGenerateQuiz}
+                disabled={generatingQuiz}
+                className="p-2 rounded-lg transition-colors cursor-pointer"
+                style={{ color: generatingQuiz ? 'var(--text-muted)' : 'var(--accent)' }}
+                title="Générer un quiz depuis ce cours"
+              >
+                {generatingQuiz ? <Loader2 size={16} className="animate-spin" /> : <Brain size={16} />}
+              </button>
+              <button
+                onClick={() => exportToPdf(page.title, page.blocks, folder ? `${folder.icon || ''} ${folder.title}`.trim() : undefined)}
+                className="p-2 rounded-lg transition-colors cursor-pointer"
+                style={{ color: 'var(--text-muted)' }}
+                title="Exporter en PDF"
+              >
+                <FileDown size={16} />
+              </button>
+            </>
           )}
 
           {isAdmin && (

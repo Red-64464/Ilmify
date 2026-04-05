@@ -48,17 +48,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const { data: profile } = await supabase
             .from('profiles')
             .select('*')
-            .eq('id', supaSession.user.id)
+            .eq('id' as never, supaSession.user.id)
             .single();
 
           if (mounted && profile) {
+            const p = profile as unknown as Record<string, unknown>;
             const u: User = {
-              id: profile.id,
-              username: profile.username,
-              displayName: profile.display_name,
-              role: profile.role as 'admin' | 'user',
-              createdAt: profile.created_at,
-              avatarUrl: profile.avatar_url || undefined,
+              id: p.id as string,
+              username: p.username as string,
+              displayName: p.display_name as string,
+              role: (p.role as 'admin' | 'user') || 'user',
+              createdAt: p.created_at as string,
+              avatarUrl: (p.avatar_url as string) || undefined,
             };
             const s: Session = {
               userId: supaSession.user.id,
@@ -96,18 +97,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const { data: profile } = await supabase
             .from('profiles')
             .select('*')
-            .eq('id', supaSession.user.id)
+            .eq('id' as never, supaSession.user.id)
             .single();
 
           if (!mounted) return;
           if (profile) {
+            const p = profile as unknown as Record<string, unknown>;
             const u: User = {
-              id: profile.id,
-              username: profile.username,
-              displayName: profile.display_name,
-              role: profile.role as 'admin' | 'user',
-              createdAt: profile.created_at,
-              avatarUrl: profile.avatar_url || undefined,
+              id: p.id as string,
+              username: p.username as string,
+              displayName: p.display_name as string,
+              role: (p.role as 'admin' | 'user') || 'user',
+              createdAt: p.created_at as string,
+              avatarUrl: (p.avatar_url as string) || undefined,
             };
             const s: Session = {
               userId: supaSession.user.id,
@@ -178,16 +180,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data: profile } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', supaSession.user.id)
+        .eq('id' as never, supaSession.user.id)
         .single();
       if (profile) {
+        const p = profile as unknown as Record<string, unknown>;
         const u: User = {
-          id: profile.id,
-          username: profile.username,
-          displayName: profile.display_name,
-          role: profile.role as 'admin' | 'user',
-          createdAt: profile.created_at,
-          avatarUrl: profile.avatar_url || undefined,
+          id: p.id as string,
+          username: p.username as string,
+          displayName: p.display_name as string,
+          role: (p.role as 'admin' | 'user') || 'user',
+          createdAt: p.created_at as string,
+          avatarUrl: (p.avatar_url as string) || undefined,
         };
         setUser(u);
         setCachedAuth(u, session);

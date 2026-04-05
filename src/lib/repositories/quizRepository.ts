@@ -144,6 +144,17 @@ export const quizRepository = {
     return (data || []).map(rowToSession);
   },
 
+  async getErrorQuestions(userId: string): Promise<QuizQuestion[]> {
+    const { data, error } = await supabase
+      .from('quiz_questions')
+      .select('*')
+      .eq('user_id', userId)
+      .gt('error_count', 0)
+      .order('error_count', { ascending: false });
+    if (error) throw new Error(error.message);
+    return (data || []).map(rowToQuestion);
+  },
+
   async importQuestions(userId: string, questions: Omit<QuizQuestion, 'id' | 'masteryLevel' | 'errorCount'>[]): Promise<number> {
     const rows = questions.map((q) => ({
       user_id: userId,
