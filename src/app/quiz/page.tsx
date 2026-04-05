@@ -205,7 +205,7 @@ export default function QuizPage() {
 
       {/* Add Question Modal */}
       <Modal isOpen={showAdd} onClose={() => setShowAdd(false)} title="Ajouter une question">
-        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+        <div className="space-y-4">
           <div>
             <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Question</label>
             <textarea value={newQuestion} onChange={(e) => setNewQuestion(e.target.value)} rows={2} placeholder="Votre question..." className="w-full rounded-xl px-4 py-3 text-sm outline-none resize-none" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }} />

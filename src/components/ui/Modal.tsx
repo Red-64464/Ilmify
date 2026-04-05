@@ -59,7 +59,7 @@ const Modal: React.FC<ModalProps> = ({
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
           variants={backdropVariants}
           initial="hidden"
           animate="visible"
@@ -75,17 +75,22 @@ const Modal: React.FC<ModalProps> = ({
             initial="hidden"
             animate="visible"
             exit="exit"
-            className={`relative w-full rounded-2xl p-6 ${className}`}
+            className={`relative w-full rounded-t-2xl sm:rounded-2xl flex flex-col ${className}`}
             style={{
               maxWidth,
+              maxHeight: 'min(90vh, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)))',
               background: 'var(--bg-card)',
               boxShadow: 'var(--shadow-elevated)',
               border: '1px solid var(--border-subtle)',
             }}
             onClick={(e) => e.stopPropagation()}
           >
+            {/* Drag handle on mobile */}
+            <div className="sm:hidden flex justify-center pt-2 pb-0">
+              <div className="w-10 h-1 rounded-full" style={{ background: 'rgba(255,255,255,0.15)' }} />
+            </div>
             {(title || true) && (
-              <div className="mb-5 flex items-center justify-between">
+              <div className="shrink-0 px-6 pt-4 sm:pt-6 pb-0 mb-5 flex items-center justify-between">
                 {title && (
                   <h2
                     className="text-lg font-semibold tracking-tight"
@@ -107,7 +112,9 @@ const Modal: React.FC<ModalProps> = ({
                 </button>
               </div>
             )}
-            {children}
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 pb-6">
+              {children}
+            </div>
           </motion.div>
         </motion.div>
       )}

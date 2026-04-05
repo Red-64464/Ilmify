@@ -576,7 +576,7 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
         onClose={() => setShowAddPassage(false)}
         title="Ajouter un passage"
       >
-        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+        <div className="space-y-4">
           <div>
             <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
               Titre du passage
@@ -714,7 +714,7 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
         onClose={() => setEditingPassage(null)}
         title="Modifier le passage"
       >
-        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+        <div className="space-y-4">
           <div>
             <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
               Titre du passage
