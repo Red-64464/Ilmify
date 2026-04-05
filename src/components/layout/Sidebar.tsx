@@ -92,7 +92,7 @@ export default function Sidebar() {
       }}
     >
       {/* Brand */}
-      <div className="flex items-center gap-3 px-7 py-7">
+      <Link href="/" className="flex items-center gap-3 px-7 py-7 hover:opacity-80 transition-opacity">
         <div className="relative h-10 w-10 shrink-0">
           <Image src="/logo.png" alt="Ilmify" fill className="object-contain" />
         </div>
@@ -104,7 +104,7 @@ export default function Sidebar() {
             Savoir • Lumière
           </p>
         </div>
-      </div>
+      </Link>
 
       {/* Main nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-0.5">

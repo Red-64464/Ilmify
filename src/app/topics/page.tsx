@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, FileText, Pin, Heart, Archive,
   LayoutGrid, List, MoreVertical, Trash2, Copy,
-  Star,
+  Star, Upload,
 } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import SearchInput from '@/components/ui/SearchInput';
@@ -15,10 +15,11 @@ import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import EmptyState from '@/components/ui/EmptyState';
+import JsonImportModal from '@/components/editor/JsonImportModal';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthGuard from '@/components/layout/AuthGuard';
 import { topicRepository } from '@/lib/repositories/topicRepository';
-import type { Topic } from '@/types';
+import type { Topic, TopicBlock } from '@/types';
 
 const stagger = {
   hidden: {},
@@ -45,6 +46,7 @@ export default function TopicsPage() {
   const [newCategory, setNewCategory] = useState('');
   const [contextMenu, setContextMenu] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [showJsonImport, setShowJsonImport] = useState(false);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
 
@@ -89,6 +91,22 @@ export default function TopicsPage() {
     }
   }, [user, newTitle, newCategory, creating]);
 
+  const handleJsonImport = useCallback(async (title: string, blocks: TopicBlock[]) => {
+    if (!user || creating) return;
+    try {
+      setCreating(true);
+      setError('');
+      const topic = await topicRepository.create(user.id, title);
+      await topicRepository.updateBlocks(topic.id, blocks);
+      setShowJsonImport(false);
+      router.push(`/topics/${topic.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur lors de l\'import');
+    } finally {
+      setCreating(false);
+    }
+  }, [user, creating, router]);
+
   const handleAction = useCallback(
     async (action: string, topic: Topic) => {
       setContextMenu(null);
@@ -126,14 +144,24 @@ export default function TopicsPage() {
         title="Mes Topics"
         subtitle="Votre espace de savoir personnel"
         rightAction={
-          <Button
-            variant="primary"
-            size="sm"
-            iconLeft={<Plus size={16} />}
-            onClick={() => setShowCreateModal(true)}
-          >
-            Nouveau
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              iconLeft={<Upload size={14} />}
+              onClick={() => { setError(''); setShowJsonImport(true); }}
+            >
+              JSON
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              iconLeft={<Plus size={16} />}
+              onClick={() => setShowCreateModal(true)}
+            >
+              Nouveau
+            </Button>
+          </div>
         }
       />
 
@@ -371,6 +399,14 @@ export default function TopicsPage() {
           </div>
         </div>
       </Modal>
+
+      {/* JSON import modal */}
+      <JsonImportModal
+        isOpen={showJsonImport}
+        onClose={() => setShowJsonImport(false)}
+        onImport={handleJsonImport}
+        importing={creating}
+      />
     </div>
     </AuthGuard>
   );

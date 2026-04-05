@@ -49,10 +49,15 @@ export default function QuizPage() {
 
   const themeGroups = useMemo(() => {
     const groups: Record<string, number> = {};
-    questions.forEach((q) => { groups[q.themeId] = (groups[q.themeId] || 0) + 1; });
+    const sourceMap: Record<string, string> = {};
+    questions.forEach((q) => {
+      groups[q.themeId] = (groups[q.themeId] || 0) + 1;
+      if (q.source && q.themeId.startsWith('course-')) sourceMap[q.themeId] = q.source;
+    });
     return Object.entries(groups).map(([themeId, count]) => {
       const theme = themes.find((t) => t.id === themeId);
-      return { themeId, count, theme };
+      const label = theme?.title || sourceMap[themeId] || themeId;
+      return { themeId, count, theme, label };
     });
   }, [questions]);
 
@@ -175,14 +180,14 @@ export default function QuizPage() {
       </h3>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {themeGroups.map(({ themeId, count, theme }, i) => (
+        {themeGroups.map(({ themeId, count, theme, label }, i) => (
           <motion.div
             key={themeId}
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: i * 0.05 }}
           >
-            <Link href={`/quiz/play?theme=${themeId}`}>
+            <Link href={`/quiz/play?theme=${encodeURIComponent(themeId)}`}>
               <Card glowColor="green" className="p-4">
                 <div className="flex items-center gap-3">
                   <div
@@ -198,7 +203,7 @@ export default function QuizPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <h4 className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
-                      {theme?.title || themeId}
+                      {label}
                     </h4>
                     <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                       {count} question{count > 1 ? 's' : ''}

@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
-  ArrowLeft, Edit3, Save, Trash2, GraduationCap, FileDown, Brain, Loader2,
+  ArrowLeft, Edit3, Save, Trash2, GraduationCap, FileDown, Brain, Loader2, Layers,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -13,7 +13,8 @@ import BlockEditor from '@/components/editor/BlockEditor';
 import { useAuth } from '@/contexts/AuthContext';
 import { courseRepository } from '@/lib/repositories/courseRepository';
 import { quizRepository } from '@/lib/repositories/quizRepository';
-import { generateQuizFromCourse } from '@/lib/ai/groq';
+import { flashcardRepository } from '@/lib/repositories/flashcardRepository';
+import { generateQuizFromCourse, generateFlashcardsFromPassage } from '@/lib/ai/groq';
 import { useToast } from '@/components/ui/Toast';
 import { exportToPdf } from '@/lib/exportPdf';
 import type { CoursePage, TopicBlock } from '@/types';
@@ -34,6 +35,7 @@ export default function CourseDetailClient({ id: propId }: { id: string }) {
   const [saving, setSaving] = useState(false);
   const [folder, setFolder] = useState<{ id: string; title: string; icon?: string } | null>(null);
   const [generatingQuiz, setGeneratingQuiz] = useState(false);
+  const [generatingFlashcards, setGeneratingFlashcards] = useState(false);
 
   useEffect(() => {
     // In static export, useParams() may return '_placeholder'. Extract real ID from URL.
@@ -106,16 +108,21 @@ export default function CourseDetailClient({ id: propId }: { id: string }) {
       }
 
       const aiQuestions = await generateQuizFromCourse(page.title, textBlocks);
-      const courseTheme = `course-${page.id}`;
+      const courseTheme = `📚 ${page.title}`;
 
       for (const q of aiQuestions) {
+        // Build explanation: append per-option explanations if available
+        let fullExplanation = q.explanation;
+        if (q.optionExplanations && q.options) {
+          fullExplanation += '\n---OPTION_EXPLANATIONS---\n' + JSON.stringify(q.optionExplanations);
+        }
         await quizRepository.createQuestion(user.id, {
           themeId: courseTheme,
           type: q.type === 'mcq' ? 'mcq' : q.type === 'true-false' ? 'true-false' : 'short-answer',
           question: q.question,
           options: q.options,
           correctAnswer: q.correctAnswer,
-          explanation: q.explanation,
+          explanation: fullExplanation,
           source: page.title,
           difficulty: 'medium',
           tags: ['cours', page.title],
@@ -123,12 +130,55 @@ export default function CourseDetailClient({ id: propId }: { id: string }) {
       }
 
       toast('success', `${aiQuestions.length} question${aiQuestions.length > 1 ? 's' : ''} générée${aiQuestions.length > 1 ? 's' : ''} par l'IA !`);
-      router.push(`/quiz/play?theme=${courseTheme}`);
+      router.push(`/quiz/play?theme=${encodeURIComponent(courseTheme)}`);
     } catch (err) {
       toast('error', err instanceof Error ? err.message : 'Erreur lors de la génération du quiz');
     }
     setGeneratingQuiz(false);
   }, [page, user, generatingQuiz, toast, router]);
+
+  const handleGenerateFlashcards = useCallback(async () => {
+    if (!page || !user || generatingFlashcards) return;
+    setGeneratingFlashcards(true);
+    try {
+      const textContent = page.blocks
+        .filter((b) => b.content.trim().length > 10)
+        .map((b) => b.content)
+        .join('\n\n');
+
+      if (textContent.length < 50) {
+        toast('error', 'Pas assez de contenu pour générer des flashcards');
+        setGeneratingFlashcards(false);
+        return;
+      }
+
+      const aiCards = await generateFlashcardsFromPassage(page.title, textContent);
+      if (aiCards.length === 0) {
+        toast('error', 'Aucune flashcard générée');
+        setGeneratingFlashcards(false);
+        return;
+      }
+
+      const deck = await flashcardRepository.createDeck(user.id, {
+        title: page.title,
+        description: `Flashcards générées depuis le cours « ${page.title} »`,
+        color: '#d4ad4a',
+        tags: ['cours', page.title],
+      });
+
+      await flashcardRepository.importCards(
+        user.id,
+        deck.id,
+        aiCards.map((c) => ({ front: c.front, back: c.back, tags: [page.title], difficulty: 'medium' as const })),
+      );
+
+      toast('success', `${aiCards.length} flashcard${aiCards.length > 1 ? 's' : ''} générée${aiCards.length > 1 ? 's' : ''} !`);
+      router.push(`/flashcards/${deck.id}`);
+    } catch (err) {
+      toast('error', err instanceof Error ? err.message : 'Erreur lors de la génération des flashcards');
+    }
+    setGeneratingFlashcards(false);
+  }, [page, user, generatingFlashcards, toast, router]);
 
   if (loading) {
     return (
@@ -218,6 +268,15 @@ export default function CourseDetailClient({ id: propId }: { id: string }) {
                 title="Générer un quiz depuis ce cours"
               >
                 {generatingQuiz ? <Loader2 size={16} className="animate-spin" /> : <Brain size={16} />}
+              </button>
+              <button
+                onClick={handleGenerateFlashcards}
+                disabled={generatingFlashcards}
+                className="p-2 rounded-lg transition-colors cursor-pointer"
+                style={{ color: generatingFlashcards ? 'var(--text-muted)' : 'var(--accent)' }}
+                title="Générer des flashcards depuis ce cours"
+              >
+                {generatingFlashcards ? <Loader2 size={16} className="animate-spin" /> : <Layers size={16} />}
               </button>
               <button
                 onClick={() => exportToPdf(page.title, page.blocks, folder ? `${folder.icon || ''} ${folder.title}`.trim() : undefined)}

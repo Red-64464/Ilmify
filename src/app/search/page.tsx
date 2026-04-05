@@ -161,7 +161,20 @@ function SearchPageInner() {
   const allResults = [...dynamicResults, ...staticResults].filter((r, i, arr) =>
     arr.findIndex(x => x.id === r.id) === i
   );
-  const results = filter !== 'all' ? allResults.filter(r => r.type === filter) : allResults;
+
+  // Relevance sorting
+  const scored = allResults.map(r => {
+    const q = query.trim().toLowerCase();
+    const title = r.title.toLowerCase();
+    let score = 0;
+    if (title === q) score += 100; // exact match
+    else if (title.startsWith(q)) score += 80;
+    else if (title.includes(q)) score += 50;
+    if (r.description?.toLowerCase().includes(q)) score += 20;
+    return { ...r, score };
+  }).sort((a, b) => b.score - a.score);
+
+  const results = filter !== 'all' ? scored.filter(r => r.type === filter) : scored;
 
   return (
     <AuthGuard>
@@ -271,11 +284,27 @@ function SearchPageInner() {
           })}
         </motion.div>
       ) : (
-        <EmptyState
-          icon={Search}
-          title="Aucun résultat"
-          description={`Aucun résultat pour "${query}". Essayez un autre terme.`}
-        />
+        <div className="text-center py-12">
+          <EmptyState
+            icon={Search}
+            title="Aucun résultat"
+            description={`Aucun résultat pour "${query}".`}
+          />
+          <div className="mt-6">
+            <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>Essayez l&apos;un de ces termes :</p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {['Aqida', 'Fiqh', 'Hadith', 'Sira', 'Tafsir', 'Coran', 'Prière', 'Jeûne'].map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setQuery(s)}
+                  className="cursor-pointer transition-all duration-200"
+                >
+                  <Badge variant="default" size="md">{s}</Badge>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
     </div>
     </AuthGuard>

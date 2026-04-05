@@ -97,6 +97,7 @@ export default function HomePage() {
   const router = useRouter();
   const [daily, setDaily] = useState<DailyData | null>(null);
   const [dailyLoading, setDailyLoading] = useState(false);
+  const [dailyError, setDailyError] = useState(false);
   const [search, setSearch] = useState('');
 
   // Fetch daily reminder from APIs (cached in localStorage by date)
@@ -113,11 +114,14 @@ export default function HomePage() {
       } catch { /* ignore */ }
     }
     setDailyLoading(true);
+    setDailyError(false);
     try {
       const data = await fetchDailyFromAPI();
       setDaily(data);
       localStorage.setItem('ilmify_daily', JSON.stringify(data));
-    } catch { /* ignore */ }
+    } catch {
+      setDailyError(true);
+    }
     setDailyLoading(false);
   }, [dailyLoading]);
 
@@ -274,7 +278,7 @@ export default function HomePage() {
       </motion.section>
 
       {/* ===== Daily Reminder ===== */}
-      {(daily || dailyLoading) && (
+      {(daily || dailyLoading || dailyError) && (
         <motion.section variants={fadeUp}>
           <div
             className="relative overflow-hidden rounded-2xl p-6"
@@ -288,6 +292,17 @@ export default function HomePage() {
               <div className="flex items-center justify-center py-6 gap-3">
                 <Loader2 size={20} className="animate-spin" style={{ color: '#d4ad4a' }} />
                 <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Chargement du rappel...</span>
+              </div>
+            ) : dailyError && !daily ? (
+              <div className="flex flex-col items-center justify-center py-6 gap-3">
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Impossible de charger le rappel du jour</p>
+                <button
+                  onClick={() => loadDaily(true)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer"
+                  style={{ background: 'rgba(196,154,61,0.1)', color: '#d4ad4a' }}
+                >
+                  <RefreshCw size={12} /> Réessayer
+                </button>
               </div>
             ) : daily && (
             <div className="flex items-start gap-4">

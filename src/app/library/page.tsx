@@ -65,6 +65,7 @@ export default function LibraryPage() {
   const [newTitle, setNewTitle] = useState('');
   const [newAuthor, setNewAuthor] = useState('');
   const [newCategory, setNewCategory] = useState('');
+  const [customCategory, setCustomCategory] = useState('');
   const [newCoverUrl, setNewCoverUrl] = useState('');
   const [newEmoji, setNewEmoji] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -451,21 +452,58 @@ export default function LibraryPage() {
               Catégorie
             </label>
             <div className="flex flex-wrap gap-2">
-              {['Aqida', 'Hadith', 'Sira', 'Fiqh', 'Tafsir', 'Adhkar', 'Autre'].map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setNewCategory(newCategory === cat ? '' : cat)}
-                  className="px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 cursor-pointer"
-                  style={{
-                    background: newCategory === cat ? 'rgba(196, 154, 61, 0.15)' : 'rgba(255,255,255,0.04)',
-                    color: newCategory === cat ? '#d4ad4a' : 'var(--text-muted)',
-                    border: newCategory === cat ? '1px solid rgba(196, 154, 61, 0.2)' : '1px solid transparent',
-                  }}
-                >
-                  {cat}
-                </button>
-              ))}
+              {(() => {
+                const defaultCats = ['Aqida', 'Hadith', 'Sira', 'Fiqh', 'Tafsir', 'Adhkar', 'Autre'];
+                const userCats = books.map(b => b.category).filter(c => c && !defaultCats.includes(c));
+                const allCats = [...defaultCats, ...Array.from(new Set(userCats))];
+                return allCats.map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setNewCategory(newCategory === cat ? '' : cat)}
+                    className="px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 cursor-pointer"
+                    style={{
+                      background: newCategory === cat ? 'rgba(196, 154, 61, 0.15)' : 'rgba(255,255,255,0.04)',
+                      color: newCategory === cat ? '#d4ad4a' : 'var(--text-muted)',
+                      border: newCategory === cat ? '1px solid rgba(196, 154, 61, 0.2)' : '1px solid transparent',
+                    }}
+                  >
+                    {cat}
+                  </button>
+                ));
+              })()}
             </div>
+            <div className="flex items-center gap-2 mt-2">
+              <input
+                type="text"
+                value={customCategory}
+                onChange={(e) => setCustomCategory(e.target.value)}
+                placeholder="Ou saisir une catégorie..."
+                className="flex-1 rounded-xl px-3 py-2 text-xs outline-none placeholder:text-[var(--text-muted)]"
+                style={{
+                  background: 'var(--bg-secondary)',
+                  color: 'var(--text-primary)',
+                  border: '1px solid var(--border-subtle)',
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && customCategory.trim()) {
+                    setNewCategory(customCategory.trim());
+                    setCustomCategory('');
+                  }
+                }}
+              />
+              {customCategory.trim() && (
+                <button
+                  onClick={() => { setNewCategory(customCategory.trim()); setCustomCategory(''); }}
+                  className="px-3 py-2 rounded-xl text-xs font-medium cursor-pointer"
+                  style={{ background: 'rgba(196,154,61,0.1)', color: '#d4ad4a' }}
+                >
+                  Ajouter
+                </button>
+              )}
+            </div>
+            {newCategory && !['Aqida', 'Hadith', 'Sira', 'Fiqh', 'Tafsir', 'Adhkar', 'Autre'].includes(newCategory) && (
+              <p className="text-[10px] mt-1" style={{ color: '#d4ad4a' }}>Catégorie personnalisée : {newCategory}</p>
+            )}
           </div>
           <div className="flex gap-2 pt-2">
             <Button variant="secondary" size="md" onClick={() => setShowAddModal(false)} className="flex-1">

@@ -83,14 +83,15 @@ function SlashMenu({
       initial={{ opacity: 0, y: -4 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -4 }}
-      className="absolute left-0 bottom-full z-50 mb-1 w-[calc(100vw-3rem)] sm:w-72 rounded-xl overflow-hidden"
+      className="absolute left-0 top-full z-50 mt-1 w-[calc(100vw-3rem)] sm:w-72 rounded-xl overflow-hidden"
       style={{
         background: 'var(--bg-elevated)',
         boxShadow: 'var(--shadow-elevated)',
         border: '1px solid var(--border-light)',
+        maxHeight: 'min(20rem, calc(100vh - 12rem))',
       }}
     >
-      <div className="p-2 max-h-64 overflow-y-auto scrollbar-none">
+      <div className="p-2 max-h-[inherit] overflow-y-auto scrollbar-none">
         {filtered.length === 0 ? (
           <p className="text-xs text-center py-4" style={{ color: 'var(--text-muted)' }}>
             Aucun bloc trouvé
@@ -882,6 +883,14 @@ function EditableBlock({
               exit={{ opacity: 0 }}
               className="absolute -right-2 top-0 flex items-center gap-0.5"
             >
+              <button
+                onClick={() => setShowSlash(true)}
+                className="p-1 rounded transition-colors cursor-pointer"
+                style={{ color: 'var(--accent)' }}
+                title="Changer le type"
+              >
+                <Plus size={12} />
+              </button>
               {!isFirst && (
                 <button
                   onClick={onMoveUp}
@@ -1821,15 +1830,15 @@ export default function BlockEditor({ blocks, onChange, readOnly = false }: Bloc
 
   // Insert line component — appears between blocks on hover
   const InsertLine = ({ index }: { index: number }) => (
-    <div className="group/insert relative h-0 flex items-center justify-center" style={{ margin: '0 -0.5rem', zIndex: 5 }}>
+    <div className="group/insert relative flex items-center justify-center" style={{ height: '12px', margin: '0 -0.5rem', zIndex: 5 }}>
       <div
         className="absolute inset-x-0 flex items-center justify-center cursor-pointer"
-        style={{ top: '-10px', bottom: '-10px' }}
+        style={{ top: '-4px', bottom: '-4px' }}
         onClick={() => addBlock(index)}
       >
         <div
           className="w-full h-[2px] rounded-full transition-opacity duration-150 opacity-0 group-hover/insert:opacity-100"
-          style={{ background: 'var(--accent)', opacity: undefined }}
+          style={{ background: 'var(--accent)' }}
         />
         <div
           className="absolute flex items-center justify-center w-6 h-6 rounded-full transition-all duration-150 opacity-0 group-hover/insert:opacity-100 scale-75 group-hover/insert:scale-100"
@@ -1842,7 +1851,7 @@ export default function BlockEditor({ blocks, onChange, readOnly = false }: Bloc
   );
 
   return (
-    <div className="pl-8 space-y-1" onPaste={handlePaste}>
+    <div className="pl-8" onPaste={handlePaste}>
       {/* Insert line before first block */}
       <InsertLine index={-1} />
 

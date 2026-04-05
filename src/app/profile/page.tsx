@@ -19,7 +19,8 @@ import { topicRepository } from '@/lib/repositories/topicRepository';
 import { bookRepository } from '@/lib/repositories/bookRepository';
 import { flashcardRepository } from '@/lib/repositories/flashcardRepository';
 import { courseRepository } from '@/lib/repositories/courseRepository';
-import { computeBadges } from '@/data/badges';
+import { computeBadges, detectNewBadges, getBadgeById } from '@/data/badges';
+import { useToast } from '@/components/ui/Toast';
 
 const menuItems = [
   { icon: Heart, label: 'Favoris', desc: 'Gérer vos favoris', href: '/favorites' },
@@ -33,6 +34,7 @@ export default function ProfilePage() {
   const { currentTheme, setThemeById, themes } = useAppTheme();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   // Edit profile state
   const [showEditProfile, setShowEditProfile] = useState(false);
@@ -82,6 +84,20 @@ export default function ProfilePage() {
       favoriteCount,
     });
   }, [topicCount, booksRead, totalBooks, flashcardCount, coursePageCount, favoriteCount]);
+
+  // Check for newly unlocked badges and show toast
+  useEffect(() => {
+    if (topicCount === 0 && totalBooks === 0 && flashcardCount === 0 && coursePageCount === 0) return;
+    const newIds = detectNewBadges({
+      topicCount, booksRead, totalBooks, flashcardCount, coursePageCount, favoriteCount,
+    });
+    newIds.forEach(id => {
+      const badge = getBadgeById(id);
+      if (badge) {
+        toast('success', `${badge.icon} Badge débloqué : ${badge.title} !`, 5000);
+      }
+    });
+  }, [topicCount, booksRead, totalBooks, flashcardCount, coursePageCount, favoriteCount, toast]);
 
   const stats = useMemo(() => {
     return [

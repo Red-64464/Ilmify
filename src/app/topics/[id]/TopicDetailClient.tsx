@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, Edit3, Pin, Heart, Trash2,
-  Save, Tag, FileDown,
+  Save, Tag, FileDown, Layers, Loader2,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -13,6 +13,8 @@ import Modal from '@/components/ui/Modal';
 import BlockEditor from '@/components/editor/BlockEditor';
 import { useAuth } from '@/contexts/AuthContext';
 import { topicRepository } from '@/lib/repositories/topicRepository';
+import { flashcardRepository } from '@/lib/repositories/flashcardRepository';
+import { generateFlashcardsFromPassage } from '@/lib/ai/groq';
 import { useToast } from '@/components/ui/Toast';
 import { exportToPdf } from '@/lib/exportPdf';
 import type { Topic, TopicBlock } from '@/types';
@@ -30,6 +32,7 @@ export default function TopicDetailClient({ id: propId }: { id: string }) {
   const [editTitle, setEditTitle] = useState('');
   const [editBlocks, setEditBlocks] = useState<TopicBlock[]>([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [generatingFlashcards, setGeneratingFlashcards] = useState(false);
 
   useEffect(() => {
     if (!id || id === '_placeholder') {
@@ -107,6 +110,49 @@ export default function TopicDetailClient({ id: propId }: { id: string }) {
     } catch { /* ignore */ }
   }, [topic]);
 
+  const handleGenerateFlashcards = useCallback(async () => {
+    if (!topic || !user || generatingFlashcards) return;
+    setGeneratingFlashcards(true);
+    try {
+      const textContent = topic.blocks
+        .filter((b) => b.content.trim().length > 10)
+        .map((b) => b.content)
+        .join('\n\n');
+
+      if (textContent.length < 50) {
+        toast('error', 'Pas assez de contenu pour générer des flashcards');
+        setGeneratingFlashcards(false);
+        return;
+      }
+
+      const aiCards = await generateFlashcardsFromPassage(topic.title, textContent);
+      if (aiCards.length === 0) {
+        toast('error', 'Aucune flashcard générée');
+        setGeneratingFlashcards(false);
+        return;
+      }
+
+      const deck = await flashcardRepository.createDeck(user.id, {
+        title: topic.title,
+        description: `Flashcards générées depuis le topic « ${topic.title} »`,
+        color: '#d4ad4a',
+        tags: ['topic', ...(topic.category ? [topic.category] : [])],
+      });
+
+      await flashcardRepository.importCards(
+        user.id,
+        deck.id,
+        aiCards.map((c) => ({ front: c.front, back: c.back, tags: [topic.title], difficulty: 'medium' as const })),
+      );
+
+      toast('success', `${aiCards.length} flashcard${aiCards.length > 1 ? 's' : ''} générée${aiCards.length > 1 ? 's' : ''} !`);
+      router.push(`/flashcards/${deck.id}`);
+    } catch (err) {
+      toast('error', err instanceof Error ? err.message : 'Erreur lors de la génération des flashcards');
+    }
+    setGeneratingFlashcards(false);
+  }, [topic, user, generatingFlashcards, toast, router]);
+
   if (loading) {
     return (
       <div className="pb-10">
@@ -179,14 +225,25 @@ export default function TopicDetailClient({ id: propId }: { id: string }) {
           </div>
 
           {!isEditing && (
-            <button
-              onClick={() => exportToPdf(topic.title, topic.blocks)}
-              className="p-2 rounded-lg transition-colors cursor-pointer"
-              style={{ color: 'var(--text-muted)' }}
-              title="Exporter en PDF"
-            >
-              <FileDown size={16} />
-            </button>
+            <>
+              <button
+                onClick={handleGenerateFlashcards}
+                disabled={generatingFlashcards}
+                className="p-2 rounded-lg transition-colors cursor-pointer"
+                style={{ color: generatingFlashcards ? 'var(--text-muted)' : 'var(--accent)' }}
+                title="Générer des flashcards depuis ce topic"
+              >
+                {generatingFlashcards ? <Loader2 size={16} className="animate-spin" /> : <Layers size={16} />}
+              </button>
+              <button
+                onClick={() => exportToPdf(topic.title, topic.blocks)}
+                className="p-2 rounded-lg transition-colors cursor-pointer"
+                style={{ color: 'var(--text-muted)' }}
+                title="Exporter en PDF"
+              >
+                <FileDown size={16} />
+              </button>
+            </>
           )}
 
           {isOwner && (

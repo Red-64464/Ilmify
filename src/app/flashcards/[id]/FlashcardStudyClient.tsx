@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useParams } from 'next/navigation';
-import { RotateCcw, ChevronLeft, ChevronRight, FileQuestion, RefreshCw } from 'lucide-react';
+import { RotateCcw, ChevronLeft, ChevronRight, FileQuestion, RefreshCw, Filter } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
@@ -23,6 +23,8 @@ export default function FlashcardStudyClient({ id: propId }: { id: string }) {
   const [flipped, setFlipped] = useState(false);
   const [deck, setDeck] = useState<FlashcardDeck | null>(null);
   const [cards, setCards] = useState<Flashcard[]>([]);
+  const [allCards, setAllCards] = useState<Flashcard[]>([]);
+  const [reviewMode, setReviewMode] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -41,6 +43,7 @@ export default function FlashcardStudyClient({ id: propId }: { id: string }) {
       flashcardRepository.getCardsByDeck(id),
     ]).then(([d, c]) => {
       setDeck(d);
+      setAllCards(c);
       setCards(c);
       setLoading(false);
     }).catch(() => {
@@ -59,17 +62,40 @@ export default function FlashcardStudyClient({ id: propId }: { id: string }) {
   if (!deck || cards.length === 0) {
     return (
       <div className="pb-10">
-        <PageHeader title="Deck introuvable" backButton />
+        <PageHeader title={deck?.title || 'Deck introuvable'} backButton />
         <EmptyState
           icon={FileQuestion}
-          title="Deck introuvable"
-          description="Ce deck n'existe pas ou ne contient aucune carte."
+          title={reviewMode ? 'Aucune carte à réviser' : 'Deck introuvable'}
+          description={reviewMode ? 'Toutes les cartes sont maîtrisées ! Revenez plus tard.' : 'Ce deck n\'existe pas ou ne contient aucune carte.'}
         />
+        {reviewMode && (
+          <div className="flex justify-center mt-4">
+            <Button variant="secondary" onClick={() => { setReviewMode(false); setCards(allCards); setCurrentIndex(0); }}>
+              Voir toutes les cartes
+            </Button>
+          </div>
+        )}
       </div>
     );
   }
 
   const current = cards[currentIndex];
+
+  const toggleReviewMode = () => {
+    const newMode = !reviewMode;
+    setReviewMode(newMode);
+    if (newMode) {
+      const now = new Date();
+      const due = allCards.filter(c => !c.nextReviewAt || new Date(c.nextReviewAt) <= now || c.masteryLevel < 80);
+      setCards(due.length > 0 ? due : []);
+    } else {
+      setCards(allCards);
+    }
+    setCurrentIndex(0);
+    setFlipped(false);
+  };
+
+  const dueCount = allCards.filter(c => !c.nextReviewAt || new Date(c.nextReviewAt) <= new Date() || c.masteryLevel < 80).length;
 
   const handlePrev = () => {
     setFlipped(false);
@@ -88,6 +114,7 @@ export default function FlashcardStudyClient({ id: propId }: { id: string }) {
     const oldM = current.masteryLevel;
     const newM = Math.max(0, Math.min(100, oldM + delta));
     setCards((prev) => prev.map((c) => c.id === current.id ? { ...c, masteryLevel: Math.round(newM), reviewCount: c.reviewCount + 1 } : c));
+    setAllCards((prev) => prev.map((c) => c.id === current.id ? { ...c, masteryLevel: Math.round(newM), reviewCount: c.reviewCount + 1 } : c));
 
     // Persist in background
     flashcardRepository.reviewCard(current.id, rating).catch(() => {});
@@ -112,6 +139,28 @@ export default function FlashcardStudyClient({ id: propId }: { id: string }) {
   return (
     <div className="pb-10">
       <PageHeader title={deck.title} subtitle={`Carte ${currentIndex + 1}/${cards.length}`} backButton />
+
+      {/* Review mode toggle */}
+      <div className="flex items-center justify-between mb-4">
+        <button
+          onClick={toggleReviewMode}
+          className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer"
+          style={{
+            background: reviewMode ? 'rgba(46,158,140,0.12)' : 'rgba(255,255,255,0.04)',
+            color: reviewMode ? 'var(--accent)' : 'var(--text-muted)',
+            border: reviewMode ? '1px solid rgba(46,158,140,0.3)' : '1px solid var(--border-subtle)',
+          }}
+        >
+          <Filter size={14} />
+          {reviewMode ? 'Mode révision' : 'Révision'}
+          {!reviewMode && dueCount > 0 && (
+            <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold" style={{ background: '#ef4444', color: '#fff' }}>{dueCount}</span>
+          )}
+        </button>
+        <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+          {reviewMode ? `${cards.length} carte${cards.length > 1 ? 's' : ''} à réviser` : `${allCards.length} cartes au total`}
+        </span>
+      </div>
 
       <ProgressBar
         value={currentIndex + 1}

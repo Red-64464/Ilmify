@@ -107,6 +107,7 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
   const [aiFlashcardDeckId, setAiFlashcardDeckId] = useState('');
   const [aiFlashcardSaving, setAiFlashcardSaving] = useState(false);
   const [improvingReflection, setImprovingReflection] = useState(false);
+  const [improvedReflectionPreview, setImprovedReflectionPreview] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) flashcardRepository.getAllDecks(user.id).then(setFlashcardDecks).catch(() => {});
@@ -186,9 +187,10 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
   const handleImproveReflection = async () => {
     if (!editingPassage || !editReflection.trim() || improvingReflection) return;
     setImprovingReflection(true);
+    setImprovedReflectionPreview(null);
     try {
       const improved = await improveReflection(editingPassage.title, editingPassage.content, editReflection);
-      setEditReflection(improved);
+      setImprovedReflectionPreview(improved);
     } catch { /* ignore */ }
     setImprovingReflection(false);
   };
@@ -1050,6 +1052,31 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
                 {improvingReflection ? <RefreshCw size={11} className="animate-spin" /> : <Sparkles size={11} />}
                 {improvingReflection ? 'Amélioration...' : 'Améliorer avec l\'IA'}
               </button>
+            )}
+            {improvedReflectionPreview && (
+              <div className="mt-3 rounded-xl p-3" style={{ background: 'rgba(196,154,61,0.06)', border: '1px solid rgba(196,154,61,0.12)' }}>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Sparkles size={11} style={{ color: '#d4ad4a' }} />
+                  <span className="text-[11px] font-medium" style={{ color: '#d4ad4a' }}>✨ Version améliorée par l&apos;IA</span>
+                </div>
+                <p className="text-xs leading-relaxed mb-3" style={{ color: 'var(--text-secondary)' }}>{improvedReflectionPreview}</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setEditReflection(improvedReflectionPreview); setImprovedReflectionPreview(null); }}
+                    className="flex-1 px-3 py-1.5 rounded-lg text-[11px] font-medium cursor-pointer transition-all"
+                    style={{ background: 'rgba(58,170,96,0.12)', color: '#3aaa60', border: '1px solid rgba(58,170,96,0.2)' }}
+                  >
+                    ✓ Utiliser cette version
+                  </button>
+                  <button
+                    onClick={() => setImprovedReflectionPreview(null)}
+                    className="px-3 py-1.5 rounded-lg text-[11px] font-medium cursor-pointer transition-all"
+                    style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.15)' }}
+                  >
+                    ✕ Ignorer
+                  </button>
+                </div>
+              </div>
             )}
           </div>
           <div className="flex gap-2 pt-2">

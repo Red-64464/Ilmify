@@ -19,10 +19,20 @@ interface GroqChoice {
   message: { content: string };
 }
 
+const MAX_CONTENT_LENGTH = 6000;
+
+/** Tronque intelligemment un texte long en gardant début + fin */
+export function truncateContent(text: string, maxLen = MAX_CONTENT_LENGTH): string {
+  if (text.length <= maxLen) return text;
+  const half = Math.floor(maxLen / 2) - 30;
+  return text.slice(0, half) + '\n\n[... contenu tronqué pour l\'IA ...]\n\n' + text.slice(-half);
+}
+
 async function callGroq(
   messages: GroqMessage[],
   json = false,
   model = 'llama-3.3-70b-versatile',
+  retries = 3,
 ): Promise<string> {
   if (!GROQ_API_KEY) throw new Error('Clé API Groq non configurée. Ajoutez NEXT_PUBLIC_GROQ_API_KEY dans .env.local');
 
@@ -34,22 +44,44 @@ async function callGroq(
   };
   if (json) body.response_format = { type: 'json_object' };
 
-  const res = await fetch(GROQ_API_URL, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${GROQ_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  });
+  let lastError: Error | null = null;
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Erreur Groq (${res.status}): ${err.slice(0, 200)}`);
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      const res = await fetch(GROQ_API_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${GROQ_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const err = await res.text();
+        // Don't retry on auth errors (401/403) or bad request (400)
+        if (res.status === 401 || res.status === 403 || res.status === 400) {
+          throw new Error(`Erreur Groq (${res.status}): ${err.slice(0, 200)}`);
+        }
+        throw new Error(`Erreur Groq (${res.status}): ${err.slice(0, 200)}`);
+      }
+
+      const data = await res.json();
+      return (data.choices as GroqChoice[])[0].message.content;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      // Don't retry on non-retryable errors
+      if (lastError.message.includes('(401)') || lastError.message.includes('(403)') || lastError.message.includes('(400)')) {
+        throw lastError;
+      }
+      if (attempt < retries - 1) {
+        // Exponential backoff: 1s, 2s, 4s
+        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
+      }
+    }
   }
 
-  const data = await res.json();
-  return (data.choices as GroqChoice[])[0].message.content;
+  throw lastError || new Error('Erreur Groq inconnue après plusieurs tentatives');
 }
 
 // ─── 1. Auto-generate flashcards from a passage ───
@@ -70,7 +102,7 @@ Titre du passage : ${title}
 ${bookTitle ? `Livre : ${bookTitle}` : ''}
 
 Texte :
-${content}
+${truncateContent(content)}
 
 Réponds en JSON avec ce format exact :
 {
@@ -95,6 +127,7 @@ export interface GeneratedQuizQuestion {
   options?: string[];
   correctAnswer: string | number;
   explanation: string;
+  optionExplanations?: string[];
 }
 
 export async function generateQuizFromCourse(
@@ -120,6 +153,7 @@ RÈGLES :
 - Pour les vrai/faux : correctAnswer = "true" ou "false".
 - Pour les réponses courtes : correctAnswer = la réponse attendue.
 - Chaque question DOIT avoir une explication basée sur le texte du cours.
+- Pour les QCM, ajoute un champ "optionExplanations" : un tableau de 4 phrases courtes expliquant pourquoi chaque option est correcte ou incorrecte.
 
 Réponds en JSON :
 {
@@ -129,7 +163,8 @@ Réponds en JSON :
       "question": "...",
       "options": ["A", "B", "C", "D"],
       "correctAnswer": 0,
-      "explanation": "..."
+      "explanation": "...",
+      "optionExplanations": ["Correct car ...", "Incorrect car ...", "Incorrect car ...", "Incorrect car ..."]
     }
   ]
 }`;
@@ -137,6 +172,7 @@ Réponds en JSON :
   const raw = await callGroq(
     [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: prompt }],
     true,
+    'llama-3.1-8b-instant',
   );
   const parsed = JSON.parse(raw);
   return (parsed.questions || []) as GeneratedQuizQuestion[];
@@ -150,7 +186,7 @@ export async function summarizePassage(title: string, content: string): Promise<
 Titre : ${title}
 
 Texte :
-${content}`;
+${truncateContent(content)}`;
 
   return callGroq(
     [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: prompt }],
@@ -169,7 +205,7 @@ export async function improveReflection(
   const prompt = `L'utilisateur a écrit une réflexion personnelle sur un passage qu'il a lu. Améliore sa réflexion en la rendant plus claire, mieux structurée et plus approfondie, tout en restant fidèle à ses idées originales. Ne rajoute AUCUNE information religieuse qui n'est pas dans le texte ou dans sa réflexion.
 
 Passage : ${passageTitle}
-Contenu du passage : ${passageContent}
+Contenu du passage : ${truncateContent(passageContent)}
 
 Réflexion de l'utilisateur :
 ${reflection}

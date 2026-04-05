@@ -227,12 +227,19 @@ export const flashcardRepository = {
 
   /**
    * SM-2 inspired review: update mastery, review count, and schedule next review.
+   * SM-2 inspired spaced repetition with Leitner intervals.
    * rating: 0 = Again, 1 = Hard, 2 = Good, 3 = Easy
+   *
+   * Intervals:
+   *   Again (0): reset → review in 10min (same session), interval resets
+   *   Hard  (1): same interval × 1.2, min 1 day
+   *   Good  (2): interval × 2.5 (1→2→5→12→30 days pattern)
+   *   Easy  (3): interval × 3.5, min 4 days
    */
   async reviewCard(cardId: string, rating: 0 | 1 | 2 | 3): Promise<void> {
     const { data: card, error: fetchErr } = await supabase
       .from('flashcards')
-      .select('mastery_level, review_count, deck_id')
+      .select('mastery_level, review_count, deck_id, next_review_at, last_reviewed_at')
       .eq('id', cardId)
       .single();
     if (fetchErr || !card) return;
@@ -240,30 +247,37 @@ export const flashcardRepository = {
     const oldMastery = (card.mastery_level as number) || 0;
     const reviewCount = ((card.review_count as number) || 0) + 1;
 
-    // Mastery delta based on rating
+    // Calculate previous interval in days
+    const lastReview = card.last_reviewed_at ? new Date(card.last_reviewed_at as string) : null;
+    const nextReview = card.next_review_at ? new Date(card.next_review_at as string) : null;
+    let prevInterval = 1;
+    if (lastReview && nextReview) {
+      prevInterval = Math.max(1, Math.round((nextReview.getTime() - lastReview.getTime()) / (1000 * 60 * 60 * 24)));
+    }
+
     let newMastery: number;
     let intervalDays: number;
     switch (rating) {
-      case 0: // Again
+      case 0: // Again — reset progress, review today
         newMastery = Math.max(0, oldMastery - 30);
-        intervalDays = 0; // review again same session or today
+        intervalDays = 0;
         break;
-      case 1: // Hard
-        newMastery = Math.max(0, oldMastery - 10);
-        intervalDays = 1;
+      case 1: // Hard — small penalty, short interval
+        newMastery = Math.max(0, oldMastery - 5);
+        intervalDays = Math.max(1, Math.round(prevInterval * 1.2));
         break;
-      case 2: // Good
+      case 2: // Good — standard SM-2 progression
         newMastery = Math.min(100, oldMastery + 15 + (100 - oldMastery) * 0.15);
-        intervalDays = Math.max(1, Math.round(reviewCount * 1.5));
+        intervalDays = reviewCount === 1 ? 1 : reviewCount === 2 ? 3 : Math.round(prevInterval * 2.5);
         break;
-      case 3: // Easy
+      case 3: // Easy — fast progression
         newMastery = Math.min(100, oldMastery + 25 + (100 - oldMastery) * 0.25);
-        intervalDays = Math.max(3, Math.round(reviewCount * 2.5));
+        intervalDays = reviewCount <= 2 ? 4 : Math.round(prevInterval * 3.5);
         break;
     }
 
-    const nextReview = new Date();
-    nextReview.setDate(nextReview.getDate() + intervalDays);
+    const scheduledReview = new Date();
+    scheduledReview.setDate(scheduledReview.getDate() + intervalDays);
 
     const { error } = await supabase
       .from('flashcards')
@@ -271,12 +285,25 @@ export const flashcardRepository = {
         mastery_level: Math.round(newMastery),
         review_count: reviewCount,
         last_reviewed_at: new Date().toISOString(),
-        next_review_at: nextReview.toISOString(),
+        next_review_at: scheduledReview.toISOString(),
       })
       .eq('id', cardId);
 
     if (!error) {
       await this.refreshDeckCounts(card.deck_id as string);
     }
+  },
+
+  /** Get cards that are due for review (next_review_at <= now or null) */
+  async getDueCards(deckId: string): Promise<Flashcard[]> {
+    const now = new Date().toISOString();
+    const { data, error } = await supabase
+      .from('flashcards')
+      .select('*')
+      .eq('deck_id', deckId)
+      .or(`next_review_at.is.null,next_review_at.lte.${now}`)
+      .order('next_review_at', { ascending: true, nullsFirst: true });
+    if (error) return [];
+    return (data || []).map(rowToCard);
   },
 };

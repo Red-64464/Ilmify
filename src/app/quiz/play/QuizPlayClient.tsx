@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle, XCircle, ArrowRight, RotateCcw, Trophy, Loader2 } from 'lucide-react';
+import { CheckCircle, XCircle, ArrowRight, RotateCcw, Trophy, Loader2, TrendingUp, Target, AlertTriangle } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
@@ -138,6 +138,10 @@ export default function QuizPlayClient() {
 
   if (finished) {
     const percentage = Math.round((score / questions.length) * 100);
+    // Compute session stats
+    const totalMastered = questions.filter(q => q.masteryLevel >= 80).length;
+    const hardestQuestions = [...questions].sort((a, b) => b.errorCount - a.errorCount).filter(q => q.errorCount > 0).slice(0, 3);
+    const avgMastery = questions.length > 0 ? Math.round(questions.reduce((sum, q) => sum + q.masteryLevel, 0) / questions.length) : 0;
     return (
       <div className="pb-10">
         <PageHeader title="Résultats" backButton />
@@ -173,6 +177,39 @@ export default function QuizPlayClient() {
               Recommencer
             </Button>
           </Card>
+
+          {/* Personal Stats */}
+          <div className="grid grid-cols-3 gap-3 mt-6">
+            <div className="rounded-2xl p-4 text-center" style={{ background: 'rgba(58,170,96,0.08)', border: '1px solid rgba(58,170,96,0.15)' }}>
+              <TrendingUp size={18} className="mx-auto mb-1.5" style={{ color: '#3aaa60' }} />
+              <p className="text-lg font-bold" style={{ color: '#3aaa60' }}>{avgMastery}%</p>
+              <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Maîtrise moy.</p>
+            </div>
+            <div className="rounded-2xl p-4 text-center" style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.15)' }}>
+              <Target size={18} className="mx-auto mb-1.5" style={{ color: '#6366f1' }} />
+              <p className="text-lg font-bold" style={{ color: '#6366f1' }}>{totalMastered}/{questions.length}</p>
+              <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Maîtrisées</p>
+            </div>
+            <div className="rounded-2xl p-4 text-center" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)' }}>
+              <AlertTriangle size={18} className="mx-auto mb-1.5" style={{ color: '#ef4444' }} />
+              <p className="text-lg font-bold" style={{ color: '#ef4444' }}>{questions.filter(q => q.errorCount > 0).length}</p>
+              <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Avec erreurs</p>
+            </div>
+          </div>
+
+          {hardestQuestions.length > 0 && (
+            <div className="mt-6">
+              <p className="text-xs font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>⚠️ Questions les plus difficiles</p>
+              <div className="space-y-2">
+                {hardestQuestions.map((q) => (
+                  <div key={q.id} className="rounded-xl p-3 text-xs" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
+                    <p className="font-medium truncate" style={{ color: 'var(--text-primary)' }}>{q.question}</p>
+                    <p style={{ color: 'var(--text-muted)' }}>{q.errorCount} erreur{q.errorCount > 1 ? 's' : ''} · Maîtrise {q.masteryLevel}%</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </motion.div>
       </div>
     );
@@ -346,7 +383,28 @@ export default function QuizPlayClient() {
                     {isCorrect() ? 'Bonne réponse !' : 'Mauvaise réponse'}
                   </span>
                 </div>
-                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{current.explanation}</p>
+                {(() => {
+                  const parts = current.explanation.split('---OPTION_EXPLANATIONS---');
+                  const baseExplanation = parts[0].trim();
+                  let adaptedExplanation = '';
+                  if (!isCorrect() && parts[1] && typeof selectedAnswer === 'number') {
+                    try {
+                      const optExps = JSON.parse(parts[1].trim()) as string[];
+                      if (optExps[selectedAnswer]) adaptedExplanation = optExps[selectedAnswer];
+                    } catch { /* ignore */ }
+                  }
+                  return (
+                    <>
+                      {adaptedExplanation && (
+                        <p className="text-sm mb-2 font-medium" style={{ color: '#f59e0b' }}>
+                          💡 {adaptedExplanation}
+                        </p>
+                      )}
+                      <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{baseExplanation}</p>
+                      <span className="inline-block mt-2 text-[10px] px-2 py-0.5 rounded-full" style={{ background: 'rgba(196,154,61,0.1)', color: '#d4ad4a' }}>✨ Généré par IA</span>
+                    </>
+                  );
+                })()}
               </Card>
             </motion.div>
           )}
