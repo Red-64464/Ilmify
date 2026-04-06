@@ -12,6 +12,7 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import EmptyState from '@/components/ui/EmptyState';
+import Skeleton from '@/components/ui/Skeleton';
 import ImageCropper from '@/components/ui/ImageCropper';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthGuard from '@/components/layout/AuthGuard';
@@ -73,6 +74,7 @@ export default function LibraryPage() {
   const [cropImage, setCropImage] = useState<string | null>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const [books, setBooks] = useState<Book[]>([]);
+  const [booksLoading, setBooksLoading] = useState(true);
   const [addingBook, setAddingBook] = useState(false);
   const { toast } = useToast();
 
@@ -92,7 +94,8 @@ export default function LibraryPage() {
   useEffect(() => {
     if (authLoading || !user) return;
     let cancelled = false;
-    bookRepository.getAll(user.id).then(b => { if (!cancelled) setBooks(b); }).catch(() => {});
+    setBooksLoading(true);
+    bookRepository.getAll(user.id).then(b => { if (!cancelled) setBooks(b); }).catch(() => {}).finally(() => { if (!cancelled) setBooksLoading(false); });
     return () => { cancelled = true; };
   }, [authLoading, user]);
 
@@ -238,7 +241,25 @@ export default function LibraryPage() {
         />
       </div>
 
-      {filtered.length > 0 ? (
+      {booksLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="rounded-2xl p-5 sm:p-6" style={{ background: 'var(--bg-card)' }}>
+              <div className="flex items-start gap-3 mb-4">
+                <Skeleton className="h-24 w-16 rounded-xl" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-5 w-3/4" />
+                  <Skeleton className="h-3 w-1/2" />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Skeleton className="h-5 w-16 rounded-full" />
+                <Skeleton className="h-5 w-16 rounded-full" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : filtered.length > 0 ? (
         <motion.div
           className="grid grid-cols-1 sm:grid-cols-2 gap-4"
           variants={stagger}

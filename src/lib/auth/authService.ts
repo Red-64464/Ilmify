@@ -20,6 +20,10 @@ export function setCachedAuth(user: User | null, session: Session | null) {
   cachedSession = session;
 }
 
+export function getCachedAuth(): { user: User | null; session: Session | null } {
+  return { user: cachedUser, session: cachedSession };
+}
+
 function profileToUser(profile: {
   id: string;
   username: string;

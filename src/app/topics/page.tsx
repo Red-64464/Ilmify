@@ -16,6 +16,7 @@ import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import EmptyState from '@/components/ui/EmptyState';
+import Skeleton from '@/components/ui/Skeleton';
 import JsonImportModal from '@/components/editor/JsonImportModal';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthGuard from '@/components/layout/AuthGuard';
@@ -282,7 +283,21 @@ export default function TopicsPage() {
       </div>
 
       {/* Topics list */}
-      {topics.length > 0 ? (
+      {dataLoading ? (
+        <div className="space-y-3">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="rounded-2xl p-4" style={{ background: 'var(--bg-card)' }}>
+              <div className="flex items-start gap-3">
+                <Skeleton className="h-10 w-10 rounded-xl" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-2/3" />
+                  <Skeleton className="h-3 w-1/3" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : topics.length > 0 ? (
         <motion.div
           className={viewMode === 'grid' ? 'grid grid-cols-2 gap-3' : 'space-y-3'}
           variants={stagger}

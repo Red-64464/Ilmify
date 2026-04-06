@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { User, Session, AuthCredentials, SignupData } from '@/types';
-import { authService, setCachedAuth } from '@/lib/auth/authService';
+import { authService, setCachedAuth, getCachedAuth } from '@/lib/auth/authService';
 import { supabase } from '@/lib/supabase/client';
 
 interface AuthContextValue {
@@ -27,9 +27,11 @@ export function useAuth(): AuthContextValue {
 }
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // Initialize from in-memory cache for instant navigation (no flash of empty state)
+  const cached = getCachedAuth();
+  const [user, setUser] = useState<User | null>(cached.user);
+  const [session, setSession] = useState<Session | null>(cached.session);
+  const [isLoading, setIsLoading] = useState(!cached.user);
 
   // Listen to Supabase auth state changes
   useEffect(() => {
