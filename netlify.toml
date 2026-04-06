@@ -2,6 +2,12 @@
   command = "npm run build"
   publish = "out"
 
+[dev]
+  command = "npm run dev"
+  targetPort = 3000
+  port = 8888
+  autoLaunch = false
+
 [functions]
   directory = "netlify/functions"
 
@@ -31,9 +37,3 @@
   from = "/flashcards/*"
   to = "/flashcards/_placeholder.html"
   status = 200
-
-# Serve Next.js generated 404 page for missing routes
-[[redirects]]
-  from = "/*"
-  to = "/404.html"
-  status = 404

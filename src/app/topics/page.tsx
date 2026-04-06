@@ -6,8 +6,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, FileText, Pin, Heart, Archive,
   LayoutGrid, List, MoreVertical, Trash2, Copy,
-  Star, Upload,
+  Star, Upload, Globe, Loader2,
 } from 'lucide-react';
+import { analyzeArticle } from '@/lib/ai/groq';
 import PageHeader from '@/components/layout/PageHeader';
 import SearchInput from '@/components/ui/SearchInput';
 import Card from '@/components/ui/Card';
@@ -48,6 +49,12 @@ export default function TopicsPage() {
   const [showJsonImport, setShowJsonImport] = useState(false);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
+
+  // Article URL import
+  const [showUrlImport, setShowUrlImport] = useState(false);
+  const [importUrl, setImportUrl] = useState('');
+  const [urlImportLoading, setUrlImportLoading] = useState(false);
+  const [urlImportError, setUrlImportError] = useState('');
 
   useEffect(() => {
     if (!user) return;
@@ -108,6 +115,47 @@ export default function TopicsPage() {
     }
   }, [user, creating, router]);
 
+  const handleUrlImport = useCallback(async () => {
+    if (!user || !importUrl.trim() || urlImportLoading) return;
+    setUrlImportLoading(true);
+    setUrlImportError('');
+    try {
+      // 1. Fetch article text
+      const res = await fetch(`/api/extract-article?url=${encodeURIComponent(importUrl.trim())}`);
+      const data = await res.json() as { text?: string; title?: string; error?: string };
+      if (!res.ok) throw new Error(data.error || 'Erreur de récupération');
+      if (!data.text) throw new Error('Contenu vide');
+      // 2. Analyze with Groq
+      const result = await analyzeArticle(data.text, importUrl.trim(), data.title);
+      // 3. Build topic blocks
+      const VALID_TYPES = new Set([
+        'paragraph', 'heading1', 'heading2', 'heading3',
+        'quote', 'bullet-list', 'numbered-list',
+        'callout', 'reflection', 'reminder', 'source',
+        'hadith', 'verse', 'dua', 'definition',
+        'checklist', 'poem', 'timeline', 'warning', 'divider',
+      ]);
+      const blocks: TopicBlock[] = (result.blocks || [])
+        .filter((b) => VALID_TYPES.has(b.type))
+        .map((b, i) => ({
+          id: `block-${Date.now()}-${Math.random().toString(36).substring(2, 9)}-${i}`,
+          type: b.type as TopicBlock['type'],
+          content: Array.isArray(b.content) ? (b.content as string[]).join('\n') : String(b.content ?? ''),
+          metadata: b.metadata,
+          order: i,
+        }));
+      const topic = await topicRepository.create(user.id, result.title || data.title || 'Article importé');
+      await topicRepository.updateBlocks(topic.id, blocks);
+      setShowUrlImport(false);
+      setImportUrl('');
+      router.push(`/topics/${topic.id}`);
+    } catch (err) {
+      setUrlImportError(err instanceof Error ? err.message : 'Erreur lors de l\'import');
+    } finally {
+      setUrlImportLoading(false);
+    }
+  }, [user, importUrl, urlImportLoading, router]);
+
   const handleAction = useCallback(
     async (action: string, topic: Topic) => {
       setContextMenu(null);
@@ -154,6 +202,14 @@ export default function TopicsPage() {
         subtitle="Votre espace de savoir personnel"
         rightAction={
           <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              iconLeft={<Globe size={14} />}
+              onClick={() => { setUrlImportError(''); setImportUrl(''); setShowUrlImport(true); }}
+            >
+              URL
+            </Button>
             <Button
               variant="secondary"
               size="sm"
@@ -416,6 +472,44 @@ export default function TopicsPage() {
         onImport={handleJsonImport}
         importing={creating}
       />
+
+      {/* URL import modal */}
+      <Modal isOpen={showUrlImport} onClose={() => setShowUrlImport(false)} title="Importer depuis une URL">
+        <div className="space-y-4">
+          <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+            Entrez l&apos;URL d&apos;un article web — l&apos;IA extraira le texte et créera automatiquement une note structurée.
+          </p>
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>URL de l&apos;article</label>
+            <input
+              value={importUrl}
+              onChange={(e) => { setImportUrl(e.target.value); setUrlImportError(''); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleUrlImport(); }}
+              placeholder="https://..."
+              className="w-full rounded-xl px-4 py-3 text-sm outline-none"
+              style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+            />
+          </div>
+          {urlImportError && (
+            <p className="text-xs" style={{ color: '#f87171' }}>⚠️ {urlImportError}</p>
+          )}
+          <div className="flex gap-2 pt-2">
+            <Button variant="secondary" size="md" onClick={() => setShowUrlImport(false)} className="flex-1">
+              Annuler
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              className="flex-1"
+              onClick={handleUrlImport}
+              disabled={!importUrl.trim() || urlImportLoading}
+              iconLeft={urlImportLoading ? <Loader2 size={14} className="animate-spin" /> : <Globe size={14} />}
+            >
+              {urlImportLoading ? 'Import en cours...' : 'Importer'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
     </AuthGuard>
   );

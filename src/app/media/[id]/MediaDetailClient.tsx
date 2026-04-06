@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, Play, Clock, Plus, Trash2, Eye, EyeOff,
-  Edit3, Tag, ExternalLink, Video,
+  Edit3, ExternalLink, Video, Sparkles, Loader2, CheckCircle2, BookOpen,
+  MessageCircle, ChevronRight, Trophy, Send,
 } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
@@ -15,11 +16,44 @@ import Skeleton from '@/components/ui/Skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthGuard from '@/components/layout/AuthGuard';
 import { mediaRepository } from '@/lib/repositories/mediaRepository';
-import type { MediaVideo, TimestampNote } from '@/types';
+import { topicRepository } from '@/lib/repositories/topicRepository';
+import { generateVideoAnalysis, answerVideoQuestion, type VideoAnalysis } from '@/lib/ai/groq';
+import BlockEditor from '@/components/editor/BlockEditor';
+import type { MediaVideo, TimestampNote, TopicBlock } from '@/types';
 
+type VideoPlatform = 'youtube' | 'tiktok' | 'instagram' | 'twitter';
+interface VideoInfo { platform: VideoPlatform; id: string }
+
+function extractVideoInfo(url: string): VideoInfo | null {
+  const ytM = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([a-zA-Z0-9_-]{11})/);
+  if (ytM) return { platform: 'youtube', id: ytM[1] };
+  const ttM = url.match(/tiktok\.com\/@[^/]+\/video\/(\d+)/);
+  if (ttM) return { platform: 'tiktok', id: ttM[1] };
+  const igM = url.match(/instagram\.com\/(?:p|reel)\/([A-Za-z0-9_-]+)/);
+  if (igM) return { platform: 'instagram', id: igM[1] };
+  const twM = url.match(/(?:twitter|x)\.com\/[^/]+\/status\/(\d+)/);
+  if (twM) return { platform: 'twitter', id: twM[1] };
+  return null;
+}
+
+function getEmbedUrl(info: VideoInfo): string | null {
+  switch (info.platform) {
+    case 'youtube': return `https://www.youtube-nocookie.com/embed/${info.id}`;
+    case 'tiktok':  return `https://www.tiktok.com/embed/v2/${info.id}`;
+    case 'instagram': return `https://www.instagram.com/p/${info.id}/embed/`;
+    case 'twitter': return null;
+  }
+}
+
+function platformLabel(info: VideoInfo): string {
+  const labels: Record<VideoPlatform, string> = { youtube: 'YouTube', tiktok: 'TikTok', instagram: 'Instagram', twitter: 'Twitter / X' };
+  return labels[info.platform];
+}
+
+// Keep for backwards compatibility
 function extractYouTubeId(url: string): string | null {
-  const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([a-zA-Z0-9_-]{11})/);
-  return m ? m[1] : null;
+  const info = extractVideoInfo(url);
+  return info?.platform === 'youtube' ? info.id : null;
 }
 
 function formatTime(seconds: number): string {
@@ -57,6 +91,29 @@ export default function MediaDetailPage({ params }: { params: Promise<{ id: stri
   const [editChannel, setEditChannel] = useState('');
   const [editTags, setEditTags] = useState('');
 
+  // AI analysis
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiStep, setAiStep] = useState('');
+  const [aiError, setAiError] = useState('');
+  const [aiResult, setAiResult] = useState<VideoAnalysis | null>(null);
+  const [previewBlocks, setPreviewBlocks] = useState<TopicBlock[] | null>(null);
+  const [showAiModal, setShowAiModal] = useState(false);
+  const [aiTab, setAiTab] = useState<'summary' | 'synthesis' | 'keypoints' | 'chapters' | 'quiz' | 'qa' | 'note'>('summary');
+  const [savingTopic, setSavingTopic] = useState(false);
+  const [storedTranscript, setStoredTranscript] = useState('');
+
+  // Quiz state
+  const [quizIndex, setQuizIndex] = useState(0);
+  const [quizSelected, setQuizSelected] = useState<number | null>(null);
+  const [quizAnswered, setQuizAnswered] = useState(false);
+  const [quizScore, setQuizScore] = useState(0);
+  const [quizCompleted, setQuizCompleted] = useState(false);
+
+  // Q&A state
+  const [qaQuestion, setQaQuestion] = useState('');
+  const [qaLoading, setQaLoading] = useState(false);
+  const [qaAnswer, setQaAnswer] = useState<{ answer: string; citation: string } | null>(null);
+
   useEffect(() => {
     mediaRepository.getVideoById(id)
       .then((v) => setVideo(v))
@@ -64,7 +121,8 @@ export default function MediaDetailPage({ params }: { params: Promise<{ id: stri
       .finally(() => setLoading(false));
   }, [id]);
 
-  const ytId = video ? extractYouTubeId(video.url) : null;
+  const videoInfo = video ? extractVideoInfo(video.url) : null;
+  const ytId = videoInfo?.platform === 'youtube' ? videoInfo.id : null;
 
   const seekTo = (seconds: number) => {
     if (iframeRef.current && ytId) {
@@ -105,6 +163,82 @@ export default function MediaDetailPage({ params }: { params: Promise<{ id: stri
     });
     if (updated) setVideo(updated);
     setShowEdit(false);
+  };
+
+  const handleAiAnalyze = async () => {
+    if (!ytId || !video) return;
+    setAiLoading(true);
+    setAiError('');
+    setAiResult(null);
+    setPreviewBlocks(null);
+    setStoredTranscript('');
+    setAiTab('summary');
+    setShowAiModal(true);
+    // Reset quiz/qa
+    setQuizIndex(0); setQuizSelected(null); setQuizAnswered(false); setQuizScore(0); setQuizCompleted(false);
+    setQaQuestion(''); setQaAnswer(null);
+    try {
+      setAiStep('Récupération de la transcription...');
+      const endpoint = process.env.NODE_ENV === 'production'
+        ? `/.netlify/functions/youtube-transcript?videoId=${ytId}`
+        : `/api/youtube-transcript?videoId=${ytId}`;
+      const res = await fetch(endpoint);
+      const data = await res.json() as { transcript?: string; error?: string };
+      if (!res.ok) throw new Error(data.error || 'Erreur lors de la récupération de la transcription');
+      if (!data.transcript) throw new Error('Transcription vide');
+      setStoredTranscript(data.transcript);
+      setAiStep('Génération de la synthèse...');
+      const analysis = await generateVideoAnalysis(data.transcript, video.title, video.channelName);
+      setAiResult(analysis);
+      setAiStep('Structuration des blocs...');
+      const VALID_TYPES = new Set([
+        'paragraph', 'heading1', 'heading2', 'heading3',
+        'quote', 'bullet-list', 'numbered-list',
+        'callout', 'reflection', 'reminder', 'source',
+        'hadith', 'verse', 'dua', 'definition',
+        'checklist', 'poem', 'timeline', 'warning', 'divider',
+      ]);
+      const builtBlocks: TopicBlock[] = analysis.blocks
+        .filter((b) => VALID_TYPES.has(b.type))
+        .map((b, i) => ({
+          id: `block-${Date.now()}-${Math.random().toString(36).substring(2, 9)}-${i}`,
+          type: b.type as TopicBlock['type'],
+          content: Array.isArray(b.content) ? (b.content as string[]).join('\n') : String(b.content ?? ''),
+          metadata: b.metadata,
+          order: i,
+        }));
+      setPreviewBlocks(builtBlocks);
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : 'Une erreur est survenue');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleAskQuestion = async () => {
+    if (!qaQuestion.trim() || !storedTranscript || !video || qaLoading) return;
+    setQaLoading(true);
+    setQaAnswer(null);
+    try {
+      const result = await answerVideoQuestion(storedTranscript, video.title, qaQuestion.trim());
+      setQaAnswer(result);
+    } catch {
+      setQaAnswer({ answer: 'Erreur lors de la recherche de la réponse.', citation: '' });
+    } finally {
+      setQaLoading(false);
+    }
+  };
+
+  const handleCreateTopic = async () => {
+    if (!user || !previewBlocks || savingTopic || !video) return;
+    setSavingTopic(true);
+    try {
+      const topic = await topicRepository.create(user.id, video.title, 'Notes');
+      await topicRepository.update(topic.id, { blocks: previewBlocks });
+      router.push(`/topics/${topic.id}`);
+    } catch {
+      setSavingTopic(false);
+    }
   };
 
   if (loading) {
@@ -153,21 +287,39 @@ export default function MediaDetailPage({ params }: { params: Promise<{ id: stri
       </div>
 
       {/* Player */}
-      {ytId ? (
-        <div className="relative w-full aspect-video rounded-2xl overflow-hidden mb-6" style={{ background: '#000' }}>
-          <iframe
-            ref={iframeRef}
-            src={`https://www.youtube-nocookie.com/embed/${ytId}`}
-            className="absolute inset-0 w-full h-full"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          />
-        </div>
-      ) : (
+      {videoInfo ? (() => {
+        const embedUrl = getEmbedUrl(videoInfo);
+        if (embedUrl) {
+          return (
+            <div className="relative w-full aspect-video rounded-2xl overflow-hidden mb-6" style={{ background: '#000' }}>
+              <iframe
+                ref={iframeRef}
+                src={embedUrl}
+                className="absolute inset-0 w-full h-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                sandbox={videoInfo.platform === 'tiktok' ? 'allow-popups allow-popups-to-escape-sandbox allow-scripts allow-top-navigation allow-same-origin' : undefined}
+              />
+            </div>
+          );
+        }
+        // Twitter / unsupported: external link card
+        return (
+          <Card className="aspect-video flex items-center justify-center mb-6">
+            <div className="text-center">
+              <Video size={48} className="mx-auto mb-3" style={{ color: 'var(--text-muted)' }} />
+              <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>Lecture intégrée non disponible pour {platformLabel(videoInfo)}</p>
+              <a href={video.url} target="_blank" rel="noopener noreferrer" className="text-sm flex items-center gap-1.5 justify-center" style={{ color: 'var(--accent)' }}>
+                Ouvrir <ExternalLink size={14} />
+              </a>
+            </div>
+          </Card>
+        );
+      })() : (
         <Card className="aspect-video flex items-center justify-center mb-6">
           <div className="text-center">
             <Video size={48} className="mx-auto mb-3" style={{ color: 'var(--text-muted)' }} />
-            <a href={video.url} target="_blank" rel="noopener noreferrer" className="text-sm flex items-center gap-1.5" style={{ color: 'var(--accent)' }}>
+            <a href={video.url} target="_blank" rel="noopener noreferrer" className="text-sm flex items-center gap-1.5 justify-center" style={{ color: 'var(--accent)' }}>
               Ouvrir la vidéo <ExternalLink size={14} />
             </a>
           </div>
@@ -246,6 +398,36 @@ export default function MediaDetailPage({ params }: { params: Promise<{ id: stri
         )}
       </div>
 
+      {/* AI Analysis Section */}
+      {ytId && (
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-base font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+              <Sparkles size={16} style={{ color: 'var(--accent)' }} />
+              Analyse IA
+            </h2>
+            <Button
+              variant="primary"
+              size="sm"
+              iconLeft={aiLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+              onClick={handleAiAnalyze}
+              disabled={aiLoading}
+            >
+              {aiLoading ? 'Analyse...' : 'Analyser avec l’IA'}
+            </Button>
+          </div>
+          <Card className="p-4">
+            <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+              Génère automatiquement un <strong style={{ color: 'var(--text-secondary)' }}>résumé</strong>,
+              une <strong style={{ color: 'var(--text-secondary)' }}>synthèse</strong>,
+              les <strong style={{ color: 'var(--text-secondary)' }}>chapitres</strong>,
+              un <strong style={{ color: 'var(--text-secondary)' }}>quiz</strong> et une
+              <strong style={{ color: 'var(--text-secondary)' }}> note structurée</strong> à partir de la transcription YouTube.
+            </p>
+          </Card>
+        </div>
+      )}
+
       {/* Add Note Modal */}
       <Modal isOpen={showAddNote} onClose={() => setShowAddNote(false)} title="Ajouter une note">
         <div className="space-y-4">
@@ -284,6 +466,339 @@ export default function MediaDetailPage({ params }: { params: Promise<{ id: stri
             <Button variant="primary" size="md" onClick={handleSaveEdit} disabled={!editTitle.trim()} className="flex-1">Enregistrer</Button>
           </div>
         </div>
+      </Modal>
+
+      {/* AI Analysis Result Modal */}
+      <Modal isOpen={showAiModal} onClose={() => { setShowAiModal(false); setSavingTopic(false); }} title="Analyse IA">
+        {/* Loading state */}
+        {aiLoading && (
+          <div className="flex flex-col items-center py-12 gap-6">
+            {/* Dual ring spinner */}
+            <div className="relative w-20 h-20">
+              {/* Outer ring — clockwise, fast */}
+              <div
+                className="absolute inset-0 rounded-full animate-spin"
+                style={{
+                  border: '3px solid rgba(46,158,140,0.15)',
+                  borderTopColor: 'var(--accent)',
+                  borderRightColor: 'rgba(46,158,140,0.5)',
+                  animationDuration: '1s',
+                }}
+              />
+              {/* Inner ring — counter-clockwise, slower */}
+              <div
+                className="absolute inset-[8px] rounded-full animate-spin"
+                style={{
+                  border: '2px solid rgba(46,158,140,0.1)',
+                  borderTopColor: 'rgba(46,158,140,0.7)',
+                  borderLeftColor: 'rgba(46,158,140,0.3)',
+                  animationDuration: '1.8s',
+                  animationDirection: 'reverse',
+                }}
+              />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Sparkles size={16} style={{ color: 'var(--accent)' }} />
+              </div>
+            </div>
+            {/* Step text + bouncing dots */}
+            <div className="text-center">
+              <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{aiStep || 'Analyse en cours...'}</p>
+              <div className="flex justify-center gap-1.5 mt-3">
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="w-1.5 h-1.5 rounded-full animate-bounce"
+                    style={{ background: 'var(--accent)', animationDelay: `${i * 0.18}s` }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Error state */}
+        {aiError && !aiLoading && (
+          <div className="py-8 text-center">
+            <p className="text-sm mb-4" style={{ color: '#f87171' }}>⚠️ {aiError}</p>
+            <Button variant="secondary" size="sm" onClick={handleAiAnalyze}>Réessayer</Button>
+          </div>
+        )}
+
+        {/* Result state */}
+        {aiResult && !aiLoading && (
+          <div>
+            {/* Tab bar — row 1 */}
+            <div className="flex gap-1 p-1 rounded-xl mb-1" style={{ background: 'var(--bg-secondary)' }}>
+              {([
+                { id: 'summary', label: 'Résumé' },
+                { id: 'synthesis', label: 'Synthèse' },
+                { id: 'keypoints', label: 'Points clés' },
+                { id: 'chapters', label: 'Chapitres' },
+              ] as const).map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setAiTab(tab.id)}
+                  className="flex-1 py-2 px-1 rounded-lg text-xs font-medium transition-all cursor-pointer"
+                  style={{
+                    background: aiTab === tab.id ? 'var(--bg-card)' : 'transparent',
+                    color: aiTab === tab.id ? 'var(--text-primary)' : 'var(--text-muted)',
+                    boxShadow: aiTab === tab.id ? 'var(--shadow-card)' : 'none',
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            {/* Tab bar — row 2 */}
+            <div className="flex gap-1 p-1 rounded-xl mb-5" style={{ background: 'var(--bg-secondary)' }}>
+              {([
+                { id: 'quiz', label: '🧠 Quiz' },
+                { id: 'qa', label: '💬 Question' },
+                { id: 'note', label: '📝 Note' },
+              ] as const).map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => { setAiTab(tab.id); if (tab.id === 'quiz') { setQuizIndex(0); setQuizSelected(null); setQuizAnswered(false); setQuizScore(0); setQuizCompleted(false); } }}
+                  className="flex-1 py-2 px-1 rounded-lg text-xs font-medium transition-all cursor-pointer"
+                  style={{
+                    background: aiTab === tab.id ? 'var(--bg-card)' : 'transparent',
+                    color: aiTab === tab.id ? 'var(--text-primary)' : 'var(--text-muted)',
+                    boxShadow: aiTab === tab.id ? 'var(--shadow-card)' : 'none',
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Résumé */}
+            {aiTab === 'summary' && (
+              <div
+                className="rounded-xl p-4"
+                style={{ background: 'rgba(46,158,140,0.06)', border: '1px solid rgba(46,158,140,0.12)' }}
+              >
+                <p className="text-sm leading-relaxed" style={{ color: 'var(--text-primary)' }}>{aiResult.summary}</p>
+              </div>
+            )}
+
+            {/* Synthèse */}
+            {aiTab === 'synthesis' && (
+              <div className="space-y-3 max-h-96 overflow-y-auto overscroll-contain pr-1">
+                {aiResult.synthesis.split('\n\n').filter(Boolean).map((para, i) => (
+                  <p key={i} className="text-sm leading-relaxed" style={{ color: 'var(--text-primary)' }}>{para}</p>
+                ))}
+              </div>
+            )}
+
+            {/* Points clés */}
+            {aiTab === 'keypoints' && (
+              <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+                {aiResult.keyPoints.map((point, i) => (
+                  <div
+                    key={i}
+                    className="flex items-start gap-3 rounded-xl p-3"
+                    style={{ background: 'var(--bg-secondary)' }}
+                  >
+                    <CheckCircle2 size={15} className="mt-0.5 shrink-0" style={{ color: 'var(--accent)' }} />
+                    <p className="text-sm leading-snug" style={{ color: 'var(--text-primary)' }}>{point}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Chapitres */}
+            {aiTab === 'chapters' && (
+              <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+                {aiResult.chapters.length === 0 ? (
+                  <p className="text-sm text-center py-6" style={{ color: 'var(--text-muted)' }}>Aucun chapitre détecté</p>
+                ) : aiResult.chapters.map((ch, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-3 rounded-xl p-3"
+                    style={{ background: 'var(--bg-secondary)' }}
+                  >
+                    <span
+                      className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-xs font-bold"
+                      style={{ background: 'var(--accent-light)', color: 'var(--accent)' }}
+                    >
+                      {i + 1}
+                    </span>
+                    <p className="text-sm font-medium flex-1" style={{ color: 'var(--text-primary)' }}>{ch.title}</p>
+                    <span className="text-xs shrink-0" style={{ color: 'var(--text-muted)' }}>
+                      ~{ch.percentStart}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Quiz */}
+            {aiTab === 'quiz' && (
+              <div>
+                {aiResult.quizQuestions.length === 0 ? (
+                  <p className="text-sm text-center py-6" style={{ color: 'var(--text-muted)' }}>Aucune question générée</p>
+                ) : quizCompleted ? (
+                  <div className="text-center py-6 space-y-4">
+                    <Trophy size={40} className="mx-auto" style={{ color: '#d4ad4a' }} />
+                    <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
+                      {quizScore}/{aiResult.quizQuestions.length} bonnes réponses
+                    </p>
+                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                      {quizScore === aiResult.quizQuestions.length ? 'Parfait ! 🎉' : quizScore >= aiResult.quizQuestions.length / 2 ? 'Bien joué ! 👍' : 'Continuez à apprendre ! 📚'}
+                    </p>
+                    <Button variant="secondary" size="sm" onClick={() => { setQuizIndex(0); setQuizSelected(null); setQuizAnswered(false); setQuizScore(0); setQuizCompleted(false); }}>
+                      Recommencer
+                    </Button>
+                  </div>
+                ) : (() => {
+                  const q = aiResult.quizQuestions[quizIndex];
+                  return (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
+                          Question {quizIndex + 1} / {aiResult.quizQuestions.length}
+                        </span>
+                        <span className="text-xs font-medium" style={{ color: 'var(--accent)' }}>
+                          Score: {quizScore}
+                        </span>
+                      </div>
+                      <div className="rounded-xl p-4" style={{ background: 'rgba(46,158,140,0.06)', border: '1px solid rgba(46,158,140,0.12)' }}>
+                        <p className="text-sm font-medium leading-snug" style={{ color: 'var(--text-primary)' }}>{q.question}</p>
+                      </div>
+                      <div className="space-y-2">
+                        {q.options.map((opt, idx) => {
+                          let bg = 'var(--bg-secondary)';
+                          let color = 'var(--text-primary)';
+                          if (quizAnswered) {
+                            if (idx === q.correctAnswer) { bg = 'rgba(58,170,96,0.15)'; color = '#3aaa60'; }
+                            else if (idx === quizSelected) { bg = 'rgba(248,113,113,0.15)'; color = '#f87171'; }
+                          } else if (idx === quizSelected) {
+                            bg = 'rgba(46,158,140,0.12)'; color = 'var(--accent)';
+                          }
+                          return (
+                            <button
+                              key={idx}
+                              disabled={quizAnswered}
+                              onClick={() => setQuizSelected(idx)}
+                              className="w-full text-left rounded-xl px-4 py-3 text-sm transition-colors cursor-pointer disabled:cursor-default"
+                              style={{ background: bg, color, border: `1px solid ${quizAnswered && idx === q.correctAnswer ? 'rgba(58,170,96,0.3)' : 'transparent'}` }}
+                            >
+                              <span className="font-medium mr-2">{String.fromCharCode(65 + idx)}.</span>{opt}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {quizAnswered && (
+                        <div className="rounded-xl p-3 text-sm" style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
+                          💡 {q.explanation}
+                        </div>
+                      )}
+                      {!quizAnswered ? (
+                        <Button
+                          variant="primary" size="md" className="w-full"
+                          disabled={quizSelected === null}
+                          onClick={() => {
+                            setQuizAnswered(true);
+                            if (quizSelected === q.correctAnswer) setQuizScore(s => s + 1);
+                          }}
+                        >
+                          Valider
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="secondary" size="md" className="w-full"
+                          onClick={() => {
+                            if (quizIndex + 1 >= aiResult.quizQuestions.length) {
+                              setQuizCompleted(true);
+                            } else {
+                              setQuizIndex(i => i + 1);
+                              setQuizSelected(null);
+                              setQuizAnswered(false);
+                            }
+                          }}
+                        >
+                          {quizIndex + 1 >= aiResult.quizQuestions.length ? 'Voir le résultat' : 'Suivant'}
+                          <ChevronRight size={14} className="ml-1" />
+                        </Button>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            {/* Q&A */}
+            {aiTab === 'qa' && (
+              <div className="space-y-4">
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  Posez une question sur le contenu de cette vidéo — l&apos;IA répondra en s&apos;appuyant sur la transcription.
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    value={qaQuestion}
+                    onChange={(e) => { setQaQuestion(e.target.value); setQaAnswer(null); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleAskQuestion(); }}
+                    placeholder="Ex: Quelle méthode a-t-il recommandée ?"
+                    className="flex-1 rounded-xl px-4 py-3 text-sm outline-none"
+                    style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                  />
+                  <Button
+                    variant="primary" size="md"
+                    iconLeft={qaLoading ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                    onClick={handleAskQuestion}
+                    disabled={!qaQuestion.trim() || qaLoading || !storedTranscript}
+                  >
+                    {qaLoading ? '' : 'Envoyer'}
+                  </Button>
+                </div>
+                {qaAnswer && (
+                  <div className="space-y-3">
+                    <div className="rounded-xl p-4" style={{ background: 'rgba(46,158,140,0.06)', border: '1px solid rgba(46,158,140,0.12)' }}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <MessageCircle size={14} style={{ color: 'var(--accent)' }} />
+                        <span className="text-xs font-semibold" style={{ color: 'var(--accent)' }}>Réponse</span>
+                      </div>
+                      <p className="text-sm leading-relaxed" style={{ color: 'var(--text-primary)' }}>{qaAnswer.answer}</p>
+                    </div>
+                    {qaAnswer.citation && (
+                      <div className="rounded-xl p-3" style={{ background: 'var(--bg-secondary)', borderLeft: '3px solid var(--accent)' }}>
+                        <p className="text-xs leading-relaxed italic" style={{ color: 'var(--text-secondary)' }}>
+                          {qaAnswer.citation}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {!storedTranscript && (
+                  <p className="text-xs" style={{ color: '#f87171' }}>⚠️ Transcription non disponible — relancez l&apos;analyse.</p>
+                )}
+              </div>
+            )}
+
+            {/* Note topic */}
+            {aiTab === 'note' && (
+              <div>
+                <div className="max-h-[28rem] overflow-y-auto overscroll-contain mb-4 rounded-xl px-2" style={{ border: '1px solid var(--border-light)' }}>
+                  {previewBlocks && previewBlocks.length > 0 ? (
+                    <BlockEditor blocks={previewBlocks} onChange={() => {}} readOnly />
+                  ) : (
+                    <p className="text-sm text-center py-6" style={{ color: 'var(--text-muted)' }}>Aucun bloc généré</p>
+                  )}
+                </div>
+                <Button
+                  variant="primary"
+                  size="md"
+                  iconLeft={savingTopic ? <Loader2 size={15} className="animate-spin" /> : <BookOpen size={15} />}
+                  onClick={handleCreateTopic}
+                  disabled={savingTopic || !user || !previewBlocks}
+                  className="w-full"
+                >
+                  {savingTopic ? 'Création du topic...' : 'Enregistrer comme topic'}
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
       </Modal>
     </div>
     </AuthGuard>

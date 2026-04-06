@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Video, FolderOpen, ChevronRight, Plus,
   Trash2, Edit3, ChevronDown, Home, FolderPlus,
-  ArrowRightLeft, Smile, Play, Eye, EyeOff,
+  ArrowRightLeft, Smile, Play, Eye, EyeOff, List, Loader2,
 } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import SearchInput from '@/components/ui/SearchInput';
@@ -66,9 +66,29 @@ function getFolderOptions(allFolders: MediaFolder[], excludeId?: string): { id: 
   return options;
 }
 
+type VideoPlatform = 'youtube' | 'tiktok' | 'instagram' | 'twitter';
+interface VideoInfo { platform: VideoPlatform; id: string }
+
+function extractVideoInfo(url: string): VideoInfo | null {
+  const ytM = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([a-zA-Z0-9_-]{11})/);
+  if (ytM) return { platform: 'youtube', id: ytM[1] };
+  const ttM = url.match(/tiktok\.com\/@[^/]+\/video\/(\d+)/);
+  if (ttM) return { platform: 'tiktok', id: ttM[1] };
+  const igM = url.match(/instagram\.com\/(?:p|reel)\/([A-Za-z0-9_-]+)/);
+  if (igM) return { platform: 'instagram', id: igM[1] };
+  const twM = url.match(/(?:twitter|x)\.com\/[^/]+\/status\/(\d+)/);
+  if (twM) return { platform: 'twitter', id: twM[1] };
+  return null;
+}
+
+function platformIcon(platform: VideoPlatform): string {
+  const icons: Record<VideoPlatform, string> = { youtube: '▶️', tiktok: '🎵', instagram: '📸', twitter: '🐦' };
+  return icons[platform];
+}
+
 function extractYouTubeId(url: string): string | null {
-  const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([a-zA-Z0-9_-]{11})/);
-  return m ? m[1] : null;
+  const info = extractVideoInfo(url);
+  return info?.platform === 'youtube' ? info.id : null;
 }
 
 export default function MediaPage() {
@@ -106,6 +126,17 @@ export default function MediaPage() {
   const [newVideoTags, setNewVideoTags] = useState('');
   const [fetchingMeta, setFetchingMeta] = useState(false);
 
+  // Import playlist
+  const [showPlaylistImport, setShowPlaylistImport] = useState(false);
+  const [playlistUrl, setPlaylistUrl] = useState('');
+  const [playlistLoading, setPlaylistLoading] = useState(false);
+  const [playlistError, setPlaylistError] = useState('');
+  const [playlistData, setPlaylistData] = useState<{
+    playlistTitle: string;
+    videos: { id: string | null; url: string; title: string; channelName: string; thumbnailUrl: string }[];
+  } | null>(null);
+  const [playlistImporting, setPlaylistImporting] = useState(false);
+
   const loadAll = useCallback(async () => {
     if (!user) return;
     setDataLoading(true);
@@ -120,7 +151,25 @@ export default function MediaPage() {
     setDataLoading(false);
   }, [user]);
 
-  useEffect(() => { if (user) loadAll(); else setDataLoading(false); }, [user, loadAll]);
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) { setDataLoading(false); return; }
+    let cancelled = false;
+    setDataLoading(true);
+    Promise.all([
+      mediaRepository.getAllFolders(),
+      mediaRepository.getAllVideos(),
+    ]).then(([folders, videos]) => {
+      if (!cancelled) {
+        setAllFolders(folders);
+        setAllVideos(videos);
+        setDataLoading(false);
+      }
+    }).catch(() => {
+      if (!cancelled) setDataLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [user, authLoading]);
 
   const breadcrumb = useMemo(() => buildBreadcrumb(currentFolderId, allFolders), [currentFolderId, allFolders]);
 
@@ -135,14 +184,15 @@ export default function MediaPage() {
     return allVideos.filter((v) => v.folderId === currentFolderId);
   }, [allVideos, currentFolderId, search]);
 
-  // Auto-fetch YouTube metadata
+  // Auto-fetch metadata via noembed (works for YouTube, TikTok, Instagram, Twitter)
   const handleUrlBlur = async () => {
     if (!newVideoUrl.trim() || fetchingMeta) return;
-    const ytId = extractYouTubeId(newVideoUrl);
-    if (!ytId) return;
+    const info = extractVideoInfo(newVideoUrl);
+    if (!info) return;
     setFetchingMeta(true);
     try {
-      const res = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${ytId}`);
+      const noembedUrl = `https://noembed.com/embed?url=${encodeURIComponent(newVideoUrl.trim())}`;
+      const res = await fetch(noembedUrl);
       const data = await res.json();
       if (data.title && !newVideoTitle) setNewVideoTitle(data.title);
       if (data.author_name && !newVideoChannel) setNewVideoChannel(data.author_name);
@@ -203,7 +253,8 @@ export default function MediaPage() {
         }
         setCurrentFolderId(folderId);
       }
-      const ytId = extractYouTubeId(newVideoUrl);
+      const info = extractVideoInfo(newVideoUrl);
+      const ytId = info?.platform === 'youtube' ? info.id : null;
       await mediaRepository.createVideo(user.id, {
         folderId,
         title: newVideoTitle.trim(),
@@ -219,6 +270,60 @@ export default function MediaPage() {
       setNewVideoTitle(''); setNewVideoUrl(''); setNewVideoChannel(''); setNewVideoTags('');
       loadAll();
     } catch { /* ignore */ }
+  };
+
+  const handleFetchPlaylist = async () => {
+    if (!playlistUrl.trim() || playlistLoading) return;
+    setPlaylistLoading(true);
+    setPlaylistError('');
+    setPlaylistData(null);
+    try {
+      const res = await fetch(`/api/youtube-playlist?url=${encodeURIComponent(playlistUrl.trim())}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erreur');
+      setPlaylistData(data);
+    } catch (err) {
+      setPlaylistError(err instanceof Error ? err.message : 'Erreur lors du chargement de la playlist');
+    } finally {
+      setPlaylistLoading(false);
+    }
+  };
+
+  const handleImportPlaylist = async () => {
+    if (!user || !playlistData || playlistImporting) return;
+    setPlaylistImporting(true);
+    try {
+      let folderId = currentFolderId;
+      if (!folderId) {
+        const existing = allFolders.find((f) => !f.parentId);
+        if (existing) {
+          folderId = existing.id;
+        } else {
+          const created = await mediaRepository.createFolder(user.id, { title: playlistData.playlistTitle, icon: '🎬', order: 0 });
+          folderId = created.id;
+        }
+        setCurrentFolderId(folderId);
+      }
+      for (let i = 0; i < playlistData.videos.length; i++) {
+        const v = playlistData.videos[i];
+        await mediaRepository.createVideo(user.id, {
+          folderId,
+          title: v.title,
+          url: v.url,
+          thumbnailUrl: v.thumbnailUrl || undefined,
+          channelName: v.channelName || undefined,
+          notes: [],
+          tags: [],
+          watched: false,
+          order: visibleVideos.length + i,
+        });
+      }
+      setShowPlaylistImport(false);
+      setPlaylistUrl(''); setPlaylistData(null); setPlaylistError('');
+      loadAll();
+    } catch { /* ignore */ } finally {
+      setPlaylistImporting(false);
+    }
   };
 
   const handleToggleWatched = async (video: MediaVideo) => {
@@ -242,6 +347,9 @@ export default function MediaPage() {
           <div className="flex items-center gap-2">
             <Button variant="secondary" size="sm" iconLeft={<FolderPlus size={14} />} onClick={() => setShowCreateFolder(true)}>
               Dossier
+            </Button>
+            <Button variant="secondary" size="sm" iconLeft={<List size={14} />} onClick={() => { setShowPlaylistImport(true); setPlaylistUrl(''); setPlaylistData(null); setPlaylistError(''); }}>
+              Playlist
             </Button>
             {currentFolderId && (
               <Button variant="primary" size="sm" iconLeft={<Plus size={14} />} onClick={() => setShowAddVideo(true)}>
@@ -312,7 +420,8 @@ export default function MediaPage() {
 
           {/* Videos */}
           {visibleVideos.map((video) => {
-            const ytId = extractYouTubeId(video.url);
+            const info = extractVideoInfo(video.url);
+            const platform = info?.platform;
             return (
               <motion.div key={video.id} variants={fadeUp}>
                 <Card glowColor="green" className="overflow-hidden">
@@ -330,6 +439,9 @@ export default function MediaPage() {
                         </div>
                         {video.duration && (
                           <span className="absolute bottom-1 right-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-black/70 text-white">{video.duration}</span>
+                        )}
+                        {platform && platform !== 'youtube' && (
+                          <span className="absolute top-1 left-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-black/70 text-white">{platformIcon(platform)}</span>
                         )}
                       </div>
                     </button>
@@ -434,8 +546,8 @@ export default function MediaPage() {
       <Modal isOpen={showAddVideo} onClose={() => setShowAddVideo(false)} title="Ajouter une vidéo">
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>URL YouTube</label>
-            <input value={newVideoUrl} onChange={(e) => setNewVideoUrl(e.target.value)} onBlur={handleUrlBlur} placeholder="https://youtube.com/watch?v=..." className="w-full rounded-xl px-4 py-3 text-sm outline-none" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }} />
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>URL (YouTube, TikTok, Instagram, Twitter/X...)</label>
+            <input value={newVideoUrl} onChange={(e) => setNewVideoUrl(e.target.value)} onBlur={handleUrlBlur} placeholder="https://youtube.com/watch?v=... ou tiktok.com/..." className="w-full rounded-xl px-4 py-3 text-sm outline-none" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }} />
             {fetchingMeta && <p className="text-xs mt-1" style={{ color: 'var(--accent)' }}>Récupération des infos...</p>}
           </div>
           <div>
@@ -454,6 +566,71 @@ export default function MediaPage() {
             <Button variant="secondary" size="md" onClick={() => setShowAddVideo(false)} className="flex-1">Annuler</Button>
             <Button variant="primary" size="md" onClick={handleAddVideo} disabled={!newVideoTitle.trim() || !newVideoUrl.trim()} className="flex-1">Ajouter</Button>
           </div>
+        </div>
+      </Modal>
+
+      {/* Import Playlist Modal */}
+      <Modal isOpen={showPlaylistImport} onClose={() => setShowPlaylistImport(false)} title="Importer une playlist YouTube">
+        <div className="space-y-4">
+          {!playlistData ? (
+            <>
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>URL de la playlist YouTube</label>
+                <input
+                  value={playlistUrl}
+                  onChange={(e) => { setPlaylistUrl(e.target.value); setPlaylistError(''); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleFetchPlaylist(); }}
+                  placeholder="https://youtube.com/playlist?list=PL..."
+                  className="w-full rounded-xl px-4 py-3 text-sm outline-none"
+                  style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                />
+              </div>
+              {playlistError && <p className="text-xs" style={{ color: '#f87171' }}>⚠️ {playlistError}</p>}
+              <div className="flex gap-2 pt-2">
+                <Button variant="secondary" size="md" onClick={() => setShowPlaylistImport(false)} className="flex-1">Annuler</Button>
+                <Button
+                  variant="primary" size="md" className="flex-1"
+                  onClick={handleFetchPlaylist}
+                  disabled={!playlistUrl.trim() || playlistLoading}
+                  iconLeft={playlistLoading ? <Loader2 size={14} className="animate-spin" /> : undefined}
+                >
+                  {playlistLoading ? 'Chargement...' : 'Charger'}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="rounded-xl p-3" style={{ background: 'rgba(46,158,140,0.06)', border: '1px solid rgba(46,158,140,0.12)' }}>
+                <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{playlistData.playlistTitle}</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{playlistData.videos.length} vidéo{playlistData.videos.length !== 1 ? 's' : ''}</p>
+              </div>
+              <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
+                {playlistData.videos.slice(0, 20).map((v, i) => (
+                  <div key={i} className="flex items-center gap-3 p-2 rounded-xl" style={{ background: 'var(--bg-secondary)' }}>
+                    {v.thumbnailUrl && <img src={v.thumbnailUrl} alt="" className="w-12 h-8 rounded-lg object-cover shrink-0" />}
+                    <p className="text-xs line-clamp-2 flex-1" style={{ color: 'var(--text-primary)' }}>{v.title}</p>
+                  </div>
+                ))}
+                {playlistData.videos.length > 20 && (
+                  <p className="text-xs text-center py-2" style={{ color: 'var(--text-muted)' }}>+ {playlistData.videos.length - 20} vidéos supplémentaires</p>
+                )}
+              </div>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                Les vidéos seront importées dans le dossier courant{currentFolderId ? '' : ' (ou un nouveau dossier)'}.
+              </p>
+              <div className="flex gap-2">
+                <Button variant="secondary" size="md" onClick={() => { setPlaylistData(null); setPlaylistUrl(''); }} className="flex-1">Retour</Button>
+                <Button
+                  variant="primary" size="md" className="flex-1"
+                  onClick={handleImportPlaylist}
+                  disabled={playlistImporting}
+                  iconLeft={playlistImporting ? <Loader2 size={14} className="animate-spin" /> : undefined}
+                >
+                  {playlistImporting ? 'Import...' : `Importer ${playlistData.videos.length} vidéos`}
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </Modal>
     </div>

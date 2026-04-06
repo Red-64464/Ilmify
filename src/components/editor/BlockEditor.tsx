@@ -1042,7 +1042,7 @@ function ReadOnlyBlock({ block }: { block: TopicBlock }) {
     case 'bullet-list':
       return (
         <ul className="my-3 space-y-1.5 pl-5">
-          {block.content.split('\n').filter(Boolean).map((item, i) => (
+          {String(block.content ?? '').split('\n').filter(Boolean).map((item, i) => (
             <li key={i} className="text-sm leading-[1.8] list-disc" style={{ color: 'var(--text-secondary)' }}>
               <TextWithLinks text={item} />
             </li>
@@ -1052,7 +1052,7 @@ function ReadOnlyBlock({ block }: { block: TopicBlock }) {
     case 'numbered-list':
       return (
         <ol className="my-3 space-y-1.5 pl-5">
-          {block.content.split('\n').filter(Boolean).map((item, i) => (
+          {String(block.content ?? '').split('\n').filter(Boolean).map((item, i) => (
             <li key={i} className="text-sm leading-[1.8] list-decimal" style={{ color: 'var(--text-secondary)' }}>
               <TextWithLinks text={item} />
             </li>
@@ -1355,7 +1355,7 @@ function ReadOnlyBlock({ block }: { block: TopicBlock }) {
         </div>
       );
     case 'qa': {
-      const parts = block.content.split('---');
+      const parts = String(block.content ?? '').split('---');
       return (
         <div
           className="my-4 rounded-xl p-4 space-y-3"
@@ -1463,7 +1463,7 @@ function ReadOnlyBlock({ block }: { block: TopicBlock }) {
         </div>
       );
     case 'definition': {
-      const defParts = block.content.split('---');
+      const defParts = String(block.content ?? '').split('---');
       return (
         <div
           className="my-4 rounded-xl p-4"
@@ -1492,7 +1492,7 @@ function ReadOnlyBlock({ block }: { block: TopicBlock }) {
     case 'checklist':
       return (
         <div className="my-3 space-y-1.5 pl-1">
-          {block.content.split('\n').filter(Boolean).map((item, i) => {
+          {String(block.content ?? '').split('\n').filter(Boolean).map((item, i) => {
             const checked = item.startsWith('✓ ') || item.startsWith('✔ ');
             const text = checked ? item.slice(2) : item;
             return (
@@ -1559,7 +1559,7 @@ function ReadOnlyBlock({ block }: { block: TopicBlock }) {
             </span>
           </div>
           <div className="space-y-1">
-            {block.content.split('\n').filter(Boolean).map((line, i) => (
+            {String(block.content ?? '').split('\n').filter(Boolean).map((line, i) => (
               <p key={i} className="text-sm italic text-center leading-[1.9]" style={{ color: 'var(--text-primary)' }}>
                 {line}
               </p>
@@ -1575,7 +1575,7 @@ function ReadOnlyBlock({ block }: { block: TopicBlock }) {
     case 'timeline':
       return (
         <div className="my-4 pl-4" style={{ borderLeft: '2px solid rgba(6, 182, 212, 0.3)' }}>
-          {block.content.split('\n').filter(Boolean).map((line, i) => {
+          {String(block.content ?? '').split('\n').filter(Boolean).map((line, i) => {
             const sep = line.indexOf('—');
             const date = sep > -1 ? line.slice(0, sep).trim() : '';
             const event = sep > -1 ? line.slice(sep + 1).trim() : line;
