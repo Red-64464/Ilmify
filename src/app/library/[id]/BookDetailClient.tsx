@@ -530,17 +530,21 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
                         : '1px solid var(--border-subtle)',
                     }}
                   >
-                    <div className="flex items-start justify-between mb-3">
-                      <h4 className="text-sm font-semibold tracking-tight" style={{ color: 'var(--text-primary)' }}>
-                        {passage.title}
-                      </h4>
-                      <div className="flex items-center gap-2 shrink-0 ml-3">
-                        {passage.isImportant && (
-                          <Badge variant="gold" size="sm">Important</Badge>
-                        )}
-                        {passage.pageNumber && (
-                          <Badge variant="default" size="sm">p.{passage.pageNumber}</Badge>
-                        )}
+                    <div className="flex flex-col gap-2 mb-3">
+                      <div className="flex items-start justify-between">
+                        <h4 className="text-sm font-semibold tracking-tight" style={{ color: 'var(--text-primary)' }}>
+                          {passage.title}
+                        </h4>
+                        <div className="flex items-center gap-1.5 shrink-0 ml-3">
+                          {passage.isImportant && (
+                            <Badge variant="gold" size="sm">Important</Badge>
+                          )}
+                          {passage.pageNumber && (
+                            <Badge variant="default" size="sm">p.{passage.pageNumber}</Badge>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 flex-wrap">
                         <button
                           onClick={() => openFlashcardFromPassage(passage)}
                           className="p-1.5 rounded-lg cursor-pointer transition-colors"

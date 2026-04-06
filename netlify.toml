@@ -1,6 +1,8 @@
 [build]
   command = "npm run build"
-  publish = "out"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
 
 [dev]
   command = "npm run dev"
@@ -13,27 +15,3 @@
 
 [build.environment]
   NODE_VERSION = "20"
-
-# Rewrite dynamic topic routes to the placeholder page
-[[redirects]]
-  from = "/topics/*"
-  to = "/topics/_placeholder.html"
-  status = 200
-
-# Rewrite dynamic course routes to the placeholder page
-[[redirects]]
-  from = "/courses/*"
-  to = "/courses/_placeholder.html"
-  status = 200
-
-# Rewrite dynamic library routes to the placeholder page
-[[redirects]]
-  from = "/library/*"
-  to = "/library/_placeholder.html"
-  status = 200
-
-# Rewrite dynamic flashcard routes to the placeholder page
-[[redirects]]
-  from = "/flashcards/*"
-  to = "/flashcards/_placeholder.html"
-  status = 200
