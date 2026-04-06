@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, Play, Clock, Plus, Trash2, Eye, EyeOff,
   Edit3, ExternalLink, Video, Sparkles, Loader2, CheckCircle2, BookOpen,
-  MessageCircle, ChevronRight, Trophy, Send,
+  MessageCircle, ChevronRight, Trophy, Send, RefreshCw,
 } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
@@ -165,13 +165,16 @@ export default function MediaDetailPage({ params }: { params: Promise<{ id: stri
     setShowEdit(false);
   };
 
-  const handleAiAnalyze = async () => {
+  const handleAiAnalyze = async (force = false) => {
     if (!ytId || !video) return;
 
     // Check localStorage cache first
     const cacheKey = `ilmify-ai-${ytId}`;
+    if (force) {
+      try { localStorage.removeItem(cacheKey); } catch { /* ignore */ }
+    }
     try {
-      const cached = localStorage.getItem(cacheKey);
+      const cached = !force ? localStorage.getItem(cacheKey) : null;
       if (cached) {
         const parsed = JSON.parse(cached) as VideoAnalysis;
         setAiResult(parsed);
@@ -259,8 +262,11 @@ export default function MediaDetailPage({ params }: { params: Promise<{ id: stri
           order: i,
         }));
       setPreviewBlocks(builtBlocks);
-      // Cache result for instant reload
-      try { localStorage.setItem(cacheKey, JSON.stringify(analysis)); } catch { /* quota exceeded */ }
+      // Cache result for instant reload — only if we actually have meaningful data
+      const hasContent = analysis.summary || analysis.synthesis || analysis.keyPoints.length > 0 || analysis.blocks.length > 0;
+      if (hasContent) {
+        try { localStorage.setItem(cacheKey, JSON.stringify(analysis)); } catch { /* quota exceeded */ }
+      }
     } catch (err) {
       setAiError(err instanceof Error ? err.message : 'Une erreur est survenue');
     } finally {
@@ -587,7 +593,19 @@ export default function MediaDetailPage({ params }: { params: Promise<{ id: stri
                 <p className="text-xs" style={{ color: 'var(--accent)' }}>{aiStep || 'Finalisation...'}</p>
               </div>
             )}
-            {/* Tab bar — single row */}
+            {/* Regenerate + Tab bar */}
+            {!aiLoading && (
+              <div className="flex justify-end mb-2">
+                <button
+                  onClick={() => handleAiAnalyze(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer hover:brightness-110"
+                  style={{ background: 'rgba(46,158,140,0.08)', color: 'var(--accent)' }}
+                >
+                  <RefreshCw size={12} />
+                  Régénérer
+                </button>
+              </div>
+            )}
             <div className="flex flex-wrap gap-1 p-1 rounded-xl mb-4" style={{ background: 'var(--bg-secondary)' }}>
               {([
                 { id: 'summary', label: 'Résumé' },

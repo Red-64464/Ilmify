@@ -552,13 +552,12 @@ Réponds en JSON avec exactement ces 3 champs :
   "keyPoints": ["Point essentiel 1", "Point essentiel 2", "... entre ${keyPointsTarget}"]
 }`;
 
-  // Stage 2 prompt: blocs + chapitres + quiz (uses transcript directly, no need for Stage 1 keyPoints)
-  const blocksInputChars = hasOpenRouter ? 16000 : 6000;
-  const blocksPrompt = `Génère pour cette vidéo islamique une note de cours TRÈS DÉTAILLÉE et COMPLÈTE, une table des matières et un quiz.
+  // Stage 2 prompt builder — different input sizes for OpenRouter vs Groq
+  const buildBlocksPrompt = (inputChars: number) => `Génère pour cette vidéo islamique une note de cours TRÈS DÉTAILLÉE et COMPLÈTE, une table des matières et un quiz.
 
 Titre : ${videoTitle}
 Transcription (extrait) :
-${sampleTranscript(transcript, blocksInputChars)}
+${sampleTranscript(transcript, inputChars)}
 
 Réponds en JSON avec exactement ces 3 champs :
 {
@@ -594,32 +593,78 @@ RÈGLES pour le quiz (8-10 questions QCM) :
 - Mélange de questions faciles, moyennes et difficiles
 - Format : { "question": "...", "options": ["A","B","C","D"], "correctAnswer": 0, "explanation": "..." }`;
 
+  const blocksPrompt = buildBlocksPrompt(hasOpenRouter ? 16000 : 6000);
+
   report('Analyse en cours...');
 
   // Run both stages in PARALLEL — Groq for Stage 1, OpenRouter for Stage 2 (different providers = no rate conflicts)
   // If no OpenRouter, run sequentially on Groq with a small pause
   if (hasOpenRouter) {
-    const stage1Model = isLong ? undefined : 'llama-3.3-70b-versatile';
-    const stage1Fn = isLong
-      ? callOpenRouter([{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: textPrompt }], true, undefined, 3, 12000)
-      : callGroq([{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: textPrompt }], true, stage1Model!, 3, 6000);
+    const stage1Messages = [{ role: 'system' as const, content: SYSTEM_PROMPT }, { role: 'user' as const, content: textPrompt }];
+    const stage2Messages = [{ role: 'system' as const, content: SYSTEM_PROMPT }, { role: 'user' as const, content: blocksPrompt }];
 
-    const stage2Fn = callOpenRouter(
-      [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: blocksPrompt }],
-      true, undefined, 3, 16000,
-    );
+    const stage1Fn = isLong
+      ? callOpenRouter(stage1Messages, true, undefined, 3, 12000)
+      : callGroq(stage1Messages, true, 'llama-3.3-70b-versatile', 3, 6000);
+
+    const stage2Fn = callOpenRouter(stage2Messages, true, undefined, 3, 16000);
 
     // Race: whichever finishes first gets shown as partial result
     const results = await Promise.allSettled([stage1Fn, stage2Fn]);
 
+    const errors: string[] = [];
     let textParsed: { summary?: string; synthesis?: string; keyPoints?: string[] } = {};
     let blocksParsed: { blocks?: { type: string; content: string; metadata?: Record<string, string> }[]; chapters?: VideoChapter[]; quizQuestions?: VideoQuizQuestion[] } = {};
 
     if (results[0].status === 'fulfilled') {
-      try { textParsed = JSON.parse(extractJsonFromText(results[0].value)); } catch { /* */ }
+      try { textParsed = JSON.parse(extractJsonFromText(results[0].value)); } catch (e) { errors.push(`Stage 1 JSON: ${e}`); }
+    } else {
+      errors.push(`Stage 1 OpenRouter: ${results[0].reason}`);
+      // Fallback Stage 1 to Groq if it was on OpenRouter (long transcripts)
+      if (isLong) {
+        report('Analyse du résumé (fallback Groq)...');
+        try {
+          const fallbackRaw = await callGroq(stage1Messages, true, 'llama-3.3-70b-versatile', 3, 6000);
+          textParsed = JSON.parse(extractJsonFromText(fallbackRaw));
+          report('Résumé terminé, suite de l\'analyse...', {
+            summary: textParsed.summary ?? '',
+            synthesis: textParsed.synthesis ?? '',
+            keyPoints: textParsed.keyPoints ?? [],
+          });
+        } catch (e) { errors.push(`Stage 1 Groq fallback: ${e}`); }
+      }
     }
+
     if (results[1].status === 'fulfilled') {
-      try { blocksParsed = JSON.parse(extractJsonFromText(results[1].value)); } catch { /* */ }
+      try { blocksParsed = JSON.parse(extractJsonFromText(results[1].value)); } catch (e) { errors.push(`Stage 2 JSON: ${e}`); }
+    } else {
+      errors.push(`Stage 2 OpenRouter: ${results[1].reason}`);
+    }
+
+    // Fallback Stage 2 to Groq if OpenRouter failed (rate limit, etc.)
+    const hasBlocks = !!((blocksParsed.blocks && blocksParsed.blocks.length > 0) || (blocksParsed.quizQuestions && blocksParsed.quizQuestions.length > 0));
+    if (!hasBlocks) {
+      report('Génération des blocs (fallback Groq)...');
+      // Rebuild prompt with smaller transcript for Groq's TPM limit
+      const groqBlocksPrompt = buildBlocksPrompt(4000);
+      const groqStage2Messages = [{ role: 'system' as const, content: SYSTEM_PROMPT }, { role: 'user' as const, content: groqBlocksPrompt }];
+      // Small pause if Stage 1 was also on Groq to avoid rate limits
+      if (!isLong) await new Promise(r => setTimeout(r, 5000));
+      try {
+        const fallbackRaw = await callGroq(groqStage2Messages, true, 'llama-3.3-70b-versatile', 3, 8000);
+        blocksParsed = JSON.parse(extractJsonFromText(fallbackRaw));
+      } catch (e) { errors.push(`Stage 2 Groq fallback: ${e}`); }
+    }
+
+    if (errors.length > 0) {
+      console.warn('[AI Analysis] Errors:', errors);
+    }
+
+    // If BOTH stages failed completely, throw instead of returning empty
+    const hasText = !!(textParsed.summary || textParsed.synthesis || (textParsed.keyPoints && textParsed.keyPoints.length > 0));
+    const hasBlocksFinal = !!((blocksParsed.blocks && blocksParsed.blocks.length > 0) || (blocksParsed.quizQuestions && blocksParsed.quizQuestions.length > 0));
+    if (!hasText && !hasBlocksFinal) {
+      throw new Error(`L'analyse IA a échoué : ${errors.join(' | ') || 'Aucune donnée retournée par les modèles'}`);
     }
 
     return {
@@ -657,10 +702,12 @@ RÈGLES pour le quiz (8-10 questions QCM) :
   // Short pause for Groq rate limit (reduced from 20s)
   await new Promise(r => setTimeout(r, 10000));
 
+  // Rebuild with smaller transcript for Groq TPM limit
+  const groqBlocksPrompt = buildBlocksPrompt(4000);
   let blocksRaw: string;
   blocksRaw = await callGroq(
-    [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: blocksPrompt }],
-    true, 'llama-3.3-70b-versatile', 3, 12000,
+    [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: groqBlocksPrompt }],
+    true, 'llama-3.3-70b-versatile', 3, 8000,
   );
 
   let blocksParsed: {

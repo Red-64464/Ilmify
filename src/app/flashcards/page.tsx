@@ -10,6 +10,7 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import EmptyState from '@/components/ui/EmptyState';
+import Skeleton from '@/components/ui/Skeleton';
 import AuthGuard from '@/components/layout/AuthGuard';
 import { useAuth } from '@/contexts/AuthContext';
 import { flashcardRepository } from '@/lib/repositories/flashcardRepository';
@@ -61,11 +62,13 @@ export default function FlashcardsPage() {
   const [addingCard, setAddingCard] = useState(false);
   const [importing, setImporting] = useState(false);
   const [decks, setDecks] = useState<FlashcardDeck[]>([]);
+  const [decksLoading, setDecksLoading] = useState(true);
 
   useEffect(() => {
     if (authLoading || !user) return;
     let cancelled = false;
-    flashcardRepository.getAllDecks(user.id).then(d => { if (!cancelled) setDecks(d); }).catch(() => {});
+    setDecksLoading(true);
+    flashcardRepository.getAllDecks(user.id).then(d => { if (!cancelled) setDecks(d); }).catch(() => {}).finally(() => { if (!cancelled) setDecksLoading(false); });
     return () => { cancelled = true; };
   }, [authLoading, user]);
 
@@ -221,7 +224,22 @@ export default function FlashcardsPage() {
         }
       />
 
-      {decks.length > 0 ? (
+      {decksLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="rounded-2xl p-5 sm:p-6" style={{ background: 'var(--bg-card)' }}>
+              <div className="flex items-start gap-3 mb-3">
+                <Skeleton className="h-10 w-10 rounded-xl" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-5 w-2/3" />
+                  <Skeleton className="h-3 w-1/3" />
+                </div>
+              </div>
+              <Skeleton className="h-2 w-full rounded-full" />
+            </div>
+          ))}
+        </div>
+      ) : decks.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {decks.map((deck, i) => (
             <motion.div

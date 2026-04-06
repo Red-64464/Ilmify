@@ -318,6 +318,7 @@ function EditableBlock({
   const [cropImage, setCropImage] = useState<string | null>(null);
   const [cropFileName, setCropFileName] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const blockRef = useRef<HTMLDivElement>(null);
 
   const handleInput = useCallback(
     (value: string) => {
@@ -588,13 +589,16 @@ function EditableBlock({
 
   return (
     <div
+      ref={blockRef}
       className="group/block relative"
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
+      onFocus={() => setShowActions(true)}
+      onBlur={(e) => { if (!blockRef.current?.contains(e.relatedTarget as Node)) setShowActions(false); }}
     >
-      {/* Grip handle — centered vertically */}
+      {/* Grip handle — hidden on mobile, visible on hover on desktop */}
       <div
-        className="absolute -left-7 sm:-left-8 top-1/2 -translate-y-1/2 transition-opacity duration-200"
+        className="absolute -left-7 sm:-left-8 top-1/2 -translate-y-1/2 transition-opacity duration-200 hidden sm:block"
         style={{ opacity: showActions ? 0.6 : 0 }}
       >
         <button
@@ -874,20 +878,20 @@ function EditableBlock({
           <TableEditor block={block} onUpdate={onUpdate} />
         )}
 
-        {/* Inline actions */}
+        {/* Desktop: Inline actions on hover */}
         <AnimatePresence>
           {showActions && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute -right-2 top-0 flex items-center gap-0.5"
+              className="absolute -right-2 top-0 hidden sm:flex items-center gap-0.5"
             >
               <button
                 onClick={() => setShowSlash(true)}
                 className="p-1 rounded transition-colors cursor-pointer"
                 style={{ color: 'var(--accent)' }}
-                title="Changer le type"
+                title="Ajouter un bloc"
               >
                 <Plus size={12} />
               </button>
@@ -922,6 +926,42 @@ function EditableBlock({
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Mobile: always-visible compact action bar below content */}
+        <div className="flex sm:hidden items-center justify-end gap-1 mt-2 -mb-1">
+          <button
+            onClick={() => setShowSlash(true)}
+            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-medium transition-colors cursor-pointer"
+            style={{ color: 'var(--accent)', background: 'rgba(46,158,140,0.08)' }}
+          >
+            <Plus size={12} /> Ajouter
+          </button>
+          {!isFirst && (
+            <button
+              onClick={onMoveUp}
+              className="p-1.5 rounded-lg transition-colors cursor-pointer"
+              style={{ color: 'var(--text-muted)', background: 'rgba(255,255,255,0.04)' }}
+            >
+              <ChevronUp size={14} />
+            </button>
+          )}
+          {!isLast && (
+            <button
+              onClick={onMoveDown}
+              className="p-1.5 rounded-lg transition-colors cursor-pointer"
+              style={{ color: 'var(--text-muted)', background: 'rgba(255,255,255,0.04)' }}
+            >
+              <ChevronDown size={14} />
+            </button>
+          )}
+          <button
+            onClick={onDelete}
+            className="p-1.5 rounded-lg transition-colors cursor-pointer"
+            style={{ color: '#f87171', background: 'rgba(248,113,113,0.08)' }}
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
       </div>
 
       {/* Slash command menu */}
@@ -1731,6 +1771,8 @@ export default function BlockEditor({ blocks, onChange, readOnly = false }: Bloc
   const [showQuranModal, setShowQuranModal] = useState(false);
   const [showHadithModal, setShowHadithModal] = useState(false);
   const [showQuranAIModal, setShowQuranAIModal] = useState(false);
+  const [showFabMenu, setShowFabMenu] = useState(false);
+  const [fabFilter, setFabFilter] = useState('');
 
   const handlePaste = useCallback(
     (e: React.ClipboardEvent) => {
@@ -1828,9 +1870,9 @@ export default function BlockEditor({ blocks, onChange, readOnly = false }: Bloc
     );
   }
 
-  // Insert line component — appears between blocks on hover
+  // Insert line component — appears between blocks on hover (desktop only)
   const InsertLine = ({ index }: { index: number }) => (
-    <div className="group/insert relative flex items-center justify-center" style={{ height: '12px', margin: '0 -0.5rem', zIndex: 5 }}>
+    <div className="group/insert relative hidden sm:flex items-center justify-center" style={{ height: '12px', margin: '0 -0.5rem', zIndex: 5 }}>
       <div
         className="absolute inset-x-0 flex items-center justify-center cursor-pointer"
         style={{ top: '-4px', bottom: '-4px' }}
@@ -1851,7 +1893,7 @@ export default function BlockEditor({ blocks, onChange, readOnly = false }: Bloc
   );
 
   return (
-    <div className="pl-8" onPaste={handlePaste}>
+    <div className="pl-0 sm:pl-8" onPaste={handlePaste}>
       {/* Insert line before first block */}
       <InsertLine index={-1} />
 
@@ -1876,6 +1918,68 @@ export default function BlockEditor({ blocks, onChange, readOnly = false }: Bloc
             <InsertLine index={index} />
           </React.Fragment>
         ))}
+
+      {/* Floating Add Button for mobile — always visible */}
+      <div className="sm:hidden fixed bottom-20 right-4 z-40 flex flex-col items-end gap-2">
+        <AnimatePresence>
+          {showFabMenu && (
+            <>
+              {/* Backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-30"
+                style={{ background: 'rgba(0,0,0,0.3)' }}
+                onClick={() => { setShowFabMenu(false); setFabFilter(''); }}
+              />
+              <motion.div
+                initial={{ opacity: 0, y: 20, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 20, scale: 0.9 }}
+                className="relative z-40 rounded-2xl p-3 max-h-72 w-64 overflow-y-auto overscroll-contain"
+                style={{ background: 'var(--bg-card)', boxShadow: 'var(--shadow-elevated)', border: '1px solid var(--border-subtle)' }}
+              >
+                <input
+                  autoFocus
+                  value={fabFilter}
+                  onChange={(e) => setFabFilter(e.target.value)}
+                  placeholder="Chercher un bloc..."
+                  className="w-full rounded-lg px-3 py-2 text-xs outline-none mb-2"
+                  style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
+                />
+                <div className="space-y-0.5">
+                  {BLOCK_TYPES
+                    .filter((bt) => bt.label.toLowerCase().includes(fabFilter.toLowerCase()) || bt.shortcut.toLowerCase().includes(fabFilter.toLowerCase()))
+                    .slice(0, 12)
+                    .map((bt) => (
+                      <button
+                        key={bt.shortcut}
+                        className="flex items-center gap-2 w-full px-2 py-2 rounded-lg text-xs transition-colors cursor-pointer"
+                        style={{ color: 'var(--text-primary)' }}
+                        onClick={() => {
+                          addBlock(blocks.length - 1, bt.type);
+                          setShowFabMenu(false);
+                          setFabFilter('');
+                        }}
+                      >
+                        <bt.icon size={14} style={{ color: bt.color }} />
+                        <span>{bt.label}</span>
+                      </button>
+                    ))}
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+        <button
+          onClick={() => setShowFabMenu(!showFabMenu)}
+          className="flex items-center justify-center w-14 h-14 rounded-full shadow-lg cursor-pointer transition-transform active:scale-95"
+          style={{ background: 'var(--accent)', color: '#fff', boxShadow: '0 4px 20px rgba(46,158,140,0.4)' }}
+        >
+          <Plus size={24} strokeWidth={2.5} />
+        </button>
+      </div>
 
       {/* Islamic API modals */}
       <QuranSearchModal

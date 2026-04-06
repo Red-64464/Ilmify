@@ -13,6 +13,7 @@ import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
+import Skeleton from '@/components/ui/Skeleton';
 import AuthGuard from '@/components/layout/AuthGuard';
 import { useAuth } from '@/contexts/AuthContext';
 import { authService } from '@/lib/auth/authService';
@@ -48,6 +49,7 @@ export default function AdminPage() {
   const [editUserError, setEditUserError] = useState('');
 
   // Dynamic stats
+  const [adminLoading, setAdminLoading] = useState(true);
   const [topicCount, setTopicCount] = useState(0);
   const [bookCount, setBookCount] = useState(0);
   const [courseCount, setCourseCount] = useState(0);
@@ -61,14 +63,16 @@ export default function AdminPage() {
   }, []);
 
   useEffect(() => {
-    refreshUsers();
+    setAdminLoading(true);
+    const fetches: Promise<void>[] = [refreshUsers()];
     // Fetch dynamic stats
     if (currentUser) {
-      topicRepository.getByUser(currentUser.id).then(t => setTopicCount(t.length)).catch(() => {});
+      fetches.push(topicRepository.getByUser(currentUser.id).then(t => setTopicCount(t.length)).catch(() => {}));
     }
-    bookRepository.getAll().then(b => setBookCount(b.length)).catch(() => {});
-    courseRepository.getAllPages().then(p => setCourseCount(p.length)).catch(() => {});
-    flashcardRepository.getAllDecks().then(d => setFlashcardDeckCount(d.length)).catch(() => {});
+    fetches.push(bookRepository.getAll().then(b => setBookCount(b.length)).catch(() => {}));
+    fetches.push(courseRepository.getAllPages().then(p => setCourseCount(p.length)).catch(() => {}));
+    fetches.push(flashcardRepository.getAllDecks().then(d => setFlashcardDeckCount(d.length)).catch(() => {}));
+    Promise.all(fetches).finally(() => setAdminLoading(false));
   }, [refreshUsers, currentUser]);
 
   useEffect(() => {
@@ -206,7 +210,15 @@ export default function AdminPage() {
           Vue d&apos;ensemble
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {stats.map((stat, i) => (
+          {adminLoading ? (
+            [...Array(5)].map((_, i) => (
+              <div key={i} className="rounded-2xl p-4 text-center" style={{ background: 'var(--bg-card)' }}>
+                <Skeleton className="h-9 w-9 rounded-lg mx-auto mb-2" />
+                <Skeleton className="h-6 w-8 mx-auto mb-1" />
+                <Skeleton className="h-3 w-14 mx-auto" />
+              </div>
+            ))
+          ) : stats.map((stat, i) => (
             <motion.div
               key={stat.label}
               initial={{ opacity: 0, scale: 0.95 }}
@@ -227,8 +239,6 @@ export default function AdminPage() {
           ))}
         </div>
       </motion.div>
-
-      {/* User Management */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

@@ -59,7 +59,7 @@ const Modal: React.FC<ModalProps> = ({
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
           variants={backdropVariants}
           initial="hidden"
           animate="visible"
@@ -75,10 +75,10 @@ const Modal: React.FC<ModalProps> = ({
             initial="hidden"
             animate="visible"
             exit="exit"
-            className={`relative w-full rounded-t-2xl sm:rounded-2xl flex flex-col ${className}`}
+            className={`relative w-full rounded-2xl flex flex-col ${className}`}
             style={{
               maxWidth,
-              maxHeight: 'min(90vh, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)))',
+              maxHeight: 'min(85vh, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 2rem))',
               background: 'var(--bg-card)',
               boxShadow: 'var(--shadow-elevated)',
               border: '1px solid var(--border-subtle)',

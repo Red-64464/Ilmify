@@ -13,6 +13,7 @@ import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
+import Skeleton from '@/components/ui/Skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppTheme } from '@/contexts/ThemeContext';
 import AuthGuard from '@/components/layout/AuthGuard';
@@ -60,6 +61,7 @@ export default function ProfilePage() {
   const [savingPassword, setSavingPassword] = useState(false);
 
   // Dynamic stats from Supabase
+  const [statsLoading, setStatsLoading] = useState(true);
   const [topicCount, setTopicCount] = useState(0);
   const [booksRead, setBooksRead] = useState(0);
   const [totalBooks, setTotalBooks] = useState(0);
@@ -69,16 +71,19 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!user) return;
-    topicRepository.getByUser(user.id).then((t) => {
-      setTopicCount(t.length);
-      setFavoriteCount(t.filter(tp => tp.isFavorite).length);
-    }).catch(() => {});
-    bookRepository.getAll(user.id).then((bks) => {
-      setTotalBooks(bks.length);
-      setBooksRead(bks.filter((b) => b.status === 'read').length);
-    }).catch(() => {});
-    flashcardRepository.getAllDecks(user.id).then((d) => setFlashcardCount(d.reduce((a, dk) => a + dk.cardCount, 0))).catch(() => {});
-    courseRepository.getAllPages().then((p) => setCoursePageCount(p.length)).catch(() => {});
+    setStatsLoading(true);
+    Promise.all([
+      topicRepository.getByUser(user.id).then((t) => {
+        setTopicCount(t.length);
+        setFavoriteCount(t.filter(tp => tp.isFavorite).length);
+      }).catch(() => {}),
+      bookRepository.getAll(user.id).then((bks) => {
+        setTotalBooks(bks.length);
+        setBooksRead(bks.filter((b) => b.status === 'read').length);
+      }).catch(() => {}),
+      flashcardRepository.getAllDecks(user.id).then((d) => setFlashcardCount(d.reduce((a, dk) => a + dk.cardCount, 0))).catch(() => {}),
+      courseRepository.getAllPages().then((p) => setCoursePageCount(p.length)).catch(() => {}),
+    ]).finally(() => setStatsLoading(false));
   }, [user]);
 
   const userBadges = useMemo(() => {
@@ -193,7 +198,7 @@ export default function ProfilePage() {
 
   return (
     <AuthGuard>
-    <div className="pb-10">
+    <div className="pb-10 pt-6 sm:pt-0">
       {/* Avatar & Name */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -319,6 +324,17 @@ export default function ProfilePage() {
       )}
 
       {/* Stats */}
+      {statsLoading ? (
+        <div className="grid grid-cols-2 gap-3 mb-10">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="rounded-2xl p-4 text-center" style={{ background: 'var(--bg-card)' }}>
+              <Skeleton className="h-10 w-10 rounded-xl mx-auto mb-2" />
+              <Skeleton className="h-5 w-10 mx-auto mb-1" />
+              <Skeleton className="h-3 w-14 mx-auto" />
+            </div>
+          ))}
+        </div>
+      ) : (
       <div className="grid grid-cols-2 gap-3 mb-10">
         {stats.map((stat, i) => (
           <motion.div
@@ -345,6 +361,7 @@ export default function ProfilePage() {
           </motion.div>
         ))}
       </div>
+      )}
 
       {/* Theme Customization */}
       <motion.div

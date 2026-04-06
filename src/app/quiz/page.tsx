@@ -10,6 +10,7 @@ import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import EmptyState from '@/components/ui/EmptyState';
+import Skeleton from '@/components/ui/Skeleton';
 import AuthGuard from '@/components/layout/AuthGuard';
 import { useAuth } from '@/contexts/AuthContext';
 import { quizRepository } from '@/lib/repositories/quizRepository';
@@ -116,6 +117,17 @@ export default function QuizPage() {
       />
 
       {/* Stats */}
+      {loading ? (
+        <div className="grid grid-cols-3 gap-3 mb-8">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="rounded-2xl p-4 text-center" style={{ background: 'var(--bg-card)' }}>
+              <Skeleton className="h-10 w-10 rounded-xl mx-auto mb-2" />
+              <Skeleton className="h-6 w-10 mx-auto mb-1" />
+              <Skeleton className="h-3 w-14 mx-auto" />
+            </div>
+          ))}
+        </div>
+      ) : (
       <div className="grid grid-cols-3 gap-3 mb-8">
         {[
           { label: 'Total', value: stats.total, icon: Brain, color: '#6366f1' },
@@ -141,6 +153,7 @@ export default function QuizPage() {
           </motion.div>
         ))}
       </div>
+      )}
 
       {/* Review errors button */}
       {stats.errors > 0 && (
