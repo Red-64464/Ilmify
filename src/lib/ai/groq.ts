@@ -3,8 +3,8 @@ const GROQ_API_KEY = process.env.NEXT_PUBLIC_GROQ_API_KEY || '';
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const OPENROUTER_API_KEY = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || '';
-const OPENROUTER_PRIMARY_MODEL = 'qwen/qwen3.6-plus:free';           // Qwen 3.6 Plus — 1M context, meilleure qualité
-const OPENROUTER_FALLBACK_MODEL = 'nvidia/nemotron-3-super-120b-a12b:free'; // Nemotron 120B — 262K, très fiable
+const OPENROUTER_PRIMARY_MODEL = 'nvidia/nemotron-3-super-120b-a12b:free'; // Nemotron 120B — 262K, très fiable, rarement rate-limité
+const OPENROUTER_FALLBACK_MODEL = 'minimax/minimax-m2.5:free';              // MiniMax M2.5 — 197K context, bon fallback
 
 const SYSTEM_PROMPT = `Tu es un assistant pédagogique pour une application d'apprentissage islamique appelée Ilmify.
 
@@ -24,7 +24,7 @@ interface GroqChoice {
   message: { content: string };
 }
 
-const MAX_CONTENT_LENGTH = 6000;
+const MAX_CONTENT_LENGTH = 12000;
 
 /** Tronque intelligemment un texte long en gardant début + fin */
 export function truncateContent(text: string, maxLen = MAX_CONTENT_LENGTH): string {
@@ -113,6 +113,17 @@ async function callGroq(
         if (res.status === 401 || res.status === 403) {
           throw new Error(`Erreur Groq (${res.status}): ${errText.slice(0, 200)}`);
         }
+        // 429 = rate limited → wait longer and retry
+        if (res.status === 429) {
+          // Extract wait time from error message if available
+          const waitMatch = errText.match(/try again in ([\d.]+)s/);
+          const waitSecs = waitMatch ? Math.ceil(parseFloat(waitMatch[1])) + 2 : 20;
+          console.warn(`[Groq] Rate limit 429 on ${model}, waiting ${waitSecs}s...`);
+          if (attempt < retries - 1) {
+            await new Promise(r => setTimeout(r, waitSecs * 1000));
+            continue;
+          }
+        }
         throw new Error(`Erreur Groq (${res.status}): ${errText.slice(0, 200)}`);
       }
 
@@ -130,8 +141,8 @@ async function callGroq(
         throw lastError;
       }
       if (attempt < retries - 1) {
-        // Exponential backoff: 1s, 2s, 4s
-        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
+        // Exponential backoff: 2s, 6s, 18s
+        await new Promise(r => setTimeout(r, 2000 * Math.pow(3, attempt)));
       }
     }
   }
@@ -515,21 +526,22 @@ export async function generateVideoAnalysis(
   transcript: string,
   videoTitle: string,
   channelName?: string,
+  onProgress?: (step: string, partial?: Partial<VideoAnalysis>) => void,
 ): Promise<VideoAnalysis> {
-  // Use OpenRouter (bigger model, more tokens) for long transcripts (>15k chars ≈ vidéos >30min)
-  // Use Groq (faster) for short transcripts
+  const report = (step: string, partial?: Partial<VideoAnalysis>) => { if (onProgress) onProgress(step, partial); };
+
+  const hasOpenRouter = !!OPENROUTER_API_KEY;
   const isLong = transcript.length > 15000;
-  const useOpenRouter = isLong && !!OPENROUTER_API_KEY;
-  const callAI = useOpenRouter ? callOpenRouter : callGroq;
 
   // For long transcripts on OpenRouter, we can send much more context
-  const maxInputChars = useOpenRouter ? 40000 : 12000;
+  const maxInputChars = (isLong && hasOpenRouter) ? 40000 : 15000;
   const sampled = sampleTranscript(transcript, maxInputChars);
   const context = `Titre : ${videoTitle}${channelName ? `\nChaîne : ${channelName}` : ''}\n\nTranscription :\n${sampled}`;
 
-  // Call 1 : résumé court + synthèse + points clés
-  const synthTarget = useOpenRouter ? '1500-2500 mots' : '600-900 mots';
-  const keyPointsTarget = useOpenRouter ? '12 et 18 points' : '8 et 12 points';
+  const synthTarget = (isLong && hasOpenRouter) ? '3000-5000 mots' : '1200-1800 mots';
+  const keyPointsTarget = (isLong && hasOpenRouter) ? '15 et 25 points' : '10 et 15 points';
+
+  // Stage 1 prompt: résumé + synthèse + points clés
   const textPrompt = `Analyse en profondeur cette vidéo et génère :
 ${context}
 
@@ -540,28 +552,11 @@ Réponds en JSON avec exactement ces 3 champs :
   "keyPoints": ["Point essentiel 1", "Point essentiel 2", "... entre ${keyPointsTarget}"]
 }`;
 
-  const textRaw = await callAI(
-    [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: textPrompt }],
-    true,
-    useOpenRouter ? undefined : 'llama-3.3-70b-versatile',
-    3,
-    useOpenRouter ? 8000 : 4000,
-  );
-  const textParsed = JSON.parse(textRaw) as {
-    summary?: string;
-    synthesis?: string;
-    keyPoints?: string[];
-  };
-
-  // Pause to avoid rate limit between the two large calls
-  await new Promise(r => setTimeout(r, useOpenRouter ? 2000 : 5000));
-
-  // Call 2 : blocs + chapitres + quiz
-  const blocksInputChars = useOpenRouter ? 10000 : 4000;
-  const blocksPrompt = `Génère pour cette vidéo islamique une note structurée, une table des matières et un quiz.
+  // Stage 2 prompt: blocs + chapitres + quiz (uses transcript directly, no need for Stage 1 keyPoints)
+  const blocksInputChars = hasOpenRouter ? 16000 : 6000;
+  const blocksPrompt = `Génère pour cette vidéo islamique une note de cours TRÈS DÉTAILLÉE et COMPLÈTE, une table des matières et un quiz.
 
 Titre : ${videoTitle}
-Points clés : ${(textParsed.keyPoints ?? []).join(' | ')}
 Transcription (extrait) :
 ${sampleTranscript(transcript, blocksInputChars)}
 
@@ -572,10 +567,19 @@ Réponds en JSON avec exactement ces 3 champs :
   "quizQuestions": [...]
 }
 
-RÈGLES pour les blocs (8-12 blocs) :
+RÈGLES pour les blocs (20-35 blocs MINIMUM, sois EXHAUSTIF) :
 - Types : heading1, heading2, heading3, paragraph, bullet-list, callout, reminder, source, definition, divider, verse, hadith
-- Commence par heading1 avec titre principal, organise par sections heading2
-- Points importants en callout, termine par reminder
+- Commence par heading1 avec titre principal
+- Organise en PLUSIEURS sections heading2 avec des sous-sections heading3
+- Chaque section doit avoir AU MINIMUM 2-3 paragraphes détaillés développant les idées
+- Utilise bullet-list pour lister les points importants dans chaque section
+- Utilise definition pour définir les termes islamiques clés mentionnés
+- Cite les versets coraniques (verse) et hadiths mentionnés avec leurs sources complètes
+- Points importants en callout (au moins 3-4 callouts)
+- Ajoute des rappels (reminder) entre les sections pour les messages essentiels
+- La note doit être une SYNTHÈSE COMPLÈTE : quelqu'un qui la lit doit comprendre TOUT le contenu de la vidéo sans l'avoir vue
+- Développe chaque argument, chaque exemple, chaque preuve mentionnée
+- Termine par un reminder récapitulatif
 - Pour verse/hadith : metadata { "source": "...", "reference": "..." }
 
 RÈGLES pour les chapitres (4-6 chapitres) :
@@ -583,23 +587,92 @@ RÈGLES pour les chapitres (4-6 chapitres) :
 - percentStart = position approximative 0-100 (0=début, 100=fin)
 - Format : { "title": "Nom du chapitre", "percentStart": 0 }
 
-RÈGLES pour le quiz (4-5 questions QCM) :
+RÈGLES pour le quiz (8-10 questions QCM) :
 - 4 options par question, correctAnswer = index 0-3
 - Basé UNIQUEMENT sur le contenu de la vidéo
+- Couvre différents aspects de la vidéo (début, milieu, fin)
+- Mélange de questions faciles, moyennes et difficiles
 - Format : { "question": "...", "options": ["A","B","C","D"], "correctAnswer": 0, "explanation": "..." }`;
 
-  const blocksRaw = await callAI(
-    [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: blocksPrompt }],
-    true,
-    useOpenRouter ? undefined : 'llama-3.1-8b-instant',
-    3,
-    useOpenRouter ? 6000 : 4500,
+  report('Analyse en cours...');
+
+  // Run both stages in PARALLEL — Groq for Stage 1, OpenRouter for Stage 2 (different providers = no rate conflicts)
+  // If no OpenRouter, run sequentially on Groq with a small pause
+  if (hasOpenRouter) {
+    const stage1Model = isLong ? undefined : 'llama-3.3-70b-versatile';
+    const stage1Fn = isLong
+      ? callOpenRouter([{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: textPrompt }], true, undefined, 3, 12000)
+      : callGroq([{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: textPrompt }], true, stage1Model!, 3, 6000);
+
+    const stage2Fn = callOpenRouter(
+      [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: blocksPrompt }],
+      true, undefined, 3, 16000,
+    );
+
+    // Race: whichever finishes first gets shown as partial result
+    const results = await Promise.allSettled([stage1Fn, stage2Fn]);
+
+    let textParsed: { summary?: string; synthesis?: string; keyPoints?: string[] } = {};
+    let blocksParsed: { blocks?: { type: string; content: string; metadata?: Record<string, string> }[]; chapters?: VideoChapter[]; quizQuestions?: VideoQuizQuestion[] } = {};
+
+    if (results[0].status === 'fulfilled') {
+      try { textParsed = JSON.parse(extractJsonFromText(results[0].value)); } catch { /* */ }
+    }
+    if (results[1].status === 'fulfilled') {
+      try { blocksParsed = JSON.parse(extractJsonFromText(results[1].value)); } catch { /* */ }
+    }
+
+    return {
+      summary: textParsed.summary ?? '',
+      synthesis: textParsed.synthesis ?? '',
+      keyPoints: textParsed.keyPoints ?? [],
+      blocks: blocksParsed.blocks ?? [],
+      chapters: blocksParsed.chapters ?? [],
+      quizQuestions: blocksParsed.quizQuestions ?? [],
+    };
+  }
+
+  // Fallback: Groq-only sequential mode
+  report('Analyse du contenu (étape 1/2)...');
+  let textRaw: string;
+  textRaw = await callGroq(
+    [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: textPrompt }],
+    true, 'llama-3.3-70b-versatile', 3, 6000,
   );
-  const blocksParsed = JSON.parse(blocksRaw) as {
+
+  let textParsed: { summary?: string; synthesis?: string; keyPoints?: string[] };
+  try {
+    textParsed = JSON.parse(extractJsonFromText(textRaw));
+  } catch {
+    textParsed = { summary: '', synthesis: '', keyPoints: [] };
+  }
+
+  // Show Stage 1 results immediately while Stage 2 loads
+  report('Génération du quiz (étape 2/2)...', {
+    summary: textParsed.summary ?? '',
+    synthesis: textParsed.synthesis ?? '',
+    keyPoints: textParsed.keyPoints ?? [],
+  });
+
+  // Short pause for Groq rate limit (reduced from 20s)
+  await new Promise(r => setTimeout(r, 10000));
+
+  let blocksRaw: string;
+  blocksRaw = await callGroq(
+    [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: blocksPrompt }],
+    true, 'llama-3.3-70b-versatile', 3, 12000,
+  );
+
+  let blocksParsed: {
     blocks?: { type: string; content: string; metadata?: Record<string, string> }[];
     chapters?: VideoChapter[];
     quizQuestions?: VideoQuizQuestion[];
   };
+  try {
+    blocksParsed = JSON.parse(extractJsonFromText(blocksRaw));
+  } catch {
+    blocksParsed = { blocks: [], chapters: [], quizQuestions: [] };
+  }
 
   return {
     summary: textParsed.summary ?? '',

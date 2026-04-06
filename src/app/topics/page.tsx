@@ -291,7 +291,7 @@ export default function TopicsPage() {
           key={categoryFilter}
         >
           {topics.map((topic) => (
-            <motion.div key={topic.id} variants={fadeUp}>
+            <motion.div key={topic.id} variants={fadeUp} style={contextMenu === topic.id ? { zIndex: 30, position: 'relative' } : undefined}>
               <div
                 className="cursor-pointer relative"
                 onClick={() => { router.push(`/topics/${topic.id}`); }}
@@ -351,7 +351,7 @@ export default function TopicsPage() {
                         initial={{ opacity: 0, scale: 0.95, y: -4 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: -4 }}
-                        className="absolute right-4 top-12 z-20 w-44 rounded-xl overflow-hidden"
+                        className="absolute right-2 top-12 z-50 w-44 rounded-xl overflow-hidden"
                         style={{
                           background: 'var(--bg-elevated)',
                           boxShadow: 'var(--shadow-elevated)',

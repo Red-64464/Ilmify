@@ -167,6 +167,44 @@ export default function MediaDetailPage({ params }: { params: Promise<{ id: stri
 
   const handleAiAnalyze = async () => {
     if (!ytId || !video) return;
+
+    // Check localStorage cache first
+    const cacheKey = `ilmify-ai-${ytId}`;
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const parsed = JSON.parse(cached) as VideoAnalysis;
+        setAiResult(parsed);
+        setShowAiModal(true);
+        setAiTab('summary');
+        // Build preview blocks from cache
+        const VALID_TYPES = new Set([
+          'paragraph', 'heading1', 'heading2', 'heading3',
+          'quote', 'bullet-list', 'numbered-list',
+          'callout', 'reflection', 'reminder', 'source',
+          'hadith', 'verse', 'dua', 'definition',
+          'checklist', 'poem', 'timeline', 'warning', 'divider',
+        ]);
+        setPreviewBlocks(parsed.blocks
+          .filter((b) => VALID_TYPES.has(b.type))
+          .map((b, i) => ({
+            id: `block-${Date.now()}-${Math.random().toString(36).substring(2, 9)}-${i}`,
+            type: b.type as TopicBlock['type'],
+            content: Array.isArray(b.content) ? (b.content as string[]).join('\n') : String(b.content ?? ''),
+            metadata: b.metadata,
+            order: i,
+          })));
+        // Still fetch transcript for Q&A
+        fetch(process.env.NODE_ENV === 'production'
+          ? `/.netlify/functions/youtube-transcript?videoId=${ytId}`
+          : `/api/youtube-transcript?videoId=${ytId}`)
+          .then(r => r.json())
+          .then((d: { transcript?: string }) => { if (d.transcript) setStoredTranscript(d.transcript); })
+          .catch(() => {});
+        return;
+      }
+    } catch { /* cache miss or parse error, continue */ }
+
     setAiLoading(true);
     setAiError('');
     setAiResult(null);
@@ -187,8 +225,21 @@ export default function MediaDetailPage({ params }: { params: Promise<{ id: stri
       if (!res.ok) throw new Error(data.error || 'Erreur lors de la récupération de la transcription');
       if (!data.transcript) throw new Error('Transcription vide');
       setStoredTranscript(data.transcript);
-      setAiStep('Génération de la synthèse...');
-      const analysis = await generateVideoAnalysis(data.transcript, video.title, video.channelName);
+      setAiStep('Analyse du contenu...');
+      const analysis = await generateVideoAnalysis(data.transcript, video.title, video.channelName, (step, partial) => {
+        setAiStep(step);
+        // Show partial results (Stage 1) while Stage 2 is still loading
+        if (partial) {
+          setAiResult(prev => ({
+            summary: partial.summary ?? prev?.summary ?? '',
+            synthesis: partial.synthesis ?? prev?.synthesis ?? '',
+            keyPoints: partial.keyPoints ?? prev?.keyPoints ?? [],
+            blocks: prev?.blocks ?? [],
+            chapters: prev?.chapters ?? [],
+            quizQuestions: prev?.quizQuestions ?? [],
+          }));
+        }
+      });
       setAiResult(analysis);
       setAiStep('Structuration des blocs...');
       const VALID_TYPES = new Set([
@@ -208,6 +259,8 @@ export default function MediaDetailPage({ params }: { params: Promise<{ id: stri
           order: i,
         }));
       setPreviewBlocks(builtBlocks);
+      // Cache result for instant reload
+      try { localStorage.setItem(cacheKey, JSON.stringify(analysis)); } catch { /* quota exceeded */ }
     } catch (err) {
       setAiError(err instanceof Error ? err.message : 'Une erreur est survenue');
     } finally {
@@ -469,9 +522,9 @@ export default function MediaDetailPage({ params }: { params: Promise<{ id: stri
       </Modal>
 
       {/* AI Analysis Result Modal */}
-      <Modal isOpen={showAiModal} onClose={() => { setShowAiModal(false); setSavingTopic(false); }} title="Analyse IA">
-        {/* Loading state */}
-        {aiLoading && (
+      <Modal isOpen={showAiModal} onClose={() => { setShowAiModal(false); setSavingTopic(false); }} title="Analyse IA" maxWidth="48rem">
+        {/* Loading state — full spinner only when no partial results yet */}
+        {aiLoading && !aiResult && (
           <div className="flex flex-col items-center py-12 gap-6">
             {/* Dual ring spinner */}
             <div className="relative w-20 h-20">
@@ -524,34 +577,23 @@ export default function MediaDetailPage({ params }: { params: Promise<{ id: stri
           </div>
         )}
 
-        {/* Result state */}
-        {aiResult && !aiLoading && (
+        {/* Result state — show even during loading if partial results available */}
+        {aiResult && (
           <div>
-            {/* Tab bar — row 1 */}
-            <div className="flex gap-1 p-1 rounded-xl mb-1" style={{ background: 'var(--bg-secondary)' }}>
+            {/* Inline loading indicator when Stage 2 still loading */}
+            {aiLoading && (
+              <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg" style={{ background: 'rgba(46,158,140,0.08)', border: '1px solid rgba(46,158,140,0.15)' }}>
+                <Loader2 size={14} className="animate-spin shrink-0" style={{ color: 'var(--accent)' }} />
+                <p className="text-xs" style={{ color: 'var(--accent)' }}>{aiStep || 'Finalisation...'}</p>
+              </div>
+            )}
+            {/* Tab bar — single row */}
+            <div className="flex flex-wrap gap-1 p-1 rounded-xl mb-4" style={{ background: 'var(--bg-secondary)' }}>
               {([
                 { id: 'summary', label: 'Résumé' },
                 { id: 'synthesis', label: 'Synthèse' },
                 { id: 'keypoints', label: 'Points clés' },
                 { id: 'chapters', label: 'Chapitres' },
-              ] as const).map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setAiTab(tab.id)}
-                  className="flex-1 py-2 px-1 rounded-lg text-xs font-medium transition-all cursor-pointer"
-                  style={{
-                    background: aiTab === tab.id ? 'var(--bg-card)' : 'transparent',
-                    color: aiTab === tab.id ? 'var(--text-primary)' : 'var(--text-muted)',
-                    boxShadow: aiTab === tab.id ? 'var(--shadow-card)' : 'none',
-                  }}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-            {/* Tab bar — row 2 */}
-            <div className="flex gap-1 p-1 rounded-xl mb-5" style={{ background: 'var(--bg-secondary)' }}>
-              {([
                 { id: 'quiz', label: '🧠 Quiz' },
                 { id: 'qa', label: '💬 Question' },
                 { id: 'note', label: '📝 Note' },
@@ -559,7 +601,7 @@ export default function MediaDetailPage({ params }: { params: Promise<{ id: stri
                 <button
                   key={tab.id}
                   onClick={() => { setAiTab(tab.id); if (tab.id === 'quiz') { setQuizIndex(0); setQuizSelected(null); setQuizAnswered(false); setQuizScore(0); setQuizCompleted(false); } }}
-                  className="flex-1 py-2 px-1 rounded-lg text-xs font-medium transition-all cursor-pointer"
+                  className="flex-1 py-2 px-1 rounded-lg text-xs font-medium transition-all cursor-pointer whitespace-nowrap"
                   style={{
                     background: aiTab === tab.id ? 'var(--bg-card)' : 'transparent',
                     color: aiTab === tab.id ? 'var(--text-primary)' : 'var(--text-muted)',
@@ -574,25 +616,31 @@ export default function MediaDetailPage({ params }: { params: Promise<{ id: stri
             {/* Résumé */}
             {aiTab === 'summary' && (
               <div
-                className="rounded-xl p-4"
+                className="rounded-xl p-5"
                 style={{ background: 'rgba(46,158,140,0.06)', border: '1px solid rgba(46,158,140,0.12)' }}
               >
-                <p className="text-sm leading-relaxed" style={{ color: 'var(--text-primary)' }}>{aiResult.summary}</p>
+                <p className="text-sm sm:text-base leading-relaxed sm:leading-loose" style={{ color: 'var(--text-primary)' }}>{aiResult.summary}</p>
               </div>
             )}
 
             {/* Synthèse */}
             {aiTab === 'synthesis' && (
-              <div className="space-y-3 max-h-96 overflow-y-auto overscroll-contain pr-1">
+              <div className="space-y-4 max-h-[70vh] overflow-y-auto overscroll-contain pr-1">
                 {aiResult.synthesis.split('\n\n').filter(Boolean).map((para, i) => (
-                  <p key={i} className="text-sm leading-relaxed" style={{ color: 'var(--text-primary)' }}>{para}</p>
+                  <div
+                    key={i}
+                    className="rounded-xl p-4"
+                    style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
+                  >
+                    <p className="text-sm sm:text-base leading-relaxed sm:leading-loose" style={{ color: 'var(--text-primary)' }}>{para}</p>
+                  </div>
                 ))}
               </div>
             )}
 
             {/* Points clés */}
             {aiTab === 'keypoints' && (
-              <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
                 {aiResult.keyPoints.map((point, i) => (
                   <div
                     key={i}
@@ -608,14 +656,19 @@ export default function MediaDetailPage({ params }: { params: Promise<{ id: stri
 
             {/* Chapitres */}
             {aiTab === 'chapters' && (
-              <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
                 {aiResult.chapters.length === 0 ? (
                   <p className="text-sm text-center py-6" style={{ color: 'var(--text-muted)' }}>Aucun chapitre détecté</p>
-                ) : aiResult.chapters.map((ch, i) => (
+                ) : aiResult.chapters.map((ch, i) => {
+                  const durationSec = video?.duration ? parseTime(video.duration) : 0;
+                  const canSeek = !!ytId && durationSec > 0;
+                  const startSec = Math.round((ch.percentStart / 100) * durationSec);
+                  return (
                   <div
                     key={i}
-                    className="flex items-center gap-3 rounded-xl p-3"
+                    className={`flex items-center gap-3 rounded-xl p-3 transition-colors ${canSeek ? 'cursor-pointer hover:brightness-110' : ''}`}
                     style={{ background: 'var(--bg-secondary)' }}
+                    onClick={() => { if (canSeek) seekTo(startSec); }}
                   >
                     <span
                       className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-xs font-bold"
@@ -625,10 +678,11 @@ export default function MediaDetailPage({ params }: { params: Promise<{ id: stri
                     </span>
                     <p className="text-sm font-medium flex-1" style={{ color: 'var(--text-primary)' }}>{ch.title}</p>
                     <span className="text-xs shrink-0" style={{ color: 'var(--text-muted)' }}>
-                      ~{ch.percentStart}%
+                      {canSeek ? formatTime(startSec) : `~${ch.percentStart}%`}
                     </span>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 

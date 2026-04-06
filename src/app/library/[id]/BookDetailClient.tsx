@@ -347,7 +347,7 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
           <div className="relative z-10">
             <div className="flex items-start gap-4 mb-5">
               <div
-                className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl overflow-hidden"
+                className="flex h-28 w-[4.5rem] shrink-0 items-center justify-center rounded-2xl overflow-hidden"
                 style={{
                   background: 'linear-gradient(135deg, rgba(196,154,61,0.15), rgba(196,154,61,0.06))',
                   boxShadow: '0 2px 12px rgba(196,154,61,0.1)',

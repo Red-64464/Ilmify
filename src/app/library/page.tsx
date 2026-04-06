@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, Star, Plus, Upload, Smile, Trash2 } from 'lucide-react';
+import { BookOpen, Star, Plus, Upload, Smile, Trash2, Edit3 } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import SearchInput from '@/components/ui/SearchInput';
 import Badge from '@/components/ui/Badge';
@@ -67,6 +67,7 @@ export default function LibraryPage() {
   const [newCategory, setNewCategory] = useState('');
   const [customCategory, setCustomCategory] = useState('');
   const [newCoverUrl, setNewCoverUrl] = useState('');
+  const [rawCoverUrl, setRawCoverUrl] = useState('');
   const [newEmoji, setNewEmoji] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [cropImage, setCropImage] = useState<string | null>(null);
@@ -74,6 +75,19 @@ export default function LibraryPage() {
   const [books, setBooks] = useState<Book[]>([]);
   const [addingBook, setAddingBook] = useState(false);
   const { toast } = useToast();
+
+  // Edit book state
+  const [editingBook, setEditingBook] = useState<Book | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editAuthor, setEditAuthor] = useState('');
+  const [editCategory, setEditCategory] = useState('');
+  const [editCustomCategory, setEditCustomCategory] = useState('');
+  const [editCoverUrl, setEditCoverUrl] = useState('');
+  const [editRawCoverUrl, setEditRawCoverUrl] = useState('');
+  const [editStatus, setEditStatus] = useState<Book['status']>('to-read');
+  const [editCropImage, setEditCropImage] = useState<string | null>(null);
+  const editCoverInputRef = useRef<HTMLInputElement>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   useEffect(() => {
     if (authLoading || !user) return;
@@ -111,6 +125,7 @@ export default function LibraryPage() {
       setNewAuthor('');
       setNewCategory('');
       setNewCoverUrl('');
+      setRawCoverUrl('');
       setNewEmoji('');
     } catch (err) {
       console.error('Error creating book:', err);
@@ -125,7 +140,9 @@ export default function LibraryPage() {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
-      setCropImage(ev.target?.result as string);
+      const dataUrl = ev.target?.result as string;
+      setRawCoverUrl(dataUrl);
+      setCropImage(dataUrl);
     };
     reader.readAsDataURL(file);
   };
@@ -141,6 +158,53 @@ export default function LibraryPage() {
       toast('error', 'Erreur lors de la suppression');
     }
   }, [toast]);
+
+  const openEditModal = useCallback((book: Book) => {
+    setEditingBook(book);
+    setEditTitle(book.title);
+    setEditAuthor(book.author);
+    setEditCategory(book.category);
+    setEditCoverUrl(book.coverUrl || '');
+    setEditRawCoverUrl('');
+    setEditStatus(book.status);
+    setEditCustomCategory('');
+  }, []);
+
+  const handleEditBook = useCallback(async () => {
+    if (!editingBook || !editTitle.trim() || !editAuthor.trim() || savingEdit) return;
+    try {
+      setSavingEdit(true);
+      const updated = await bookRepository.update(editingBook.id, {
+        title: editTitle.trim(),
+        author: editAuthor.trim(),
+        category: editCategory || 'Autre',
+        coverUrl: editCoverUrl || undefined,
+        status: editStatus,
+      });
+      if (updated) {
+        setBooks(prev => prev.map(b => b.id === updated.id ? updated : b));
+        toast('success', 'Livre modifié');
+      }
+      setEditingBook(null);
+    } catch (err) {
+      console.error('Error updating book:', err);
+      toast('error', 'Erreur lors de la modification');
+    } finally {
+      setSavingEdit(false);
+    }
+  }, [editingBook, editTitle, editAuthor, editCategory, editCoverUrl, editStatus, savingEdit, toast]);
+
+  const handleEditCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      setEditRawCoverUrl(dataUrl);
+      setEditCropImage(dataUrl);
+    };
+    reader.readAsDataURL(file);
+  };
 
   return (
     <AuthGuard>
@@ -205,24 +269,38 @@ export default function LibraryPage() {
                   />
 
                   <div className="relative z-10">
-                    {/* Delete button */}
+                    {/* Edit & Delete buttons */}
                     {user && (
-                      <button
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteBook(book.id); }}
-                        className="absolute top-0 right-0 p-1.5 rounded-lg opacity-0 group-hover/card:opacity-100 transition-all duration-200 cursor-pointer z-10"
-                        style={{
-                          background: 'rgba(239, 68, 68, 0.1)',
-                          color: '#f87171',
-                          border: '1px solid rgba(239, 68, 68, 0.15)',
-                        }}
-                        title="Supprimer ce livre"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      <div className="absolute top-0 right-0 flex items-center gap-1 opacity-0 group-hover/card:opacity-100 transition-all duration-200 z-10">
+                        <button
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); openEditModal(book); }}
+                          className="p-1.5 rounded-lg cursor-pointer transition-colors"
+                          style={{
+                            background: 'rgba(46, 158, 140, 0.1)',
+                            color: 'var(--accent)',
+                            border: '1px solid rgba(46, 158, 140, 0.15)',
+                          }}
+                          title="Modifier ce livre"
+                        >
+                          <Edit3 size={14} />
+                        </button>
+                        <button
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteBook(book.id); }}
+                          className="p-1.5 rounded-lg cursor-pointer transition-colors"
+                          style={{
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            color: '#f87171',
+                            border: '1px solid rgba(239, 68, 68, 0.15)',
+                          }}
+                          title="Supprimer ce livre"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     )}
                     <div className="flex items-start gap-3 mb-4">
                       <div
-                        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl overflow-hidden"
+                        className="flex h-24 w-16 shrink-0 items-center justify-center rounded-xl overflow-hidden"
                         style={{
                           background: `linear-gradient(135deg, ${bookColor}18, ${bookColor}08)`,
                         }}
@@ -319,10 +397,14 @@ export default function LibraryPage() {
             </label>
             <div className="flex items-center gap-3">
               <div
-                className="h-16 w-12 rounded-lg overflow-hidden flex items-center justify-center shrink-0"
+                className="h-24 w-16 rounded-lg overflow-hidden flex items-center justify-center shrink-0 cursor-pointer"
                 style={{
                   background: 'var(--bg-secondary)',
                   border: '1px dashed var(--border-light)',
+                }}
+                onClick={() => {
+                  if (newCoverUrl && rawCoverUrl) { setCropImage(rawCoverUrl); }
+                  else { coverInputRef.current?.click(); }
                 }}
               >
                 {newCoverUrl ? (
@@ -517,15 +599,156 @@ export default function LibraryPage() {
         </div>
       </Modal>
 
-      {/* Image cropper */}
+      {/* Edit book modal */}
+      <Modal
+        isOpen={!!editingBook}
+        onClose={() => setEditingBook(null)}
+        title="Modifier le livre"
+      >
+        <div className="space-y-4">
+          {/* Cover */}
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Couverture</label>
+            <div className="flex items-center gap-3">
+              <div
+                className="h-24 w-16 rounded-lg overflow-hidden flex items-center justify-center shrink-0 cursor-pointer"
+                style={{ background: 'var(--bg-secondary)', border: '1px dashed var(--border-light)' }}
+                onClick={() => {
+                  if (editCoverUrl && editRawCoverUrl) { setEditCropImage(editRawCoverUrl); }
+                  else { editCoverInputRef.current?.click(); }
+                }}
+              >
+                {editCoverUrl ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={editCoverUrl} alt="" className="h-full w-full object-contain" />
+                ) : (
+                  <BookOpen size={16} style={{ color: 'var(--text-muted)' }} />
+                )}
+              </div>
+              <button
+                onClick={() => editCoverInputRef.current?.click()}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs cursor-pointer transition-colors"
+                style={{ background: 'rgba(196,154,61,0.08)', border: '1px dashed rgba(196,154,61,0.25)', color: '#d4ad4a' }}
+              >
+                <Upload size={12} />
+                {editCoverUrl ? 'Changer' : 'Ajouter une photo'}
+              </button>
+              {editCoverUrl && (
+                <button onClick={() => setEditCoverUrl('')} className="text-xs cursor-pointer" style={{ color: 'var(--text-muted)' }}>Retirer</button>
+              )}
+              <input ref={editCoverInputRef} type="file" accept="image/*" className="hidden" onChange={handleEditCoverUpload} />
+            </div>
+          </div>
+
+          {/* Title */}
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Titre</label>
+            <input
+              type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)}
+              className="w-full rounded-xl px-4 py-3 text-sm outline-none placeholder:text-[var(--text-muted)]"
+              style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
+            />
+          </div>
+
+          {/* Author */}
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Auteur</label>
+            <input
+              type="text" value={editAuthor} onChange={(e) => setEditAuthor(e.target.value)}
+              className="w-full rounded-xl px-4 py-3 text-sm outline-none placeholder:text-[var(--text-muted)]"
+              style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
+            />
+          </div>
+
+          {/* Status */}
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Statut</label>
+            <div className="flex flex-wrap gap-2">
+              {([{ id: 'to-read', label: 'À lire' }, { id: 'reading', label: 'En cours' }, { id: 'read', label: 'Terminé' }] as const).map((s) => (
+                <button
+                  key={s.id} onClick={() => setEditStatus(s.id)}
+                  className="px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 cursor-pointer"
+                  style={{
+                    background: editStatus === s.id ? 'rgba(46,158,140,0.15)' : 'rgba(255,255,255,0.04)',
+                    color: editStatus === s.id ? 'var(--accent)' : 'var(--text-muted)',
+                    border: editStatus === s.id ? '1px solid rgba(46,158,140,0.2)' : '1px solid transparent',
+                  }}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Category */}
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Catégorie</label>
+            <div className="flex flex-wrap gap-2">
+              {(() => {
+                const defaultCats = ['Aqida', 'Hadith', 'Sira', 'Fiqh', 'Tafsir', 'Adhkar', 'Autre'];
+                const userCats = books.map(b => b.category).filter(c => c && !defaultCats.includes(c));
+                const allCats = [...defaultCats, ...Array.from(new Set(userCats))];
+                return allCats.map((cat) => (
+                  <button
+                    key={cat} onClick={() => setEditCategory(editCategory === cat ? '' : cat)}
+                    className="px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 cursor-pointer"
+                    style={{
+                      background: editCategory === cat ? 'rgba(196,154,61,0.15)' : 'rgba(255,255,255,0.04)',
+                      color: editCategory === cat ? '#d4ad4a' : 'var(--text-muted)',
+                      border: editCategory === cat ? '1px solid rgba(196,154,61,0.2)' : '1px solid transparent',
+                    }}
+                  >
+                    {cat}
+                  </button>
+                ));
+              })()}
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <input
+                type="text" value={editCustomCategory} onChange={(e) => setEditCustomCategory(e.target.value)}
+                placeholder="Ou saisir une catégorie..."
+                className="flex-1 rounded-xl px-3 py-2 text-xs outline-none placeholder:text-[var(--text-muted)]"
+                style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
+                onKeyDown={(e) => { if (e.key === 'Enter' && editCustomCategory.trim()) { setEditCategory(editCustomCategory.trim()); setEditCustomCategory(''); } }}
+              />
+              {editCustomCategory.trim() && (
+                <button onClick={() => { setEditCategory(editCustomCategory.trim()); setEditCustomCategory(''); }} className="px-3 py-2 rounded-xl text-xs font-medium cursor-pointer" style={{ background: 'rgba(196,154,61,0.1)', color: '#d4ad4a' }}>Ajouter</button>
+              )}
+            </div>
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <Button variant="secondary" size="md" onClick={() => setEditingBook(null)} className="flex-1">Annuler</Button>
+            <Button variant="primary" size="md" onClick={handleEditBook} disabled={!editTitle.trim() || !editAuthor.trim() || savingEdit} className="flex-1">
+              {savingEdit ? 'Enregistrement...' : 'Enregistrer'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Image cropper (add) */}
       {cropImage && (
         <ImageCropper
           imageDataUrl={cropImage}
+          aspectRatio={2/3}
           onCrop={(croppedDataUrl) => {
             setNewCoverUrl(croppedDataUrl);
             setCropImage(null);
           }}
           onCancel={() => setCropImage(null)}
+        />
+      )}
+
+      {/* Image cropper (edit) */}
+      {editCropImage && (
+        <ImageCropper
+          imageDataUrl={editCropImage}
+          aspectRatio={2/3}
+          onCrop={(croppedDataUrl) => {
+            setEditCoverUrl(croppedDataUrl);
+            setEditCropImage(null);
+          }}
+          onCancel={() => setEditCropImage(null)}
         />
       )}
     </div>

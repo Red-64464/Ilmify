@@ -149,7 +149,7 @@ export function exportToPdf(title: string, blocks: TopicBlock[], subtitle?: stri
 export function exportPassagesToPdf(
   bookTitle: string,
   author: string,
-  passages: { title: string; content: string; pageNumber?: number; personalReflection?: string; isImportant?: boolean }[],
+  passages: { title: string; content: string; pageNumber?: number; personalReflection?: string; isImportant?: boolean; imageUrl?: string }[],
 ) {
   const passagesHtml = passages
     .map(
@@ -158,6 +158,7 @@ export function exportPassagesToPdf(
       <h2 style="font-size:1.1rem;font-weight:700;color:#000;margin-bottom:0.25rem;font-family:'Playfair Display',serif">${escapeHtml(p.title)}</h2>
       ${p.pageNumber ? `<p style="font-size:0.7rem;color:#666;margin-bottom:0.5rem">Page ${p.pageNumber}</p>` : ''}
       ${p.isImportant ? '<span style="display:inline-block;font-size:0.65rem;padding:2px 8px;border-radius:4px;background:#fef9c3;color:#854d0e;margin-bottom:0.5rem">★ Important</span>' : ''}
+      ${p.imageUrl ? `<div style="margin:0.75rem 0"><img src="${p.imageUrl}" alt="" style="max-width:100%;border-radius:0.75rem" /></div>` : ''}
       <p style="font-size:0.875rem;line-height:1.9;color:#111;white-space:pre-wrap">${escapeHtml(p.content)}</p>
       ${p.personalReflection ? `<div style="margin-top:0.75rem;padding:0.75rem 1rem;border-left:3px solid #2e9e8c;background:rgba(46,158,140,0.04);border-radius:0 0.5rem 0.5rem 0"><p style="font-size:0.7rem;font-weight:600;color:#2e9e8c;margin:0 0 0.25rem">Réflexion personnelle</p><p style="font-size:0.8rem;line-height:1.8;color:#444;margin:0">${escapeHtml(p.personalReflection)}</p></div>` : ''}
     </div>`,

@@ -21,15 +21,21 @@ export default function ImageCropper({ imageDataUrl, onCrop, onCancel, aspectRat
   const [imgSize, setImgSize] = useState({ w: 0, h: 0 });
   const imgRef = useRef<HTMLImageElement | null>(null);
 
-  // Load image
+  // Load image and set initial zoom to fit the container
   useEffect(() => {
     const img = new window.Image();
     img.onload = () => {
       imgRef.current = img;
       setImgSize({ w: img.naturalWidth, h: img.naturalHeight });
+      // Auto-fit: scale image so it fills the crop area entirely
+      const cropW = 300;
+      const cropH = aspectRatio ? cropW / aspectRatio : cropW;
+      const fitZoom = Math.max(cropW / img.naturalWidth, cropH / img.naturalHeight);
+      setZoom(fitZoom);
+      setOffset({ x: 0, y: 0 });
     };
     img.src = imageDataUrl;
-  }, [imageDataUrl]);
+  }, [imageDataUrl, aspectRatio]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     setDragging(true);
@@ -54,9 +60,10 @@ export default function ImageCropper({ imageDataUrl, onCrop, onCancel, aspectRat
     const img = imgRef.current;
     if (!canvas || !img) return;
 
-    const cropSize = 300;
+    const cropW = 300;
+    const cropH = aspectRatio ? cropW / aspectRatio : cropW;
     const outputSize = Math.min(800, Math.max(imgSize.w, imgSize.h));
-    canvas.width = aspectRatio ? outputSize : outputSize;
+    canvas.width = outputSize;
     canvas.height = aspectRatio ? outputSize / aspectRatio : outputSize;
 
     const ctx = canvas.getContext('2d');
@@ -66,15 +73,15 @@ export default function ImageCropper({ imageDataUrl, onCrop, onCancel, aspectRat
     const displayW = imgSize.w * zoom;
     const displayH = imgSize.h * zoom;
 
-    // Image display position: centered + offset
-    const imgDisplayX = (cropSize - displayW) / 2 + offset.x;
-    const imgDisplayY = (cropSize - displayH) / 2 + offset.y;
+    // Image display position: centered in container + offset
+    const imgDisplayX = (cropW - displayW) / 2 + offset.x;
+    const imgDisplayY = (cropH - displayH) / 2 + offset.y;
 
     // Source coordinates in image space
     const srcX = (0 - imgDisplayX) / zoom;
     const srcY = (0 - imgDisplayY) / zoom;
-    const srcW = cropSize / zoom;
-    const srcH = aspectRatio ? srcW / aspectRatio : srcW;
+    const srcW = cropW / zoom;
+    const srcH = cropH / zoom;
 
     ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, canvas.width, canvas.height);
 
