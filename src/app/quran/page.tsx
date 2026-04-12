@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
 import { Search, BookOpen, Moon, Star, BookOpenCheck, SearchCode, Loader2 } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import SurahCard from '@/components/quran/SurahCard';
@@ -167,24 +166,10 @@ export default function QuranPage() {
               />
             </div>
 
-            {/* Surah list */}
-            <motion.div
-              className="space-y-2"
-              initial="hidden"
-              animate="visible"
-              variants={{
-                hidden: {},
-                visible: { transition: { staggerChildren: 0.02 } },
-              }}
-            >
+            {/* Surah list — minimal stagger for mobile performance */}
+            <div className="space-y-2">
               {filtered.map((surah) => (
-                <motion.div
-                  key={surah.number}
-                  variants={{
-                    hidden: { opacity: 0, y: 8 },
-                    visible: { opacity: 1, y: 0, transition: { duration: 0.25 } },
-                  }}
-                >
+                <div key={surah.number}>
                   <SurahCard
                     number={surah.number}
                     name={surah.name}
@@ -195,14 +180,14 @@ export default function QuranPage() {
                     memorization={memorizations.find((m) => m.surahNumber === surah.number)}
                     onClick={() => navigateToSurah(surah.number)}
                   />
-                </motion.div>
+                </div>
               ))}
               {filtered.length === 0 && (
                 <div className="py-8 text-center" style={{ color: 'var(--text-muted)' }}>
                   Aucune sourate trouvée
                 </div>
               )}
-            </motion.div>
+            </div>
           </>
         )}
 

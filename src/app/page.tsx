@@ -125,13 +125,17 @@ export default function HomePage() {
     setDailyLoading(false);
   }, [dailyLoading]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { loadDaily(); }, []);
 
-  // Navigate to search page when user types
+  // Navigate to search page when user types (debounced)
   useEffect(() => {
-    if (search.trim()) {
+    if (!search.trim()) return;
+    const timeout = setTimeout(() => {
       router.push(`/search?q=${encodeURIComponent(search.trim())}`);
-    }
+    }, 400);
+    return () => clearTimeout(timeout);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
   const [recentTopics, setRecentTopics] = useState<{ id: string; title: string; updatedAt: string; icon?: string }[]>([]);
@@ -143,21 +147,24 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!user) return;
-    topicRepository.getByUser(user.id).then((topics) => {
-      setRecentTopics(topics.slice(0, 4).map((t) => ({ id: t.id, title: t.title, updatedAt: t.updatedAt, icon: t.icon })));
-    }).catch(() => {});
-    bookRepository.getAll(user.id).then((bks) => {
-      setReadingBooks(bks.filter((b) => b.status === 'reading').map((b) => ({ id: b.id, title: b.title, author: b.author, progress: b.progress })));
-    }).catch(() => {});
-    courseRepository.getAllPages().then((courses) => {
-      setFeaturedCourses(courses.slice(0, 3).map((c) => ({ id: c.id, title: c.title, description: c.description, icon: c.icon })));
-    }).catch(() => {});
-    activityRepository.getStreak(user.id).then(setStreak).catch(() => {});
-    activityRepository.getTodayActivities(user.id).then((acts) => {
-      const quiz = acts.filter((a) => a.activity_type === 'quiz').reduce((s: number, a: { count: number }) => s + a.count, 0);
-      const flashcard = acts.filter((a) => a.activity_type === 'flashcard').reduce((s: number, a: { count: number }) => s + a.count, 0);
+    // Batch all dashboard queries with Promise.all for parallel execution
+    // Use lightweight list queries to avoid fetching heavy blocks/content
+    Promise.all([
+      topicRepository.listByUser(user.id, 4).catch(() => [] as { id: string; title: string; updatedAt: string; icon?: string }[]),
+      bookRepository.listBooks(user.id, { status: 'reading' }).catch(() => [] as { id: string; title: string; author: string; progress?: number }[]),
+      courseRepository.listPages(3).catch(() => [] as { id: string; title: string; description?: string; icon?: string }[]),
+      activityRepository.getStreak(user.id).catch(() => 0),
+      activityRepository.getTodayActivities(user.id).catch(() => [] as { activity_type: string; count: number }[]),
+    ]).then(([topics, books, courses, streakVal, acts]) => {
+      setRecentTopics(topics.map((t) => ({ id: t.id, title: t.title, updatedAt: t.updatedAt, icon: t.icon })));
+      setReadingBooks(books.map((b) => ({ id: b.id, title: b.title, author: b.author, progress: b.progress })));
+      setFeaturedCourses(courses.map((c) => ({ id: c.id, title: c.title, description: c.description, icon: c.icon })));
+      setStreak(streakVal as number);
+      const activities = acts as { activity_type: string; count: number }[];
+      const quiz = activities.filter((a) => a.activity_type === 'quiz').reduce((s, a) => s + a.count, 0);
+      const flashcard = activities.filter((a) => a.activity_type === 'flashcard').reduce((s, a) => s + a.count, 0);
       setTodayStats({ quiz, flashcard, total: quiz + flashcard });
-    }).catch(() => {});
+    });
   }, [user]);
 
   const DailyIcon = daily ? typeIcons[daily.type] || Star : Star;

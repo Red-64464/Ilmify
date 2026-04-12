@@ -33,6 +33,29 @@ export const topicRepository = {
     return (data || []).map(rowToTopic);
   },
 
+  /** Lightweight query for list views — no blocks or heavy fields */
+  async listByUser(userId: string, limit?: number): Promise<Pick<Topic, 'id' | 'title' | 'icon' | 'category' | 'isPinned' | 'isFavorite' | 'updatedAt'>[]> {
+    let query = supabase
+      .from('topics')
+      .select('id, title, icon, category, is_pinned, is_favorite, updated_at')
+      .eq('user_id', userId)
+      .eq('is_archived', false)
+      .order('is_pinned', { ascending: false })
+      .order('updated_at', { ascending: false });
+    if (limit) query = query.limit(limit);
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    return (data || []).map((r) => ({
+      id: r.id as string,
+      title: r.title as string,
+      icon: (r.icon as string) || undefined,
+      category: (r.category as string) || undefined,
+      isPinned: r.is_pinned as boolean,
+      isFavorite: r.is_favorite as boolean,
+      updatedAt: r.updated_at as string,
+    }));
+  },
+
   async getById(id: string): Promise<Topic | null> {
     const { data, error } = await supabase
       .from('topics')
@@ -155,7 +178,8 @@ export const topicRepository = {
       .eq('user_id', userId)
       .eq('is_archived', false)
       .or(`title.ilike.${q},category.ilike.${q}`)
-      .order('updated_at', { ascending: false });
+      .order('updated_at', { ascending: false })
+      .limit(50);
     if (error) throw new Error(error.message);
     return (data || []).map(rowToTopic);
   },

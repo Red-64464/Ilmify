@@ -54,6 +54,27 @@ export const bookRepository = {
     return (data || []).map(rowToBook);
   },
 
+  /** Lightweight query for list/dashboard — no full text fields */
+  async listBooks(userId: string, options?: { status?: Book['status']; limit?: number }): Promise<Pick<Book, 'id' | 'title' | 'author' | 'status' | 'progress' | 'coverUrl'>[]> {
+    let query = supabase
+      .from('books')
+      .select('id, title, author, status, progress, cover_url')
+      .eq('user_id', userId)
+      .order('added_at', { ascending: false });
+    if (options?.status) query = query.eq('status', options.status);
+    if (options?.limit) query = query.limit(options.limit);
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    return (data || []).map((r) => ({
+      id: r.id as string,
+      title: r.title as string,
+      author: r.author as string,
+      status: r.status as Book['status'],
+      progress: r.progress != null ? (r.progress as number) : undefined,
+      coverUrl: (r.cover_url as string) || undefined,
+    }));
+  },
+
   async getById(id: string): Promise<Book | null> {
     const { data, error } = await supabase
       .from('books')
