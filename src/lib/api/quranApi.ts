@@ -191,20 +191,30 @@ export async function getArabicSurah(surah: number): Promise<QuranComVerse[]> {
   return data.verses || [];
 }
 
-// --- Reciter slug mapping for cdn.islamic.network ---
+// --- Reciter slug mapping for cdn.islamic.network (only reliable reciters) ---
 const RECITER_SLUGS: Record<number, string> = {
   7: 'ar.alafasy',
   1: 'ar.abdulbasitmurattal',
   4: 'ar.shaatree',
   6: 'ar.saoodshuraym',
-  12: 'ar.yasseraldossari',
-  9: 'ar.luhaidan',
 };
 
-// --- Quran.com: get audio URL ---
+// Reciters that are NOT on cdn.islamic.network — must use Quran.com API
+const QURAN_COM_ONLY_RECITERS = new Set([12, 9]);
+
+// --- Quran.com: get audio URL (CDN fallback) ---
 export function getAudioUrl(surah: number, ayah: number, reciterId = 7): string {
-  const slug = RECITER_SLUGS[reciterId] || 'ar.alafasy';
+  const slug = RECITER_SLUGS[reciterId];
+  if (!slug) {
+    // For reciters without CDN slug, return empty — caller should use getSurahAudio() instead
+    return '';
+  }
   return `https://cdn.islamic.network/quran/audio/128/${slug}/${getAbsoluteAyahNumber(surah, ayah)}.mp3`;
+}
+
+/** Check if a reciter needs Quran.com API for audio (not on CDN) */
+export function reciterNeedsApi(reciterId: number): boolean {
+  return QURAN_COM_ONLY_RECITERS.has(reciterId) || !RECITER_SLUGS[reciterId];
 }
 
 // Helper: convert surah:ayah to absolute ayah number
@@ -222,7 +232,7 @@ export async function getVerseAudio(surah: number, ayah: number, recitationId = 
     `${QURAN_COM_BASE}/recitations/${recitationId}/by_ayah/${surah}:${ayah}`
   );
   if (!res.ok) {
-    // Fallback to constructed URL
+    // Fallback to constructed URL (only works for CDN reciters)
     return getAudioUrl(surah, ayah, recitationId);
   }
   const data = await res.json();
@@ -331,13 +341,30 @@ export async function getSurahAudio(surah: number, reciterId = 7): Promise<strin
     );
     if (!res.ok) throw new Error(`Quran.com API error: ${res.status}`);
     const data = await res.json();
-    return (data.audio_files || []).map((f: { url: string }) =>
-      f.url.startsWith('http') ? f.url : `https://audio.qurancdn.com/${f.url}`
-    );
+    const files = data.audio_files || [];
+    if (files.length > 0) {
+      return files.map((f: { url: string }) =>
+        f.url.startsWith('http') ? f.url : `https://audio.qurancdn.com/${f.url}`
+      );
+    }
+    throw new Error('No audio files returned');
   } catch {
-    // Fallback: build URLs from CDN
+    // Fallback: build URLs from CDN (only works for CDN reciters)
     const surahData = SURAH_LIST.find((s) => s.number === surah);
     if (!surahData) return [];
+    if (reciterNeedsApi(reciterId)) {
+      // For API-only reciters, try individual verse lookups
+      const urls: string[] = [];
+      for (let i = 1; i <= surahData.ayahCount; i++) {
+        try {
+          const url = await getVerseAudio(surah, i, reciterId);
+          urls.push(url);
+        } catch {
+          urls.push(''); // placeholder for failed lookups
+        }
+      }
+      return urls;
+    }
     return Array.from({ length: surahData.ayahCount }, (_, i) =>
       getAudioUrl(surah, i + 1, reciterId)
     );

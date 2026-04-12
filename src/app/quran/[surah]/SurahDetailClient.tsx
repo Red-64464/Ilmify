@@ -21,7 +21,9 @@ import {
   getArabicSurah,
   getSurahTranslation,
   getTransliteration,
+  getSurahAudio,
   getAudioUrl,
+  reciterNeedsApi,
   getTranslationKey,
 } from '@/lib/api/quranApi';
 import { useQuranBookmarks, useQuranMemorization, useQuranPosition, useQuranSettings } from '@/lib/quranStorage';
@@ -90,19 +92,22 @@ export default function SurahDetailClient({ surah }: SurahDetailClientProps) {
     setError(null);
 
     const translationKey = getTranslationKey(settings.translationLang);
+    const needsApiAudio = reciterNeedsApi(settings.reciterId);
 
     Promise.all([
       getArabicSurah(surahNum),
       getSurahTranslation(surahNum, translationKey),
       getTransliteration(surahNum),
+      // Always fetch from Quran.com API for reliable audio across all reciters
+      getSurahAudio(surahNum, settings.reciterId),
     ])
-      .then(([arabicVerses, translations, transliterations]) => {
+      .then(([arabicVerses, translations, transliterations, audioUrls]) => {
         const data: AyahData[] = arabicVerses.map((v, i) => ({
           ayah: getAyahNumber(v, i),
           arabic: v.text_uthmani,
           transliteration: transliterations[i]?.text ?? '',
           translation: translations[i]?.translation ?? '',
-          audioUrl: getAudioUrl(surahNum, i + 1, settings.reciterId),
+          audioUrl: audioUrls[i] || (needsApiAudio ? '' : getAudioUrl(surahNum, i + 1, settings.reciterId)),
         }));
         setAyahs(data);
       })
