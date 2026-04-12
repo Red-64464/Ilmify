@@ -96,7 +96,6 @@ export default function BookmarksPage() {
     // Stop previous audio to prevent memory leak
     if (audioRef.current) {
       audioRef.current.pause();
-      audioRef.current.src = '';
       audioRef.current = null;
     }
     const audio = new Audio(getAudioUrl(surahNumber, ayahNumber, settings.reciterId));
