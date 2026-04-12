@@ -8,6 +8,7 @@ interface QuranAudioPlayerProps {
   audioUrls: string[];
   currentIndex: number;
   onIndexChange: (index: number) => void;
+  onProgress?: (progress: number) => void;
   autoPlay?: boolean;
 }
 
@@ -15,6 +16,7 @@ export default function QuranAudioPlayer({
   audioUrls,
   currentIndex,
   onIndexChange,
+  onProgress,
   autoPlay = false,
 }: QuranAudioPlayerProps) {
   const [playing, setPlaying] = useState(false);
@@ -30,6 +32,8 @@ export default function QuranAudioPlayer({
     if (!url) return;
 
     audio.src = url;
+    setProgress(0);
+    onProgress?.(0);
     if (playing || autoPlay) {
       audio.play().catch(() => setPlaying(false));
       setPlaying(true);
@@ -42,7 +46,11 @@ export default function QuranAudioPlayer({
     audioRef.current = audio;
 
     const handleTimeUpdate = () => {
-      if (audio.duration) setProgress((audio.currentTime / audio.duration) * 100);
+      if (audio.duration) {
+        const pct = (audio.currentTime / audio.duration) * 100;
+        setProgress(pct);
+        onProgress?.(pct);
+      }
     };
     const handleEnded = () => {
       if (loop) {

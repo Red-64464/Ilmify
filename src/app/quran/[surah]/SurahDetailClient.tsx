@@ -61,6 +61,7 @@ export default function SurahDetailClient({ surah }: SurahDetailClientProps) {
   const [error, setError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [audioIndex, setAudioIndex] = useState(0);
+  const [audioProgress, setAudioProgress] = useState(0);
   const [showPlayer, setShowPlayer] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
 
@@ -133,6 +134,16 @@ export default function SurahDetailClient({ surah }: SurahDetailClientProps) {
 
     return () => observer.disconnect();
   }, [ayahs]);
+
+  // Auto-scroll to the ayah being played
+  useEffect(() => {
+    if (!showPlayer) return;
+    const ayahNum = audioIndex + 1;
+    const el = ayahRefs.current.get(ayahNum);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [audioIndex, showPlayer]);
 
   // Save position periodically on scroll
   useEffect(() => {
@@ -218,7 +229,7 @@ export default function SurahDetailClient({ surah }: SurahDetailClientProps) {
     >
       {/* Header */}
       <div
-        className="sticky top-0 z-30 px-4 py-3 flex items-center gap-3"
+        className="sticky top-0 z-30 px-3 py-2.5 flex items-center gap-2"
         style={{
           background: 'rgba(6,18,15,0.95)',
           backdropFilter: 'blur(12px)',
@@ -227,7 +238,7 @@ export default function SurahDetailClient({ surah }: SurahDetailClientProps) {
       >
         <button
           onClick={() => { router.push('/quran'); }}
-          className="p-2 rounded-xl"
+          className="p-2 rounded-xl flex-shrink-0"
           style={{ background: 'var(--bg-card)', color: 'var(--text-secondary)', cursor: 'pointer' }}
         >
           <ChevronLeft size={18} />
@@ -237,12 +248,12 @@ export default function SurahDetailClient({ surah }: SurahDetailClientProps) {
           <h1 className="font-semibold text-sm truncate" style={{ color: 'var(--text-primary)' }}>
             {surahInfo.name}
           </h1>
-          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-            {surahInfo.revelationType === 'Meccan' ? 'Mecquoise' : 'Médinoise'} • {surahInfo.ayahCount} versets • Juz {surahInfo.juzStart}
+          <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
+            {surahInfo.revelationType === 'Meccan' ? 'Mecquoise' : 'Médinoise'} · {surahInfo.ayahCount}v · Juz {surahInfo.juzStart}
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 flex-shrink-0">
           <ReciterSelector
             value={settings.reciterId}
             onChange={(id) => updateSettings({ reciterId: id })}
@@ -389,7 +400,7 @@ export default function SurahDetailClient({ surah }: SurahDetailClientProps) {
 
       {/* Decorative banner */}
       <div
-        className="px-4 py-6 text-center relative overflow-hidden"
+        className="px-4 py-4 text-center relative overflow-hidden"
         style={{
           background: 'linear-gradient(135deg, rgba(212,173,74,0.1) 0%, rgba(46,158,140,0.06) 100%)',
           borderBottom: '1px solid rgba(212,173,74,0.08)',
@@ -438,7 +449,8 @@ export default function SurahDetailClient({ surah }: SurahDetailClientProps) {
             <QuranAudioPlayer
               audioUrls={audioUrls}
               currentIndex={audioIndex}
-              onIndexChange={setAudioIndex}
+              onIndexChange={(idx) => { setAudioIndex(idx); setAudioProgress(0); }}
+              onProgress={setAudioProgress}
             />
           </div>
         )}
@@ -488,12 +500,15 @@ export default function SurahDetailClient({ surah }: SurahDetailClientProps) {
               onBookmark={() => toggleBookmark(surahNum, ayahData.ayah)}
               onMemorize={() => toggleAyahMemorized(surahNum, ayahData.ayah)}
               isPlaying={showPlayer && audioIndex === ayahData.ayah - 1}
+              playProgress={showPlayer && audioIndex === ayahData.ayah - 1 ? audioProgress : undefined}
               onPlay={() => {
                 setAudioIndex(ayahData.ayah - 1);
+                setAudioProgress(0);
                 setShowPlayer(true);
               }}
               arabicFontSize={settings.arabicFontSize}
               showTransliteration={settings.showTransliteration}
+              tafsirLang={settings.translationLang}
               ayahRef={setAyahRef(ayahData.ayah)}
             />
           ))

@@ -826,3 +826,44 @@ export async function analyzePdf(
 ): Promise<{ title: string; blocks: { type: string; content: string; metadata?: Record<string, string> }[] }> {
   return analyzeTextContent(text, fileName.replace(/\.pdf$/i, ''), 'Source : PDF importé');
 }
+
+// ─── 11. French Quran Tafsir (explanation) ───
+
+/**
+ * Génère une explication concise en français d'un verset coranique.
+ * Utilise uniquement des informations islamiques fiables et reconnues.
+ */
+export async function generateTafsirFr(
+  surah: number,
+  ayah: number,
+  arabic: string,
+  translation: string,
+): Promise<string> {
+  const prompt = `Verset : Sourate ${surah}, Verset ${ayah}
+
+Texte arabe : ${arabic}
+Traduction française : ${translation}
+
+Donne une explication concise et didactique de ce verset en 3 à 6 phrases. 
+L'explication doit :
+- Présenter le sens général du verset
+- Mentionner le contexte ou l'enseignement principal
+- Être accessible à un lecteur francophone non spécialiste
+
+Réponds uniquement avec l'explication, sans titre ni introduction.`;
+
+  return callGroq(
+    [
+      {
+        role: 'system',
+        content:
+          'Tu es un spécialiste du Coran et de son exégèse. Tu fournis des explications claires, fidèles et basées sur les tafsirs reconnus (Ibn Kathir, Al-Qurtubi, Al-Tabari). Réponds en français, de manière concise et pédagogique.',
+      },
+      { role: 'user', content: prompt },
+    ],
+    false,
+    'llama-3.1-8b-instant',
+    2,
+    600,
+  );
+}
