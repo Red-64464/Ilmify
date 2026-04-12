@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, Bookmark, BookmarkCheck, CheckCircle2, Circle } from 'lucide-react';
+import { Play, Pause, Bookmark, BookmarkCheck, CheckCircle2, Circle, Share2, ChevronDown, BookOpen, Loader2 } from 'lucide-react';
+import { getTafsir, SURAH_LIST } from '@/lib/api/quranApi';
 
 interface AyahDisplayProps {
   surah: number;
@@ -17,6 +18,9 @@ interface AyahDisplayProps {
   onMemorize?: () => void;
   isPlaying?: boolean;
   onPlay?: () => void;
+  arabicFontSize?: number;
+  showTransliteration?: boolean;
+  ayahRef?: (el: HTMLDivElement | null) => void;
 }
 
 export default function AyahDisplay({
@@ -32,9 +36,15 @@ export default function AyahDisplay({
   onMemorize,
   isPlaying = false,
   onPlay,
+  arabicFontSize = 1.5,
+  showTransliteration = true,
+  ayahRef,
 }: AyahDisplayProps) {
   const [localPlaying, setLocalPlaying] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioRefEl = useRef<HTMLAudioElement | null>(null);
+  const [showTafsir, setShowTafsir] = useState(false);
+  const [tafsirText, setTafsirText] = useState<string | null>(null);
+  const [tafsirLoading, setTafsirLoading] = useState(false);
 
   const playing = isPlaying || localPlaying;
 
@@ -44,24 +54,53 @@ export default function AyahDisplay({
       return;
     }
     if (!audioUrl) return;
-    if (audioRef.current) {
+    if (audioRefEl.current) {
       if (localPlaying) {
-        audioRef.current.pause();
+        audioRefEl.current.pause();
         setLocalPlaying(false);
       } else {
-        audioRef.current.play();
+        audioRefEl.current.play();
         setLocalPlaying(true);
       }
     } else {
-      audioRef.current = new Audio(audioUrl);
-      audioRef.current.play();
+      audioRefEl.current = new Audio(audioUrl);
+      audioRefEl.current.play();
       setLocalPlaying(true);
-      audioRef.current.onended = () => setLocalPlaying(false);
+      audioRefEl.current.onended = () => setLocalPlaying(false);
     }
   };
 
+  const handleShare = async () => {
+    const surahInfo = SURAH_LIST[surah - 1];
+    const text = `${arabic}\n\n${translation}\n\n— ${surahInfo?.name || `Sourate ${surah}`}, Verset ${ayah}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: `${surahInfo?.name} - Verset ${ayah}`, text });
+      } catch {
+        // user cancelled
+      }
+    } else {
+      await navigator.clipboard.writeText(text);
+    }
+  };
+
+  const handleTafsir = useCallback(async () => {
+    if (showTafsir) {
+      setShowTafsir(false);
+      return;
+    }
+    setShowTafsir(true);
+    if (tafsirText !== null) return;
+    setTafsirLoading(true);
+    const text = await getTafsir(surah, ayah);
+    setTafsirText(text || 'Tafsir non disponible pour ce verset.');
+    setTafsirLoading(false);
+  }, [showTafsir, tafsirText, surah, ayah]);
+
   return (
     <motion.div
+      ref={ayahRef}
+      data-ayah={ayah}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
@@ -83,7 +122,7 @@ export default function AyahDisplay({
         >
           {ayah}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {audioUrl && (
             <button
               onClick={handlePlay}
@@ -91,7 +130,9 @@ export default function AyahDisplay({
               style={{
                 background: playing ? 'rgba(46,158,140,0.15)' : 'var(--bg-elevated)',
                 color: playing ? 'var(--accent)' : 'var(--text-muted)',
+                cursor: 'pointer',
               }}
+              title={playing ? 'Pause' : 'Écouter'}
             >
               <AnimatePresence mode="wait">
                 <motion.span
@@ -112,7 +153,9 @@ export default function AyahDisplay({
             style={{
               background: isBookmarked ? 'rgba(212,173,74,0.15)' : 'var(--bg-elevated)',
               color: isBookmarked ? '#d4ad4a' : 'var(--text-muted)',
+              cursor: 'pointer',
             }}
+            title={isBookmarked ? 'Retirer des favoris' : 'Ajouter aux favoris'}
           >
             {isBookmarked ? <BookmarkCheck size={14} /> : <Bookmark size={14} />}
           </button>
@@ -122,34 +165,104 @@ export default function AyahDisplay({
             style={{
               background: isMemorized ? 'rgba(58,170,96,0.15)' : 'var(--bg-elevated)',
               color: isMemorized ? '#3aaa60' : 'var(--text-muted)',
+              cursor: 'pointer',
             }}
+            title={isMemorized ? 'Verset mémorisé' : 'Marquer comme mémorisé'}
           >
             {isMemorized ? <CheckCircle2 size={14} /> : <Circle size={14} />}
+          </button>
+          <button
+            onClick={handleShare}
+            className="p-2 rounded-xl transition-colors"
+            style={{
+              background: 'var(--bg-elevated)',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+            }}
+            title="Partager"
+          >
+            <Share2 size={14} />
+          </button>
+          <button
+            onClick={handleTafsir}
+            className="p-2 rounded-xl transition-colors"
+            style={{
+              background: showTafsir ? 'rgba(46,158,140,0.15)' : 'var(--bg-elevated)',
+              color: showTafsir ? 'var(--accent)' : 'var(--text-muted)',
+              cursor: 'pointer',
+            }}
+            title="Tafsir"
+          >
+            <BookOpen size={14} />
           </button>
         </div>
       </div>
 
       {/* Arabic text */}
       <p
-        className="font-arabic text-2xl leading-loose text-right"
-        style={{ color: 'var(--text-primary)', direction: 'rtl', lineHeight: '2.2' }}
+        className="font-arabic leading-loose text-right"
+        style={{
+          color: 'var(--text-primary)',
+          direction: 'rtl',
+          lineHeight: '2.2',
+          fontSize: `${arabicFontSize}rem`,
+        }}
       >
         {arabic}
       </p>
 
       {/* Transliteration */}
-      {transliteration && (
+      {showTransliteration && transliteration && (
         <p className="text-sm italic leading-relaxed" style={{ color: 'var(--accent)' }}>
           {transliteration}
         </p>
       )}
 
-      {/* French translation */}
+      {/* Translation */}
       {translation && (
         <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
           {translation}
         </p>
       )}
+
+      {/* Tafsir accordion */}
+      <AnimatePresence>
+        {showTafsir && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div
+              className="rounded-xl p-3 mt-1"
+              style={{ background: 'rgba(46,158,140,0.06)', borderLeft: '3px solid var(--accent)' }}
+            >
+              <div className="flex items-center gap-1.5 mb-2">
+                <BookOpen size={12} style={{ color: 'var(--accent)' }} />
+                <span className="text-xs font-medium" style={{ color: 'var(--accent)' }}>Tafsir</span>
+                <button onClick={() => setShowTafsir(false)} className="ml-auto p-0.5" style={{ color: 'var(--text-muted)', cursor: 'pointer' }}>
+                  <ChevronDown size={12} style={{ transform: 'rotate(180deg)' }} />
+                </button>
+              </div>
+              {tafsirLoading ? (
+                <div className="flex items-center gap-2 py-2">
+                  <Loader2 size={14} className="animate-spin" style={{ color: 'var(--text-muted)' }} />
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Chargement du tafsir...</span>
+                </div>
+              ) : (
+                <p
+                  className="text-xs leading-relaxed"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  {(tafsirText || '').replace(/<[^>]*>/g, '')}
+                </p>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

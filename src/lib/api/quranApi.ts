@@ -189,12 +189,18 @@ export async function getArabicSurah(surah: number): Promise<QuranComVerse[]> {
   return data.verses || [];
 }
 
+// --- Reciter slug mapping for cdn.islamic.network ---
+const RECITER_SLUGS: Record<number, string> = {
+  7: 'ar.alafasy',
+  1: 'ar.abdulbasitmurattal',
+  4: 'ar.shaatree',
+  6: 'ar.saoodshuraym',
+};
+
 // --- Quran.com: get audio URL ---
 export function getAudioUrl(surah: number, ayah: number, reciterId = 7): string {
-  // Reciter 7 = Mishary Rashid Alafasy
-  const s = String(surah).padStart(3, '0');
-  const a = String(ayah).padStart(3, '0');
-  return `https://cdn.islamic.network/quran/audio/128/ar.alafasy/${getAbsoluteAyahNumber(surah, ayah)}.mp3`;
+  const slug = RECITER_SLUGS[reciterId] || 'ar.alafasy';
+  return `https://cdn.islamic.network/quran/audio/128/${slug}/${getAbsoluteAyahNumber(surah, ayah)}.mp3`;
 }
 
 // Helper: convert surah:ayah to absolute ayah number
@@ -331,5 +337,57 @@ export async function getSurahAudio(surah: number, reciterId = 7): Promise<strin
     return Array.from({ length: surahData.ayahCount }, (_, i) =>
       getAudioUrl(surah, i + 1, reciterId)
     );
+  }
+}
+
+// --- Translation key mapping for QuranEnc ---
+const TRANSLATION_KEYS: Record<string, string> = {
+  fr: 'french_hameedullah',
+  en: 'english_saheeh',
+};
+
+export function getTranslationKey(lang: 'fr' | 'en' = 'fr'): string {
+  return TRANSLATION_KEYS[lang] || TRANSLATION_KEYS.fr;
+}
+
+// --- Quran.com: full-text search ---
+export interface QuranSearchResult {
+  verseKey: string;
+  surah: number;
+  ayah: number;
+  text: string;
+  highlightedText: string;
+  surahName: string;
+  surahNameAr: string;
+}
+
+export async function searchQuran(query: string, language = 'fr', page = 1): Promise<{ results: QuranSearchResult[]; totalResults: number; totalPages: number }> {
+  try {
+    const langCode = language === 'fr' ? 45 : 131; // QuranEnc resource IDs for translations
+    const res = await fetch(
+      `${QURAN_COM_BASE}/search?q=${encodeURIComponent(query)}&size=20&page=${page}&language=${langCode}`
+    );
+    if (!res.ok) throw new Error(`Search API error: ${res.status}`);
+    const data = await res.json();
+    const results: QuranSearchResult[] = (data.search?.results || []).map((r: { verse_key: string; text: string; highlighted?: string }) => {
+      const [s, a] = r.verse_key.split(':').map(Number);
+      const surahInfo = SURAH_LIST[s - 1];
+      return {
+        verseKey: r.verse_key,
+        surah: s,
+        ayah: a,
+        text: r.text,
+        highlightedText: r.highlighted || r.text,
+        surahName: surahInfo?.name || `Sourate ${s}`,
+        surahNameAr: surahInfo?.nameAr || '',
+      };
+    });
+    return {
+      results,
+      totalResults: data.search?.total_results || 0,
+      totalPages: data.search?.total_pages || 0,
+    };
+  } catch {
+    return { results: [], totalResults: 0, totalPages: 0 };
   }
 }
