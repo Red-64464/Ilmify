@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, Star, Plus, Upload, Smile, Trash2, Edit3 } from 'lucide-react';
+import { BookOpen, Star, Plus, Upload, Smile, Trash2, Edit3, Sparkles, FileUp, BarChart3, Loader2, BookCheck } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import SearchInput from '@/components/ui/SearchInput';
 import Badge from '@/components/ui/Badge';
@@ -19,6 +19,8 @@ import AuthGuard from '@/components/layout/AuthGuard';
 import { bookRepository } from '@/lib/repositories/bookRepository';
 import { useToast } from '@/components/ui/Toast';
 import type { Book } from '@/types';
+import { parseBookImport } from '@/lib/importBooks';
+import { detectBookCategory, generateBookRecommendations } from '@/lib/ai/groq';
 
 const statusTabs = [
   { id: 'all', label: 'Tous' },
@@ -46,6 +48,10 @@ const categoryHexColors: Record<string, string> = {
 };
 
 const BOOK_EMOJIS = ['📖', '📚', '📕', '📗', '📘', '📙', '📓', '📔', '🕌', '🕋', '☪️', '🌙', '⭐', '🤲', '📿', '🎓', '✨', '💡', '🌟', '🏆'];
+
+// Dashboard reading-time estimate assumptions
+const ESTIMATED_PAGES_PER_BOOK = 30;
+const READING_SPEED_WPM = 250;
 
 const stagger = {
   hidden: {},
@@ -91,6 +97,23 @@ export default function LibraryPage() {
   const editCoverInputRef = useRef<HTMLInputElement>(null);
   const [savingEdit, setSavingEdit] = useState(false);
 
+  // Import state
+  const importFileRef = useRef<HTMLInputElement>(null);
+  const [showImport, setShowImport] = useState(false);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importPreview, setImportPreview] = useState<{ title: string; author: string; status: string }[]>([]);
+  const [importFile, setImportFile] = useState<File | null>(null);
+
+  // AI auto-categorize
+  const [aiCategory, setAiCategory] = useState('');
+  const [aiCatLoading, setAiCatLoading] = useState(false);
+
+  // Recommendations
+  const [showRecommendations, setShowRecommendations] = useState(false);
+  const [recommendations, setRecommendations] = useState<{ title: string; author: string; reason: string }[]>([]);
+  const [recoLoading, setRecoLoading] = useState(false);
+  const [recoError, setRecoError] = useState('');
+
   useEffect(() => {
     if (authLoading || !user) return;
     let cancelled = false;
@@ -115,6 +138,23 @@ export default function LibraryPage() {
     return [...defaultCats, ...Array.from(new Set(userCats))];
   }, [books]);
 
+  // Auto-detect category via AI when title+author are filled
+  useEffect(() => {
+    if (!newTitle.trim() || !newAuthor.trim() || newCategory) {
+      setAiCategory('');
+      return;
+    }
+    let cancelled = false;
+    const timeout = setTimeout(() => {
+      setAiCatLoading(true);
+      detectBookCategory(newTitle.trim(), newAuthor.trim())
+        .then((cat) => { if (!cancelled) setAiCategory(cat); })
+        .catch(() => { if (!cancelled) setAiCategory(''); })
+        .finally(() => { if (!cancelled) setAiCatLoading(false); });
+    }, 800);
+    return () => { cancelled = true; clearTimeout(timeout); };
+  }, [newTitle, newAuthor, newCategory]);
+
   const handleAddBook = useCallback(async () => {
     if (!newTitle.trim() || !newAuthor.trim() || !user || addingBook) return;
     try {
@@ -124,7 +164,7 @@ export default function LibraryPage() {
         author: newAuthor.trim(),
         coverUrl: newCoverUrl || undefined,
         description: '',
-        category: newCategory || 'Autre',
+        category: newCategory || aiCategory || 'Autre',
         language: 'fr',
         status: 'to-read',
         tags: [],
@@ -143,7 +183,7 @@ export default function LibraryPage() {
     } finally {
       setAddingBook(false);
     }
-  }, [user, newTitle, newAuthor, newCategory, newCoverUrl, newEmoji, addingBook, toast]);
+  }, [user, newTitle, newAuthor, newCategory, aiCategory, newCoverUrl, newEmoji, addingBook, toast]);
 
   const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -216,6 +256,70 @@ export default function LibraryPage() {
     reader.readAsDataURL(file);
   };
 
+  const handleImportFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportFile(file);
+    const text = await file.text();
+    try {
+      const imported = parseBookImport(text, file.name);
+      setImportPreview(imported.map(b => ({ title: b.title, author: b.author, status: b.status })));
+      setShowImport(true);
+    } catch (err) {
+      toast('error', err instanceof Error ? err.message : 'Erreur d\'import');
+    }
+    e.target.value = '';
+  }, [toast]);
+
+  const handleConfirmImport = useCallback(async () => {
+    if (!user || !importFile || importLoading) return;
+    setImportLoading(true);
+    try {
+      const text = await importFile.text();
+      const imported = parseBookImport(text, importFile.name);
+      for (const b of imported) {
+        const created = await bookRepository.create(user.id, {
+          title: b.title,
+          author: b.author,
+          description: '',
+          category: b.category || 'Autre',
+          language: 'fr',
+          status: b.status,
+          tags: [],
+          isbn: b.isbn,
+          rating: b.rating,
+        });
+        setBooks(prev => [created, ...prev]);
+      }
+      toast('success', `${imported.length} livres importés !`);
+      setShowImport(false);
+      setImportFile(null);
+      setImportPreview([]);
+    } catch (err) {
+      toast('error', err instanceof Error ? err.message : 'Erreur d\'import');
+    } finally {
+      setImportLoading(false);
+    }
+  }, [user, importFile, importLoading, toast]);
+
+  const handleOpenRecommendations = useCallback(async () => {
+    if (recoLoading) return;
+    setShowRecommendations(true);
+    setRecoLoading(true);
+    setRecoError('');
+    try {
+      const readBooks = books.filter(b => b.status === 'read' || b.rating);
+      const reco = await generateBookRecommendations(
+        readBooks.map(b => ({ title: b.title, author: b.author, category: b.category, rating: b.rating }))
+      );
+      setRecommendations(reco);
+    } catch (err) {
+      setRecoError(err instanceof Error ? err.message : 'Erreur IA');
+    } finally {
+      setRecoLoading(false);
+    }
+  }, [books, recoLoading]);
+
   return (
     <AuthGuard>
     <div className="pb-10">
@@ -235,6 +339,122 @@ export default function LibraryPage() {
           ) : undefined
         }
       />
+
+      {/* Action buttons: Import & AI Recommendations */}
+      {user && (
+        <div className="flex items-center gap-2 mb-5 flex-wrap">
+          <button
+            onClick={() => importFileRef.current?.click()}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-all"
+            style={{
+              background: 'rgba(99,102,241,0.08)',
+              border: '1px solid rgba(99,102,241,0.15)',
+              color: '#818cf8',
+            }}
+          >
+            <FileUp size={13} />
+            Importer (CSV/JSON)
+          </button>
+          <input
+            ref={importFileRef}
+            type="file"
+            accept=".csv,.json"
+            className="hidden"
+            onChange={handleImportFile}
+          />
+          <button
+            onClick={handleOpenRecommendations}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-all"
+            style={{
+              background: 'rgba(196,154,61,0.08)',
+              border: '1px solid rgba(196,154,61,0.15)',
+              color: '#d4ad4a',
+            }}
+          >
+            <Sparkles size={13} />
+            Recommandations IA
+          </button>
+        </div>
+      )}
+
+      {/* Reading Dashboard */}
+      {!booksLoading && books.length > 0 && (
+        <div
+          className="rounded-2xl p-5 mb-6"
+          style={{
+            background: 'var(--bg-card)',
+            boxShadow: 'var(--shadow-card)',
+            border: '1px solid var(--border-subtle)',
+          }}
+        >
+          <div className="flex items-center gap-2 mb-4">
+            <BarChart3 size={16} style={{ color: 'var(--accent)' }} />
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+              Tableau de bord
+            </h3>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div
+              className="rounded-xl p-3 text-center"
+              style={{ background: 'rgba(46,158,140,0.06)', border: '1px solid rgba(46,158,140,0.1)' }}
+            >
+              <p className="text-lg font-bold" style={{ color: 'var(--accent)' }}>
+                {books.filter(b => {
+                  if (b.status !== 'read' || !b.finishedAt) return false;
+                  const d = new Date(b.finishedAt);
+                  const now = new Date();
+                  return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+                }).length}
+              </p>
+              <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>Ce mois-ci</p>
+            </div>
+            <div
+              className="rounded-xl p-3 text-center"
+              style={{ background: 'rgba(196,154,61,0.06)', border: '1px solid rgba(196,154,61,0.1)' }}
+            >
+              <p className="text-lg font-bold" style={{ color: '#d4ad4a' }}>
+                {books.filter(b => b.status === 'read').length}
+              </p>
+              <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>Total lus</p>
+            </div>
+            <div
+              className="rounded-xl p-3 text-center"
+              style={{ background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.1)' }}
+            >
+              <p className="text-lg font-bold" style={{ color: '#818cf8' }}>
+                {(() => {
+                  const readDates = books
+                    .filter(b => b.status === 'read' && b.finishedAt)
+                    .map(b => new Date(b.finishedAt!).toISOString().slice(0, 7))
+                    .sort();
+                  if (readDates.length === 0) return 0;
+                  let streak = 1;
+                  const now = new Date();
+                  const current = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                  if (!readDates.includes(current)) return 0;
+                  for (let i = 1; i <= 24; i++) {
+                    const prev = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                    const key = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}`;
+                    if (readDates.includes(key)) streak++;
+                    else break;
+                  }
+                  return streak;
+                })()}
+              </p>
+              <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>Streak (mois)</p>
+            </div>
+            <div
+              className="rounded-xl p-3 text-center"
+              style={{ background: 'rgba(58,170,96,0.06)', border: '1px solid rgba(58,170,96,0.1)' }}
+            >
+              <p className="text-lg font-bold" style={{ color: '#3aaa60' }}>
+                {Math.round(books.filter(b => b.status === 'read').length * ESTIMATED_PAGES_PER_BOOK * READING_SPEED_WPM / 60)}
+              </p>
+              <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>Min. lecture est.</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="mb-5 overflow-x-auto scrollbar-none -mx-5 px-5">
         <Tabs tabs={statusTabs} activeTab={tab} onChange={setTab} />
@@ -611,6 +831,27 @@ export default function LibraryPage() {
               <p className="text-[10px] mt-1" style={{ color: '#d4ad4a' }}>Catégorie personnalisée : {newCategory}</p>
             )}
           </div>
+          {/* AI category suggestion */}
+          {!newCategory && aiCatLoading && (
+            <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+              <Loader2 size={12} className="animate-spin" />
+              Détection IA de la catégorie...
+            </div>
+          )}
+          {!newCategory && aiCategory && !aiCatLoading && (
+            <button
+              onClick={() => setNewCategory(aiCategory)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-all"
+              style={{
+                background: 'rgba(99,102,241,0.1)',
+                border: '1px solid rgba(99,102,241,0.15)',
+                color: '#818cf8',
+              }}
+            >
+              <Sparkles size={11} />
+              Suggestion IA : {aiCategory} — Appliquer
+            </button>
+          )}
           <div className="flex gap-2 pt-2">
             <Button variant="secondary" size="md" onClick={() => setShowAddModal(false)} className="flex-1">
               Annuler
@@ -769,6 +1010,109 @@ export default function LibraryPage() {
           onCancel={() => setEditCropImage(null)}
         />
       )}
+
+      {/* Import preview modal */}
+      <Modal
+        isOpen={showImport}
+        onClose={() => { setShowImport(false); setImportFile(null); setImportPreview([]); }}
+        title="Importer des livres"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 mb-2">
+            <BookCheck size={16} style={{ color: 'var(--accent)' }} />
+            <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+              {importPreview.length} livre{importPreview.length > 1 ? 's' : ''} détecté{importPreview.length > 1 ? 's' : ''}
+            </p>
+          </div>
+          <div
+            className="max-h-60 overflow-y-auto rounded-xl p-3 space-y-2"
+            style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
+          >
+            {importPreview.map((b, i) => (
+              <div key={i} className="flex items-center justify-between gap-2 text-xs py-1.5" style={{ borderBottom: i < importPreview.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate" style={{ color: 'var(--text-primary)' }}>{b.title}</p>
+                  <p style={{ color: 'var(--text-muted)' }}>{b.author}</p>
+                </div>
+                <Badge variant={b.status === 'read' ? 'green' : b.status === 'reading' ? 'gold' : 'default'} size="sm">
+                  {b.status === 'read' ? 'Terminé' : b.status === 'reading' ? 'En cours' : 'À lire'}
+                </Badge>
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2 pt-2">
+            <Button variant="secondary" size="md" onClick={() => { setShowImport(false); setImportFile(null); setImportPreview([]); }} className="flex-1">
+              Annuler
+            </Button>
+            <Button variant="primary" size="md" onClick={handleConfirmImport} disabled={importLoading} className="flex-1">
+              {importLoading ? (
+                <span className="flex items-center gap-1.5"><Loader2 size={13} className="animate-spin" />Import...</span>
+              ) : (
+                `Importer ${importPreview.length} livre${importPreview.length > 1 ? 's' : ''}`
+              )}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* AI Recommendations modal */}
+      <Modal
+        isOpen={showRecommendations}
+        onClose={() => setShowRecommendations(false)}
+        title="Recommandations IA"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles size={16} style={{ color: '#d4ad4a' }} />
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+              Basées sur vos {books.filter(b => b.status === 'read').length} livres lus
+            </p>
+          </div>
+          {recoLoading ? (
+            <div className="flex flex-col items-center gap-3 py-8">
+              <Loader2 size={24} className="animate-spin" style={{ color: 'var(--accent)' }} />
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Analyse en cours...</p>
+            </div>
+          ) : recoError ? (
+            <div className="text-center py-6">
+              <p className="text-sm" style={{ color: '#f87171' }}>{recoError}</p>
+              <button
+                onClick={handleOpenRecommendations}
+                className="mt-3 text-xs cursor-pointer"
+                style={{ color: 'var(--accent)' }}
+              >
+                Réessayer
+              </button>
+            </div>
+          ) : recommendations.length > 0 ? (
+            <div
+              className="max-h-72 overflow-y-auto rounded-xl p-3 space-y-3"
+              style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
+            >
+              {recommendations.map((r, i) => (
+                <div
+                  key={i}
+                  className="rounded-xl p-3"
+                  style={{ background: 'rgba(196,154,61,0.04)', border: '1px solid rgba(196,154,61,0.08)' }}
+                >
+                  <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{r.title}</p>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{r.author}</p>
+                  <p className="text-xs mt-1.5" style={{ color: 'var(--text-secondary)' }}>{r.reason}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-6">
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Aucune recommandation disponible.</p>
+            </div>
+          )}
+          <div className="pt-2">
+            <Button variant="secondary" size="md" onClick={() => setShowRecommendations(false)} className="w-full">
+              Fermer
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
     </AuthGuard>
   );
