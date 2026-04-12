@@ -867,3 +867,488 @@ Réponds uniquement avec l'explication, sans titre ni introduction.`;
     600,
   );
 }
+
+// ---------------------------------------------------------------------------
+// Islamic AI System Prompt
+// ---------------------------------------------------------------------------
+const ISLAMIC_SYSTEM_PROMPT =
+  'Tu es un spécialiste du Coran et des sciences islamiques. Tu fournis des informations basées UNIQUEMENT sur des sources reconnues et vérifiables. Ne fabrique JAMAIS de hadiths ou de versets. Réponds en français.';
+
+// ---------------------------------------------------------------------------
+// Surah Summary
+// ---------------------------------------------------------------------------
+
+export async function generateSurahSummary(
+  surahNumber: number,
+  surahName: string,
+  versesText: string,
+): Promise<string> {
+  const prompt = `Sourate ${surahNumber} – ${surahName}
+
+Versets :
+${truncateContent(versesText)}
+
+Rédige un résumé de cette sourate en environ 3 lignes, en français simple et accessible.
+Le résumé doit mentionner les thèmes principaux et l'enseignement central de la sourate.
+Réponds uniquement avec le résumé, sans titre ni introduction.`;
+
+  return callGroq(
+    [
+      { role: 'system', content: ISLAMIC_SYSTEM_PROMPT },
+      { role: 'user', content: prompt },
+    ],
+    false,
+    'llama-3.1-8b-instant',
+    2,
+    600,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Surah Quiz
+// ---------------------------------------------------------------------------
+
+export interface SurahQuizQuestion {
+  question: string;
+  options: string[];
+  correctAnswer: number;
+  explanation: string;
+}
+
+export async function generateSurahQuiz(
+  surahNumber: number,
+  surahName: string,
+  versesText: string,
+): Promise<SurahQuizQuestion[]> {
+  const prompt = `Sourate ${surahNumber} – ${surahName}
+
+Versets :
+${truncateContent(versesText)}
+
+Génère exactement 5 questions à choix multiples (QCM) sur le contenu de cette sourate.
+Chaque question doit avoir 4 options (A, B, C, D).
+
+Réponds UNIQUEMENT avec un tableau JSON valide au format suivant, sans texte autour :
+[
+  {
+    "question": "...",
+    "options": ["A) ...", "B) ...", "C) ...", "D) ..."],
+    "correctAnswer": 0,
+    "explanation": "..."
+  }
+]
+
+"correctAnswer" est l'index (0-3) de la bonne réponse dans le tableau "options".
+"explanation" explique brièvement pourquoi c'est la bonne réponse.`;
+
+  const raw = await callGroq(
+    [
+      { role: 'system', content: ISLAMIC_SYSTEM_PROMPT },
+      { role: 'user', content: prompt },
+    ],
+    true,
+    'llama-3.3-70b-versatile',
+    2,
+    2048,
+  );
+
+  try {
+    const parsed = JSON.parse(raw);
+    const questions: SurahQuizQuestion[] = Array.isArray(parsed)
+      ? parsed
+      : parsed.questions ?? parsed.quiz ?? [];
+    return questions;
+  } catch {
+    const extracted = extractJsonFromText(raw);
+    const parsed = JSON.parse(extracted);
+    return Array.isArray(parsed) ? parsed : parsed.questions ?? parsed.quiz ?? [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Surah Flashcards
+// ---------------------------------------------------------------------------
+
+export interface SurahFlashcard {
+  arabic: string;
+  transliteration: string;
+  meaning: string;
+  context: string;
+}
+
+export async function generateSurahFlashcards(
+  surahNumber: number,
+  surahName: string,
+  versesText: string,
+): Promise<SurahFlashcard[]> {
+  const prompt = `Sourate ${surahNumber} – ${surahName}
+
+Versets :
+${truncateContent(versesText)}
+
+Génère des flashcards de vocabulaire arabe à partir de cette sourate (8 à 12 mots importants).
+Chaque flashcard contient le mot arabe, sa translittération, sa signification en français, et une courte phrase de contexte tirée de la sourate.
+
+Réponds UNIQUEMENT avec un tableau JSON valide au format suivant, sans texte autour :
+[
+  {
+    "arabic": "...",
+    "transliteration": "...",
+    "meaning": "...",
+    "context": "..."
+  }
+]`;
+
+  const raw = await callGroq(
+    [
+      { role: 'system', content: ISLAMIC_SYSTEM_PROMPT },
+      { role: 'user', content: prompt },
+    ],
+    true,
+    'llama-3.3-70b-versatile',
+    2,
+    2048,
+  );
+
+  try {
+    const parsed = JSON.parse(raw);
+    const cards: SurahFlashcard[] = Array.isArray(parsed)
+      ? parsed
+      : parsed.flashcards ?? parsed.cards ?? [];
+    return cards;
+  } catch {
+    const extracted = extractJsonFromText(raw);
+    const parsed = JSON.parse(extracted);
+    return Array.isArray(parsed) ? parsed : parsed.flashcards ?? parsed.cards ?? [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Hifz Plan
+// ---------------------------------------------------------------------------
+
+export interface HifzDay {
+  day: string;
+  verses: string;
+  tip: string;
+}
+
+export interface HifzPlanResult {
+  totalVerses: number;
+  versesPerDay: number;
+  weeks: HifzDay[][];
+  advice: string;
+}
+
+export async function generateHifzPlan(
+  surahNumber: number,
+  surahName: string,
+  totalVerses: number,
+  weeks: number,
+): Promise<HifzPlanResult> {
+  const prompt = `Sourate ${surahNumber} – ${surahName} (${totalVerses} versets)
+Durée souhaitée : ${weeks} semaine(s)
+
+Génère un plan de mémorisation (hifz) détaillé pour cette sourate.
+Le plan doit répartir les versets sur ${weeks} semaine(s), avec pour chaque jour :
+- Le jour (ex: "Lundi", "Mardi"...)
+- Les versets à mémoriser (ex: "Versets 1-3")
+- Un conseil pratique de mémorisation
+
+Réponds UNIQUEMENT avec un objet JSON valide au format suivant, sans texte autour :
+{
+  "totalVerses": ${totalVerses},
+  "versesPerDay": <nombre moyen de versets par jour>,
+  "weeks": [
+    [
+      { "day": "Lundi", "verses": "Versets 1-3", "tip": "..." },
+      { "day": "Mardi", "verses": "Versets 4-6", "tip": "..." }
+    ]
+  ],
+  "advice": "Conseil général pour la mémorisation de cette sourate."
+}
+
+Chaque élément de "weeks" est un tableau de 5 à 7 jours.`;
+
+  const raw = await callGroq(
+    [
+      { role: 'system', content: ISLAMIC_SYSTEM_PROMPT },
+      { role: 'user', content: prompt },
+    ],
+    true,
+    'llama-3.3-70b-versatile',
+    2,
+    2048,
+  );
+
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed as HifzPlanResult;
+  } catch {
+    const extracted = extractJsonFromText(raw);
+    return JSON.parse(extracted) as HifzPlanResult;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Thematic Explanation
+// ---------------------------------------------------------------------------
+
+export interface ThematicVerse {
+  surah: number;
+  ayah: number;
+  surahName: string;
+  explanation: string;
+}
+
+export async function generateThematicExplanation(
+  theme: string,
+): Promise<{ introduction: string; verses: ThematicVerse[]; conclusion: string }> {
+  const prompt = `Que dit le Coran sur le thème suivant : "${theme}" ?
+
+Fournis :
+1. Une introduction courte (2-3 phrases) sur ce que le Coran dit de ce thème.
+2. Une liste de 3 à 6 versets coraniques pertinents avec pour chacun : le numéro de sourate, le numéro de verset, le nom de la sourate, et une explication du lien avec le thème.
+3. Une conclusion résumant l'enseignement coranique sur ce thème.
+
+IMPORTANT : Ne cite que des versets qui existent réellement dans le Coran. Ne fabrique aucun verset.
+
+Réponds UNIQUEMENT avec un objet JSON valide au format suivant, sans texte autour :
+{
+  "introduction": "...",
+  "verses": [
+    {
+      "surah": 2,
+      "ayah": 255,
+      "surahName": "Al-Baqara",
+      "explanation": "..."
+    }
+  ],
+  "conclusion": "..."
+}`;
+
+  const raw = await callGroq(
+    [
+      { role: 'system', content: ISLAMIC_SYSTEM_PROMPT },
+      { role: 'user', content: prompt },
+    ],
+    true,
+    'llama-3.3-70b-versatile',
+    2,
+    2048,
+  );
+
+  try {
+    return JSON.parse(raw) as { introduction: string; verses: ThematicVerse[]; conclusion: string };
+  } catch {
+    const extracted = extractJsonFromText(raw);
+    return JSON.parse(extracted) as { introduction: string; verses: ThematicVerse[]; conclusion: string };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Verse Connections
+// ---------------------------------------------------------------------------
+
+export async function generateVerseConnections(
+  surah: number,
+  ayah: number,
+  arabic: string,
+  translation: string,
+): Promise<{ surah: number; ayah: number; surahName: string; reason: string }[]> {
+  const prompt = `Verset : Sourate ${surah}, Verset ${ayah}
+Texte arabe : ${arabic}
+Traduction française : ${translation}
+
+Trouve 3 à 5 versets coraniques thématiquement liés à ce verset.
+Pour chaque verset lié, indique le numéro de sourate, le numéro de verset, le nom de la sourate, et explique brièvement le lien thématique.
+
+IMPORTANT : Ne cite que des versets qui existent réellement dans le Coran.
+
+Réponds UNIQUEMENT avec un tableau JSON valide au format suivant, sans texte autour :
+[
+  {
+    "surah": 2,
+    "ayah": 255,
+    "surahName": "Al-Baqara",
+    "reason": "..."
+  }
+]`;
+
+  const raw = await callGroq(
+    [
+      { role: 'system', content: ISLAMIC_SYSTEM_PROMPT },
+      { role: 'user', content: prompt },
+    ],
+    true,
+    'llama-3.3-70b-versatile',
+    2,
+    1024,
+  );
+
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : parsed.verses ?? parsed.connections ?? [];
+  } catch {
+    const extracted = extractJsonFromText(raw);
+    const parsed = JSON.parse(extracted);
+    return Array.isArray(parsed) ? parsed : parsed.verses ?? parsed.connections ?? [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Hadith Suggestions
+// ---------------------------------------------------------------------------
+
+export interface HadithSuggestion {
+  text: string;
+  source: string;
+  relevance: string;
+}
+
+export async function generateHadithSuggestions(
+  surah: number,
+  ayah: number,
+  arabic: string,
+  translation: string,
+): Promise<HadithSuggestion[]> {
+  const prompt = `Verset : Sourate ${surah}, Verset ${ayah}
+Texte arabe : ${arabic}
+Traduction française : ${translation}
+
+Suggère 3 à 5 hadiths authentiques (sahih) en lien avec ce verset.
+Pour chaque hadith, fournis :
+- Le texte du hadith en français
+- La source exacte (ex: "Sahih al-Bukhari, Livre X, Hadith Y" ou "Sahih Muslim, n°1234")
+- Une explication du lien avec le verset
+
+IMPORTANT : Ne cite que des hadiths reconnus comme authentiques. Ne fabrique JAMAIS de hadith.
+
+Réponds UNIQUEMENT avec un tableau JSON valide au format suivant, sans texte autour :
+[
+  {
+    "text": "...",
+    "source": "...",
+    "relevance": "..."
+  }
+]`;
+
+  const raw = await callGroq(
+    [
+      { role: 'system', content: ISLAMIC_SYSTEM_PROMPT },
+      { role: 'user', content: prompt },
+    ],
+    true,
+    'llama-3.3-70b-versatile',
+    2,
+    2048,
+  );
+
+  try {
+    const parsed = JSON.parse(raw);
+    const hadiths: HadithSuggestion[] = Array.isArray(parsed)
+      ? parsed
+      : parsed.hadiths ?? parsed.suggestions ?? [];
+    return hadiths;
+  } catch {
+    const extracted = extractJsonFromText(raw);
+    const parsed = JSON.parse(extracted);
+    return Array.isArray(parsed) ? parsed : parsed.hadiths ?? parsed.suggestions ?? [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Asbab al-Nuzul (Reason of Revelation)
+// ---------------------------------------------------------------------------
+
+export async function generateAsbabNuzul(
+  surah: number,
+  ayah: number,
+  arabic: string,
+  translation: string,
+): Promise<string> {
+  const prompt = `Verset : Sourate ${surah}, Verset ${ayah}
+Texte arabe : ${arabic}
+Traduction française : ${translation}
+
+Explique les circonstances de la révélation (Asbab al-Nuzul) de ce verset de manière simplifiée et accessible.
+L'explication doit :
+- Décrire le contexte historique de la révélation
+- Mentionner les sources classiques si disponibles (Al-Wahidi, Al-Suyuti)
+- Être compréhensible pour un lecteur francophone non spécialiste
+- Faire 4 à 8 phrases
+
+Si les circonstances de révélation de ce verset ne sont pas connues ou documentées, indique-le honnêtement.
+
+Réponds uniquement avec l'explication, sans titre ni introduction.`;
+
+  return callGroq(
+    [
+      { role: 'system', content: ISLAMIC_SYSTEM_PROMPT },
+      { role: 'user', content: prompt },
+    ],
+    false,
+    'llama-3.1-8b-instant',
+    2,
+    800,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Word-by-Word Translation
+// ---------------------------------------------------------------------------
+
+export interface WordTranslation {
+  arabic: string;
+  transliteration: string;
+  meaning: string;
+}
+
+export async function generateWordByWord(
+  surah: number,
+  ayah: number,
+  arabic: string,
+): Promise<WordTranslation[]> {
+  const prompt = `Verset : Sourate ${surah}, Verset ${ayah}
+Texte arabe : ${arabic}
+
+Fais une traduction mot-à-mot de ce verset coranique.
+Pour chaque mot arabe du verset, donne :
+- Le mot en arabe
+- Sa translittération en caractères latins
+- Sa signification en français
+
+Respecte l'ordre des mots tel qu'il apparaît dans le texte arabe (de droite à gauche).
+
+Réponds UNIQUEMENT avec un tableau JSON valide au format suivant, sans texte autour :
+[
+  {
+    "arabic": "بِسْمِ",
+    "transliteration": "bismi",
+    "meaning": "au nom de"
+  }
+]`;
+
+  const raw = await callGroq(
+    [
+      { role: 'system', content: ISLAMIC_SYSTEM_PROMPT },
+      { role: 'user', content: prompt },
+    ],
+    true,
+    'llama-3.3-70b-versatile',
+    2,
+    1500,
+  );
+
+  try {
+    const parsed = JSON.parse(raw);
+    const words: WordTranslation[] = Array.isArray(parsed)
+      ? parsed
+      : parsed.words ?? parsed.translations ?? [];
+    return words;
+  } catch {
+    const extracted = extractJsonFromText(raw);
+    const parsed = JSON.parse(extracted);
+    return Array.isArray(parsed) ? parsed : parsed.words ?? parsed.translations ?? [];
+  }
+}
