@@ -199,6 +199,7 @@ export interface QuranReadingPosition {
   surahNumber: number;
   ayahNumber: number;
   juzNumber?: number;
+  timestamp?: string;
 }
 
 export interface Reciter {
@@ -206,6 +207,13 @@ export interface Reciter {
   name: string;
   nameAr: string;
   style?: string;
+}
+
+export interface QuranSettings {
+  reciterId: number;
+  arabicFontSize: number; // in rem, default 1.5
+  translationLang: 'fr' | 'en';
+  showTransliteration: boolean;
 }
 
 // Auth & User types

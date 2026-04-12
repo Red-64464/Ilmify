@@ -1,25 +1,55 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Bookmark, Trash2, Play, ChevronLeft } from 'lucide-react';
-import { SURAH_LIST, getAudioUrl } from '@/lib/api/quranApi';
-import { useQuranBookmarks } from '@/lib/quranStorage';
+import { Bookmark, Trash2, Play, ChevronLeft, Pencil, Check, X } from 'lucide-react';
+import { SURAH_LIST, getAudioUrl, getVerseTranslation, getArabicVerse } from '@/lib/api/quranApi';
+import { useQuranBookmarks, useQuranSettings } from '@/lib/quranStorage';
 import type { QuranBookmark } from '@/types';
-import PageHeader from '@/components/layout/PageHeader';
 
 const CATEGORIES: { id: QuranBookmark['category'] | 'all'; label: string; emoji: string }[] = [
   { id: 'all', label: 'Tous', emoji: '📚' },
   { id: 'favorite', label: 'Favoris', emoji: '⭐' },
-  { id: 'dua', label: 'Du\'a', emoji: '🤲' },
+  { id: 'dua', label: "Du'a", emoji: '🤲' },
   { id: 'revision', label: 'Révision', emoji: '📖' },
   { id: 'important', label: 'Important', emoji: '🔖' },
 ];
 
+interface VerseData {
+  arabic: string;
+  translation: string;
+}
+
 export default function BookmarksPage() {
-  const { bookmarks, removeBookmark } = useQuranBookmarks();
+  const { bookmarks, removeBookmark, updateBookmarkNote, updateBookmarkCategory } = useQuranBookmarks();
+  const { settings } = useQuranSettings();
   const [filter, setFilter] = useState<QuranBookmark['category'] | 'all'>('all');
   const [playingId, setPlayingId] = useState<string | null>(null);
+  const [verseCache, setVerseCache] = useState<Record<string, VerseData>>({});
+  const [editingNote, setEditingNote] = useState<string | null>(null);
+  const [noteText, setNoteText] = useState('');
+  const [editingCategory, setEditingCategory] = useState<string | null>(null);
+
+  // Fetch Arabic text and translation for bookmarked verses
+  useEffect(() => {
+    bookmarks.forEach(async (bm) => {
+      const key = `${bm.surahNumber}:${bm.ayahNumber}`;
+      if (verseCache[key]) return;
+      try {
+        const [translationData, arabic] = await Promise.all([
+          getVerseTranslation(bm.surahNumber, bm.ayahNumber),
+          getArabicVerse(bm.surahNumber, bm.ayahNumber),
+        ]);
+        setVerseCache((prev) => ({
+          ...prev,
+          [key]: { arabic, translation: translationData.translation },
+        }));
+      } catch {
+        // ignore
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookmarks]);
 
   const filtered = useMemo(() => {
     if (filter === 'all') return bookmarks;
@@ -36,12 +66,24 @@ export default function BookmarksPage() {
     return groups;
   }, [filtered]);
 
-  const playAudio = (surahNumber: number, ayahNumber: number) => {
+  const playAudio = useCallback((surahNumber: number, ayahNumber: number) => {
     const id = `${surahNumber}:${ayahNumber}`;
-    const audio = new Audio(getAudioUrl(surahNumber, ayahNumber, 7));
+    const audio = new Audio(getAudioUrl(surahNumber, ayahNumber, settings.reciterId));
     audio.play();
     setPlayingId(id);
     audio.onended = () => setPlayingId(null);
+  }, [settings.reciterId]);
+
+  const startEditNote = (bm: QuranBookmark) => {
+    const id = `${bm.surahNumber}:${bm.ayahNumber}`;
+    setEditingNote(id);
+    setNoteText(bm.note || '');
+  };
+
+  const saveNote = (surahNumber: number, ayahNumber: number) => {
+    updateBookmarkNote(surahNumber, ayahNumber, noteText);
+    setEditingNote(null);
+    setNoteText('');
   };
 
   return (
@@ -144,12 +186,16 @@ export default function BookmarksPage() {
                 <div className="space-y-2">
                   {bmarks.map((bm) => {
                     const pid = `${bm.surahNumber}:${bm.ayahNumber}`;
+                    const verse = verseCache[pid];
+                    const isEditing = editingNote === pid;
+                    const isEditingCat = editingCategory === pid;
+
                     return (
                       <motion.div
                         key={bm.id}
                         initial={{ opacity: 0, y: 4 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="rounded-2xl p-4"
+                        className="rounded-2xl p-4 space-y-2"
                         style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
                       >
                         <div className="flex items-start justify-between gap-3">
@@ -160,16 +206,40 @@ export default function BookmarksPage() {
                             >
                               {bm.ayahNumber}
                             </span>
-                            <span
-                              className="text-xs px-2 py-0.5 rounded-full"
-                              style={{
-                                background: 'rgba(46,158,140,0.1)',
-                                color: 'var(--accent)',
-                              }}
-                            >
-                              {CATEGORIES.find((c) => c.id === bm.category)?.emoji}{' '}
-                              {CATEGORIES.find((c) => c.id === bm.category)?.label}
-                            </span>
+                            {isEditingCat ? (
+                              <div className="flex gap-1 flex-wrap">
+                                {CATEGORIES.filter(c => c.id !== 'all').map((cat) => (
+                                  <button
+                                    key={cat.id}
+                                    onClick={() => {
+                                      updateBookmarkCategory(bm.surahNumber, bm.ayahNumber, cat.id as QuranBookmark['category']);
+                                      setEditingCategory(null);
+                                    }}
+                                    className="text-[10px] px-1.5 py-0.5 rounded-full"
+                                    style={{
+                                      background: bm.category === cat.id ? 'rgba(46,158,140,0.2)' : 'var(--bg-elevated)',
+                                      color: bm.category === cat.id ? 'var(--accent)' : 'var(--text-muted)',
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    {cat.emoji}
+                                  </button>
+                                ))}
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => setEditingCategory(pid)}
+                                className="text-xs px-2 py-0.5 rounded-full"
+                                style={{
+                                  background: 'rgba(46,158,140,0.1)',
+                                  color: 'var(--accent)',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                {CATEGORIES.find((c) => c.id === bm.category)?.emoji}{' '}
+                                {CATEGORIES.find((c) => c.id === bm.category)?.label}
+                              </button>
+                            )}
                           </div>
                           <div className="flex items-center gap-1">
                             <button
@@ -182,6 +252,18 @@ export default function BookmarksPage() {
                               }}
                             >
                               <Play size={12} />
+                            </button>
+                            <button
+                              onClick={() => startEditNote(bm)}
+                              className="p-1.5 rounded-lg transition-colors"
+                              style={{
+                                background: 'var(--bg-elevated)',
+                                color: 'var(--text-muted)',
+                                cursor: 'pointer',
+                              }}
+                              title="Modifier la note"
+                            >
+                              <Pencil size={12} />
                             </button>
                             <button
                               onClick={() => removeBookmark(bm.surahNumber, bm.ayahNumber)}
@@ -197,12 +279,62 @@ export default function BookmarksPage() {
                           </div>
                         </div>
 
-                        {bm.note && (
-                          <p className="mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-                            {bm.note}
+                        {/* Arabic text */}
+                        {verse?.arabic && (
+                          <p
+                            className="font-arabic text-lg leading-loose text-right"
+                            style={{ color: '#d4ad4a', direction: 'rtl', lineHeight: '2' }}
+                          >
+                            {verse.arabic}
                           </p>
                         )}
-                        <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+
+                        {/* Translation */}
+                        {verse?.translation && (
+                          <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                            {verse.translation}
+                          </p>
+                        )}
+
+                        {/* Note section */}
+                        {isEditing ? (
+                          <div className="flex gap-2 items-start">
+                            <textarea
+                              value={noteText}
+                              onChange={(e) => setNoteText(e.target.value)}
+                              placeholder="Ajouter une note..."
+                              rows={2}
+                              className="flex-1 text-xs rounded-lg px-3 py-2 outline-none resize-none"
+                              style={{ background: 'var(--bg-base)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                              autoFocus
+                            />
+                            <div className="flex flex-col gap-1">
+                              <button
+                                onClick={() => saveNote(bm.surahNumber, bm.ayahNumber)}
+                                className="p-1.5 rounded-lg"
+                                style={{ background: 'rgba(58,170,96,0.15)', color: '#3aaa60', cursor: 'pointer' }}
+                              >
+                                <Check size={12} />
+                              </button>
+                              <button
+                                onClick={() => setEditingNote(null)}
+                                className="p-1.5 rounded-lg"
+                                style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', cursor: 'pointer' }}
+                              >
+                                <X size={12} />
+                              </button>
+                            </div>
+                          </div>
+                        ) : bm.note ? (
+                          <p
+                            className="text-xs italic px-2 py-1.5 rounded-lg"
+                            style={{ color: 'var(--text-muted)', background: 'rgba(212,173,74,0.05)', borderLeft: '2px solid rgba(212,173,74,0.3)' }}
+                          >
+                            📝 {bm.note}
+                          </p>
+                        ) : null}
+
+                        <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
                           Ajouté le {new Date(bm.createdAt).toLocaleDateString('fr-FR')}
                         </p>
                       </motion.div>
