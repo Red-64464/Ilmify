@@ -148,11 +148,65 @@ export interface DailyReminder {
 
 export type SearchResult = {
   id: string;
-  type: 'theme' | 'content' | 'quiz' | 'flashcard' | 'book' | 'passage' | 'topic' | 'course';
+  type: 'theme' | 'content' | 'quiz' | 'flashcard' | 'book' | 'passage' | 'topic' | 'course' | 'quran';
   title: string;
   description: string;
   themeId?: string;
 };
+
+// Quran types
+export interface QuranSurah {
+  number: number;
+  name: string;
+  nameAr: string;
+  ayahCount: number;
+  revelationType: 'Meccan' | 'Medinan';
+  juzStart?: number;
+}
+
+export interface QuranAyah {
+  surah: number;
+  ayah: number;
+  arabic: string;
+  transliteration: string;
+  translation: string;
+  audioUrl: string;
+  footnotes?: string;
+}
+
+export interface QuranMemorization {
+  id: string;
+  surahNumber: number;
+  status: 'memorized' | 'in-progress' | 'not-started';
+  memorizedAyahs: number[];
+  lastReviewedAt?: string;
+  startedAt?: string;
+  completedAt?: string;
+  reviewCount: number;
+  notes?: string;
+}
+
+export interface QuranBookmark {
+  id: string;
+  surahNumber: number;
+  ayahNumber: number;
+  note?: string;
+  category: 'favorite' | 'dua' | 'revision' | 'important';
+  createdAt: string;
+}
+
+export interface QuranReadingPosition {
+  surahNumber: number;
+  ayahNumber: number;
+  juzNumber?: number;
+}
+
+export interface Reciter {
+  id: number;
+  name: string;
+  nameAr: string;
+  style?: string;
+}
 
 // Auth & User types
 

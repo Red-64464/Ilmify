@@ -469,7 +469,7 @@ export default function MediaDetailPage({ params }: { params: Promise<{ id: stri
               variant="primary"
               size="sm"
               iconLeft={aiLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-              onClick={handleAiAnalyze}
+              onClick={() => handleAiAnalyze()}
               disabled={aiLoading}
             >
               {aiLoading ? 'Analyse...' : 'Analyser avec l’IA'}
@@ -579,7 +579,7 @@ export default function MediaDetailPage({ params }: { params: Promise<{ id: stri
         {aiError && !aiLoading && (
           <div className="py-8 text-center">
             <p className="text-sm mb-4" style={{ color: '#f87171' }}>⚠️ {aiError}</p>
-            <Button variant="secondary" size="sm" onClick={handleAiAnalyze}>Réessayer</Button>
+            <Button variant="secondary" size="sm" onClick={() => handleAiAnalyze()}>Réessayer</Button>
           </div>
         )}
 
