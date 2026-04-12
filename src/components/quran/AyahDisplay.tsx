@@ -255,8 +255,9 @@ export default function AyahDisplay({
                 <p
                   className="text-xs leading-relaxed"
                   style={{ color: 'var(--text-secondary)' }}
-                  dangerouslySetInnerHTML={{ __html: tafsirText || '' }}
-                />
+                >
+                  {(tafsirText || '').replace(/<[^>]*>/g, '')}
+                </p>
               )}
             </div>
           </motion.div>

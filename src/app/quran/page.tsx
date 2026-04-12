@@ -288,8 +288,9 @@ export default function QuranPage() {
                       <p
                         className="text-xs leading-relaxed"
                         style={{ color: 'var(--text-secondary)' }}
-                        dangerouslySetInnerHTML={{ __html: r.highlightedText }}
-                      />
+                      >
+                        {r.highlightedText.replace(/<[^>]*>/g, '')}
+                      </p>
                     </button>
                   ))}
                 </div>
