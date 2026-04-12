@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BookOpen, Star, Plus, Upload, Smile, Trash2, Edit3 } from 'lucide-react';
@@ -99,14 +99,21 @@ export default function LibraryPage() {
     return () => { cancelled = true; };
   }, [authLoading, user]);
 
-  const filtered = books.filter((b) => {
+  const filtered = useMemo(() => books.filter((b) => {
     const matchesTab = tab === 'all' || b.status === tab;
     const matchesSearch =
       !search ||
       b.title.toLowerCase().includes(search.toLowerCase()) ||
       b.author.toLowerCase().includes(search.toLowerCase());
     return matchesTab && matchesSearch;
-  });
+  }), [books, tab, search]);
+
+  // Pre-compute all categories once (default + user custom)
+  const allCategories = useMemo(() => {
+    const defaultCats = ['Aqida', 'Hadith', 'Sira', 'Fiqh', 'Tafsir', 'Adhkar', 'Autre'];
+    const userCats = books.map(b => b.category).filter(c => c && !defaultCats.includes(c));
+    return [...defaultCats, ...Array.from(new Set(userCats))];
+  }, [books]);
 
   const handleAddBook = useCallback(async () => {
     if (!newTitle.trim() || !newAuthor.trim() || !user || addingBook) return;
@@ -556,11 +563,7 @@ export default function LibraryPage() {
               Catégorie
             </label>
             <div className="flex flex-wrap gap-2">
-              {(() => {
-                const defaultCats = ['Aqida', 'Hadith', 'Sira', 'Fiqh', 'Tafsir', 'Adhkar', 'Autre'];
-                const userCats = books.map(b => b.category).filter(c => c && !defaultCats.includes(c));
-                const allCats = [...defaultCats, ...Array.from(new Set(userCats))];
-                return allCats.map((cat) => (
+              {allCategories.map((cat) => (
                   <button
                     key={cat}
                     onClick={() => setNewCategory(newCategory === cat ? '' : cat)}
@@ -573,8 +576,7 @@ export default function LibraryPage() {
                   >
                     {cat}
                   </button>
-                ));
-              })()}
+                ))}
             </div>
             <div className="flex items-center gap-2 mt-2">
               <input
@@ -705,11 +707,7 @@ export default function LibraryPage() {
           <div>
             <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Catégorie</label>
             <div className="flex flex-wrap gap-2">
-              {(() => {
-                const defaultCats = ['Aqida', 'Hadith', 'Sira', 'Fiqh', 'Tafsir', 'Adhkar', 'Autre'];
-                const userCats = books.map(b => b.category).filter(c => c && !defaultCats.includes(c));
-                const allCats = [...defaultCats, ...Array.from(new Set(userCats))];
-                return allCats.map((cat) => (
+              {allCategories.map((cat) => (
                   <button
                     key={cat} onClick={() => setEditCategory(editCategory === cat ? '' : cat)}
                     className="px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 cursor-pointer"
@@ -721,8 +719,7 @@ export default function LibraryPage() {
                   >
                     {cat}
                   </button>
-                ));
-              })()}
+                ))}
             </div>
             <div className="flex items-center gap-2 mt-2">
               <input

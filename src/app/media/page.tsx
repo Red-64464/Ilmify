@@ -173,6 +173,15 @@ export default function MediaPage() {
 
   const breadcrumb = useMemo(() => buildBreadcrumb(currentFolderId, allFolders), [currentFolderId, allFolders]);
 
+  // Pre-compute video counts for all folders (avoids O(n²) per render)
+  const folderVideoCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const folder of allFolders) {
+      counts.set(folder.id, countVideosRecursive(folder.id, allFolders, allVideos));
+    }
+    return counts;
+  }, [allFolders, allVideos]);
+
   const visibleFolders = useMemo(() => {
     if (search) return allFolders.filter((f) => f.title.toLowerCase().includes(search.toLowerCase()));
     return allFolders.filter((f) => (f.parentId || null) === currentFolderId);
@@ -389,7 +398,7 @@ export default function MediaPage() {
         <motion.div variants={stagger} initial="hidden" animate="visible" className="space-y-3">
           {/* Folders */}
           {visibleFolders.map((folder) => {
-            const videoCount = countVideosRecursive(folder.id, allFolders, allVideos);
+            const videoCount = folderVideoCounts.get(folder.id) ?? 0;
             const isCollapsed = collapsedFolders.has(folder.id);
             return (
               <motion.div key={folder.id} variants={fadeUp}>

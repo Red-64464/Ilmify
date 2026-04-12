@@ -179,7 +179,7 @@ export default function FlashcardsPage() {
       if (editTitle.trim()) updates.title = editTitle.trim();
       if (editColor) updates.color = editColor;
       if (editEmoji) {
-        const deck = await flashcardRepository.getDeckById(showEditDeck);
+        const deck = decks.find(d => d.id === showEditDeck);
         if (deck) {
           const titleWithoutEmoji = deck.title.replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}]\s*/u, '');
           updates.title = `${editEmoji} ${editTitle.trim() || titleWithoutEmoji}`;
@@ -194,17 +194,17 @@ export default function FlashcardsPage() {
     } catch (err) {
       console.error('Error editing deck:', err);
     }
-  }, [showEditDeck, editEmoji, editColor, editTitle]);
+  }, [showEditDeck, editEmoji, editColor, editTitle, decks]);
 
-  const openEditDeck = useCallback(async (deckId: string) => {
-    const deck = await flashcardRepository.getDeckById(deckId);
+  const openEditDeck = useCallback((deckId: string) => {
+    const deck = decks.find(d => d.id === deckId);
     if (!deck) return;
     setShowEditDeck(deckId);
     setEditTitle(deck.title);
     setEditColor(deck.color);
     setEditEmoji('');
     setShowEditEmoji(false);
-  }, []);
+  }, [decks]);
 
   return (
     <AuthGuard>
