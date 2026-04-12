@@ -1,7 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { QuranMemorization, QuranBookmark, QuranReadingPosition, QuranSettings } from '@/types';
+import { quranRepository } from '@/lib/repositories/quranRepository';
+import { useAuth } from '@/contexts/AuthContext';
+
+// ─────────────────────────────────────────────
+// Local-storage helpers (used as fast cache)
+// ─────────────────────────────────────────────
 
 const STORAGE_KEYS = {
   memorizations: 'ilmify_quran_memorizations',
@@ -36,52 +42,85 @@ function saveToStorage<T>(key: string, value: T) {
   }
 }
 
-// --- Quran Settings ---
-export function useQuranSettings() {
-  const [settings, setSettings] = useState<QuranSettings>(DEFAULT_SETTINGS);
+// ─────────────────────────────────────────────
+// Quran Settings — synced with Supabase
+// ─────────────────────────────────────────────
 
+export function useQuranSettings() {
+  const { user } = useAuth();
+  const [settings, setSettings] = useState<QuranSettings>(
+    () => loadFromStorage<QuranSettings>(STORAGE_KEYS.settings, DEFAULT_SETTINGS)
+  );
+  const hasFetchedRef = useRef(false);
+
+  // Load from Supabase once when user is available
   useEffect(() => {
-    setSettings(loadFromStorage<QuranSettings>(STORAGE_KEYS.settings, DEFAULT_SETTINGS));
-  }, []);
+    if (!user || hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
+    quranRepository.getSettings(user.id).then((remote) => {
+      if (remote) {
+        setSettings(remote);
+        saveToStorage(STORAGE_KEYS.settings, remote);
+      }
+    }).catch(() => { /* keep local */ });
+  }, [user]);
 
   const updateSettings = useCallback((patch: Partial<QuranSettings>) => {
     setSettings((prev) => {
       const updated = { ...prev, ...patch };
       saveToStorage(STORAGE_KEYS.settings, updated);
+      // Fire-and-forget sync to Supabase
+      if (user) {
+        quranRepository.saveSettings(user.id, updated).catch(() => { /* silent */ });
+      }
       return updated;
     });
-  }, []);
+  }, [user]);
 
   return { settings, updateSettings };
 }
 
-// --- Memorization ---
-export function useQuranMemorization() {
-  const [memorizations, setMemorizations] = useState<QuranMemorization[]>([]);
+// ─────────────────────────────────────────────
+// Memorization — synced with Supabase
+// ─────────────────────────────────────────────
 
+export function useQuranMemorization() {
+  const { user } = useAuth();
+  const [memorizations, setMemorizations] = useState<QuranMemorization[]>(
+    () => loadFromStorage<QuranMemorization[]>(STORAGE_KEYS.memorizations, [])
+  );
+  const hasFetchedRef = useRef(false);
+
+  // Load from Supabase once
   useEffect(() => {
-    setMemorizations(loadFromStorage<QuranMemorization[]>(STORAGE_KEYS.memorizations, []));
-  }, []);
+    if (!user || hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
+    quranRepository.getMemorizations(user.id).then((remote) => {
+      if (remote.length > 0) {
+        setMemorizations(remote);
+        saveToStorage(STORAGE_KEYS.memorizations, remote);
+      }
+    }).catch(() => { /* keep local */ });
+  }, [user]);
 
   const updateStatus = useCallback(
     (surahNumber: number, status: QuranMemorization['status']) => {
       setMemorizations((prev) => {
         const existing = prev.find((m) => m.surahNumber === surahNumber);
         let updated: QuranMemorization[];
+        let entry: QuranMemorization;
+
         if (existing) {
-          updated = prev.map((m) =>
-            m.surahNumber === surahNumber
-              ? {
-                  ...m,
-                  status,
-                  lastReviewedAt: new Date().toISOString(),
-                  startedAt: m.startedAt ?? (status !== 'not-started' ? new Date().toISOString() : undefined),
-                  completedAt: status === 'memorized' ? new Date().toISOString() : m.completedAt,
-                }
-              : m
-          );
+          entry = {
+            ...existing,
+            status,
+            lastReviewedAt: new Date().toISOString(),
+            startedAt: existing.startedAt ?? (status !== 'not-started' ? new Date().toISOString() : undefined),
+            completedAt: status === 'memorized' ? new Date().toISOString() : existing.completedAt,
+          };
+          updated = prev.map((m) => (m.surahNumber === surahNumber ? entry : m));
         } else {
-          const newEntry: QuranMemorization = {
+          entry = {
             id: `local-${surahNumber}`,
             surahNumber,
             status,
@@ -91,13 +130,17 @@ export function useQuranMemorization() {
             completedAt: status === 'memorized' ? new Date().toISOString() : undefined,
             lastReviewedAt: new Date().toISOString(),
           };
-          updated = [...prev, newEntry];
+          updated = [...prev, entry];
         }
         saveToStorage(STORAGE_KEYS.memorizations, updated);
+        // Sync to Supabase
+        if (user) {
+          quranRepository.upsertMemorization(user.id, entry).catch(() => { /* silent */ });
+        }
         return updated;
       });
     },
-    []
+    [user]
   );
 
   const toggleAyahMemorized = useCallback(
@@ -105,22 +148,21 @@ export function useQuranMemorization() {
       setMemorizations((prev) => {
         const existing = prev.find((m) => m.surahNumber === surahNumber);
         let updated: QuranMemorization[];
+        let entry: QuranMemorization;
+
         if (existing) {
           const ayahs = existing.memorizedAyahs.includes(ayahNumber)
             ? existing.memorizedAyahs.filter((a) => a !== ayahNumber)
             : [...existing.memorizedAyahs, ayahNumber];
-          updated = prev.map((m) =>
-            m.surahNumber === surahNumber
-              ? {
-                  ...m,
-                  memorizedAyahs: ayahs,
-                  lastReviewedAt: new Date().toISOString(),
-                  status: ayahs.length > 0 ? (m.status === 'not-started' ? 'in-progress' : m.status) : m.status,
-                }
-              : m
-          );
+          entry = {
+            ...existing,
+            memorizedAyahs: ayahs,
+            lastReviewedAt: new Date().toISOString(),
+            status: ayahs.length > 0 ? (existing.status === 'not-started' ? 'in-progress' : existing.status) : existing.status,
+          };
+          updated = prev.map((m) => (m.surahNumber === surahNumber ? entry : m));
         } else {
-          const newEntry: QuranMemorization = {
+          entry = {
             id: `local-${surahNumber}`,
             surahNumber,
             status: 'in-progress',
@@ -129,13 +171,16 @@ export function useQuranMemorization() {
             startedAt: new Date().toISOString(),
             lastReviewedAt: new Date().toISOString(),
           };
-          updated = [...prev, newEntry];
+          updated = [...prev, entry];
         }
         saveToStorage(STORAGE_KEYS.memorizations, updated);
+        if (user) {
+          quranRepository.upsertMemorization(user.id, entry).catch(() => { /* silent */ });
+        }
         return updated;
       });
     },
-    []
+    [user]
   );
 
   const isAyahMemorized = useCallback(
@@ -157,67 +202,106 @@ export function useQuranMemorization() {
   return { memorizations, updateStatus, getStatus, toggleAyahMemorized, isAyahMemorized };
 }
 
-// --- Bookmarks ---
-export function useQuranBookmarks() {
-  const [bookmarks, setBookmarks] = useState<QuranBookmark[]>([]);
+// ─────────────────────────────────────────────
+// Bookmarks — synced with Supabase
+// ─────────────────────────────────────────────
 
+export function useQuranBookmarks() {
+  const { user } = useAuth();
+  const [bookmarks, setBookmarks] = useState<QuranBookmark[]>(
+    () => loadFromStorage<QuranBookmark[]>(STORAGE_KEYS.bookmarks, [])
+  );
+  const hasFetchedRef = useRef(false);
+
+  // Load from Supabase once
   useEffect(() => {
-    setBookmarks(loadFromStorage<QuranBookmark[]>(STORAGE_KEYS.bookmarks, []));
-  }, []);
+    if (!user || hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
+    quranRepository.getBookmarks(user.id).then((remote) => {
+      if (remote.length > 0) {
+        setBookmarks(remote);
+        saveToStorage(STORAGE_KEYS.bookmarks, remote);
+      }
+    }).catch(() => { /* keep local */ });
+  }, [user]);
 
   const addBookmark = useCallback(
     (surahNumber: number, ayahNumber: number, category: QuranBookmark['category'] = 'favorite', note?: string) => {
       setBookmarks((prev) => {
         if (prev.some((b) => b.surahNumber === surahNumber && b.ayahNumber === ayahNumber)) return prev;
-        const updated = [
-          ...prev,
-          {
-            id: `local-${surahNumber}-${ayahNumber}`,
-            surahNumber,
-            ayahNumber,
-            category,
-            note,
-            createdAt: new Date().toISOString(),
-          } as QuranBookmark,
-        ];
+        const newBm: QuranBookmark = {
+          id: `local-${surahNumber}-${ayahNumber}`,
+          surahNumber,
+          ayahNumber,
+          category,
+          note,
+          createdAt: new Date().toISOString(),
+        };
+        const updated = [...prev, newBm];
         saveToStorage(STORAGE_KEYS.bookmarks, updated);
+        // Sync — also replace local id with DB id when it resolves
+        if (user) {
+          quranRepository.addBookmark(user.id, surahNumber, ayahNumber, category, note)
+            .then((serverBm) => {
+              setBookmarks((cur) =>
+                cur.map((b) =>
+                  b.surahNumber === surahNumber && b.ayahNumber === ayahNumber ? serverBm : b
+                )
+              );
+            })
+            .catch(() => { /* silent */ });
+        }
         return updated;
       });
     },
-    []
+    [user]
   );
 
-  const removeBookmark = useCallback((surahNumber: number, ayahNumber: number) => {
-    setBookmarks((prev) => {
-      const updated = prev.filter((b) => !(b.surahNumber === surahNumber && b.ayahNumber === ayahNumber));
-      saveToStorage(STORAGE_KEYS.bookmarks, updated);
-      return updated;
-    });
-  }, []);
+  const removeBookmark = useCallback(
+    (surahNumber: number, ayahNumber: number) => {
+      setBookmarks((prev) => {
+        const updated = prev.filter((b) => !(b.surahNumber === surahNumber && b.ayahNumber === ayahNumber));
+        saveToStorage(STORAGE_KEYS.bookmarks, updated);
+        if (user) {
+          quranRepository.removeBookmark(user.id, surahNumber, ayahNumber).catch(() => { /* silent */ });
+        }
+        return updated;
+      });
+    },
+    [user]
+  );
 
-  const updateBookmarkNote = useCallback((surahNumber: number, ayahNumber: number, note: string) => {
-    setBookmarks((prev) => {
-      const updated = prev.map((b) =>
-        b.surahNumber === surahNumber && b.ayahNumber === ayahNumber
-          ? { ...b, note }
-          : b
-      );
-      saveToStorage(STORAGE_KEYS.bookmarks, updated);
-      return updated;
-    });
-  }, []);
+  const updateBookmarkNote = useCallback(
+    (surahNumber: number, ayahNumber: number, note: string) => {
+      setBookmarks((prev) => {
+        const updated = prev.map((b) =>
+          b.surahNumber === surahNumber && b.ayahNumber === ayahNumber ? { ...b, note } : b
+        );
+        saveToStorage(STORAGE_KEYS.bookmarks, updated);
+        if (user) {
+          quranRepository.updateBookmarkNote(user.id, surahNumber, ayahNumber, note).catch(() => { /* silent */ });
+        }
+        return updated;
+      });
+    },
+    [user]
+  );
 
-  const updateBookmarkCategory = useCallback((surahNumber: number, ayahNumber: number, category: QuranBookmark['category']) => {
-    setBookmarks((prev) => {
-      const updated = prev.map((b) =>
-        b.surahNumber === surahNumber && b.ayahNumber === ayahNumber
-          ? { ...b, category }
-          : b
-      );
-      saveToStorage(STORAGE_KEYS.bookmarks, updated);
-      return updated;
-    });
-  }, []);
+  const updateBookmarkCategory = useCallback(
+    (surahNumber: number, ayahNumber: number, category: QuranBookmark['category']) => {
+      setBookmarks((prev) => {
+        const updated = prev.map((b) =>
+          b.surahNumber === surahNumber && b.ayahNumber === ayahNumber ? { ...b, category } : b
+        );
+        saveToStorage(STORAGE_KEYS.bookmarks, updated);
+        if (user) {
+          quranRepository.updateBookmarkCategory(user.id, surahNumber, ayahNumber, category).catch(() => { /* silent */ });
+        }
+        return updated;
+      });
+    },
+    [user]
+  );
 
   const isBookmarked = useCallback(
     (surahNumber: number, ayahNumber: number) =>
@@ -239,20 +323,46 @@ export function useQuranBookmarks() {
   return { bookmarks, addBookmark, removeBookmark, isBookmarked, toggleBookmark, updateBookmarkNote, updateBookmarkCategory };
 }
 
-// --- Reading Position ---
+// ─────────────────────────────────────────────
+// Reading Position — synced with Supabase
+// ─────────────────────────────────────────────
+
 export function useQuranPosition() {
-  const [position, setPosition] = useState<QuranReadingPosition>({ surahNumber: 1, ayahNumber: 1 });
+  const { user } = useAuth();
+  const [position, setPosition] = useState<QuranReadingPosition>(
+    () => loadFromStorage<QuranReadingPosition>(STORAGE_KEYS.position, { surahNumber: 1, ayahNumber: 1 })
+  );
+  const hasFetchedRef = useRef(false);
 
+  // Load from Supabase once
   useEffect(() => {
-    const saved = loadFromStorage<QuranReadingPosition>(STORAGE_KEYS.position, { surahNumber: 1, ayahNumber: 1 });
-    setPosition(saved);
-  }, []);
+    if (!user || hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
+    quranRepository.getPosition(user.id).then((remote) => {
+      if (remote) {
+        setPosition(remote);
+        saveToStorage(STORAGE_KEYS.position, remote);
+      }
+    }).catch(() => { /* keep local */ });
+  }, [user]);
 
-  const savePosition = useCallback((surahNumber: number, ayahNumber: number, juzNumber?: number) => {
-    const pos: QuranReadingPosition = { surahNumber, ayahNumber, juzNumber, timestamp: new Date().toISOString() };
-    setPosition(pos);
-    saveToStorage(STORAGE_KEYS.position, pos);
-  }, []);
+  const savePosition = useCallback(
+    (surahNumber: number, ayahNumber: number, juzNumber?: number) => {
+      const pos: QuranReadingPosition = {
+        surahNumber,
+        ayahNumber,
+        juzNumber,
+        timestamp: new Date().toISOString(),
+      };
+      setPosition(pos);
+      saveToStorage(STORAGE_KEYS.position, pos);
+      // Sync to Supabase
+      if (user) {
+        quranRepository.savePosition(user.id, pos).catch(() => { /* silent */ });
+      }
+    },
+    [user]
+  );
 
   return { position, savePosition };
 }

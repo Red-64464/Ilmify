@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft,
@@ -53,6 +54,7 @@ function getAyahNumber(verse: { id?: number; verse_key?: string }, fallbackIndex
 export default function SurahDetailClient({ surah }: SurahDetailClientProps) {
   const surahNum = parseInt(surah, 10);
   const surahInfo = SURAH_LIST.find((s) => s.number === surahNum);
+  const router = useRouter();
 
   const [ayahs, setAyahs] = useState<AyahData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -179,7 +181,7 @@ export default function SurahDetailClient({ surah }: SurahDetailClientProps) {
   const navigateSurah = (delta: number) => {
     const next = surahNum + delta;
     if (next >= 1 && next <= 114) {
-      window.location.href = `/quran/${next}`;
+      router.push(`/quran/${next}`);
     }
   };
 
@@ -189,7 +191,7 @@ export default function SurahDetailClient({ surah }: SurahDetailClientProps) {
 
   const handleResumeReading = () => {
     if (position.surahNumber !== surahNum) {
-      window.location.href = `/quran/${position.surahNumber}`;
+      router.push(`/quran/${position.surahNumber}`);
       return;
     }
     const el = ayahRefs.current.get(position.ayahNumber);
@@ -224,7 +226,7 @@ export default function SurahDetailClient({ surah }: SurahDetailClientProps) {
         }}
       >
         <button
-          onClick={() => { window.location.href = '/quran'; }}
+          onClick={() => { router.push('/quran'); }}
           className="p-2 rounded-xl"
           style={{ background: 'var(--bg-card)', color: 'var(--text-secondary)', cursor: 'pointer' }}
         >
@@ -282,7 +284,7 @@ export default function SurahDetailClient({ surah }: SurahDetailClientProps) {
                     Lecteur audio
                   </button>
                   <button
-                    onClick={() => { window.location.href = '/quran/bookmarks'; }}
+                    onClick={() => { router.push('/quran/bookmarks'); }}
                     className="px-3 py-1.5 rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5"
                     style={{
                       background: 'var(--bg-card)',

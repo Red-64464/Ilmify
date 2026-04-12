@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Search, BookOpen, Moon, Star, BookOpenCheck, SearchCode, Loader2 } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
@@ -23,6 +24,7 @@ export default function QuranPage() {
   const [search, setSearch] = useState('');
   const { memorizations, updateStatus } = useQuranMemorization();
   const { position } = useQuranPosition();
+  const router = useRouter();
 
   // Full-text search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -42,7 +44,7 @@ export default function QuranPage() {
   }, [search]);
 
   const navigateToSurah = (n: number) => {
-    window.location.href = `/quran/${n}`;
+    router.push(`/quran/${n}`);
   };
 
   const handleFullTextSearch = useCallback(async () => {
@@ -100,7 +102,7 @@ export default function QuranPage() {
       {hasPosition && positionSurah && (
         <div className="px-4 pt-3">
           <button
-            onClick={() => { window.location.href = `/quran/${position.surahNumber}`; }}
+            onClick={() => { router.push(`/quran/${position.surahNumber}`); }}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors"
             style={{
               background: 'rgba(46,158,140,0.08)',
@@ -266,7 +268,7 @@ export default function QuranPage() {
                   {searchResults.map((r, i) => (
                     <button
                       key={i}
-                      onClick={() => { window.location.href = `/quran/${r.surah}`; }}
+                      onClick={() => { router.push(`/quran/${r.surah}`); }}
                       className="w-full text-left rounded-xl p-3 transition-colors"
                       style={{
                         background: 'var(--bg-card)',

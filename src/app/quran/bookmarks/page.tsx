@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Bookmark, Trash2, Play, ChevronLeft, Pencil, Check, X } from 'lucide-react';
 import { SURAH_LIST, getAudioUrl, getVerseTranslation, getArabicVerse } from '@/lib/api/quranApi';
@@ -23,6 +24,7 @@ interface VerseData {
 export default function BookmarksPage() {
   const { bookmarks, removeBookmark, updateBookmarkNote, updateBookmarkCategory } = useQuranBookmarks();
   const { settings } = useQuranSettings();
+  const router = useRouter();
   const [filter, setFilter] = useState<QuranBookmark['category'] | 'all'>('all');
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [verseCache, setVerseCache] = useState<Record<string, VerseData>>({});
@@ -94,7 +96,7 @@ export default function BookmarksPage() {
         style={{ background: 'rgba(6,18,15,0.95)', backdropFilter: 'blur(12px)', borderBottom: '1px solid var(--border-subtle)' }}
       >
         <button
-          onClick={() => { window.location.href = '/quran'; }}
+          onClick={() => { router.push('/quran'); }}
           className="p-2 rounded-xl"
           style={{ background: 'var(--bg-card)', color: 'var(--text-secondary)', cursor: 'pointer' }}
         >
@@ -143,7 +145,7 @@ export default function BookmarksPage() {
               Marquez des versets comme favoris en lisant le Coran
             </p>
             <button
-              onClick={() => { window.location.href = '/quran'; }}
+              onClick={() => { router.push('/quran'); }}
               className="mt-2 px-4 py-2 rounded-xl text-sm font-medium"
               style={{ background: 'var(--accent)', color: '#fff', cursor: 'pointer' }}
             >
@@ -162,7 +164,7 @@ export default function BookmarksPage() {
               <div key={surahNum}>
                 {/* Surah header */}
                 <button
-                  onClick={() => { window.location.href = `/quran/${surahNum}`; }}
+                  onClick={() => { router.push(`/quran/${surahNum}`); }}
                   className="flex items-center gap-2 mb-2 group"
                   style={{ cursor: 'pointer' }}
                 >
