@@ -62,7 +62,7 @@ export function useQuranSettings() {
         setSettings(remote);
         saveToStorage(STORAGE_KEYS.settings, remote);
       }
-    }).catch((e) => console.warn('[Ilmify] Supabase sync failed:', e));
+    }).catch((e) => console.warn('[Ilmify] Failed to load settings from Supabase:', e));
   }, [user]);
 
   const updateSettings = useCallback((patch: Partial<QuranSettings>) => {
@@ -71,7 +71,7 @@ export function useQuranSettings() {
       saveToStorage(STORAGE_KEYS.settings, updated);
       // Fire-and-forget sync to Supabase
       if (user) {
-        quranRepository.saveSettings(user.id, updated).catch((e) => console.warn('[Ilmify] Supabase sync failed:', e));
+        quranRepository.saveSettings(user.id, updated).catch((e) => console.warn('[Ilmify] Failed to save settings to Supabase:', e));
       }
       return updated;
     });
@@ -100,7 +100,7 @@ export function useQuranMemorization() {
         setMemorizations(remote);
         saveToStorage(STORAGE_KEYS.memorizations, remote);
       }
-    }).catch((e) => console.warn('[Ilmify] Supabase sync failed:', e));
+    }).catch((e) => console.warn('[Ilmify] Failed to load memorizations from Supabase:', e));
   }, [user]);
 
   const updateStatus = useCallback(
@@ -135,7 +135,7 @@ export function useQuranMemorization() {
         saveToStorage(STORAGE_KEYS.memorizations, updated);
         // Sync to Supabase
         if (user) {
-          quranRepository.upsertMemorization(user.id, entry).catch((e) => console.warn('[Ilmify] Supabase sync failed:', e));
+          quranRepository.upsertMemorization(user.id, entry).catch((e) => console.warn('[Ilmify] Failed to save memorization to Supabase:', e));
         }
         return updated;
       });
@@ -175,7 +175,7 @@ export function useQuranMemorization() {
         }
         saveToStorage(STORAGE_KEYS.memorizations, updated);
         if (user) {
-          quranRepository.upsertMemorization(user.id, entry).catch((e) => console.warn('[Ilmify] Supabase sync failed:', e));
+          quranRepository.upsertMemorization(user.id, entry).catch((e) => console.warn('[Ilmify] Failed to save memorization to Supabase:', e));
         }
         return updated;
       });
@@ -222,7 +222,7 @@ export function useQuranBookmarks() {
         setBookmarks(remote);
         saveToStorage(STORAGE_KEYS.bookmarks, remote);
       }
-    }).catch((e) => console.warn('[Ilmify] Supabase sync failed:', e));
+    }).catch((e) => console.warn('[Ilmify] Failed to load bookmarks from Supabase:', e));
   }, [user]);
 
   const addBookmark = useCallback(
@@ -249,7 +249,7 @@ export function useQuranBookmarks() {
                 )
               );
             })
-            .catch((e) => console.warn('[Ilmify] Supabase sync failed:', e));
+            .catch((e) => console.warn('[Ilmify] Failed to save bookmark to Supabase:', e));
         }
         return updated;
       });
@@ -263,7 +263,7 @@ export function useQuranBookmarks() {
         const updated = prev.filter((b) => !(b.surahNumber === surahNumber && b.ayahNumber === ayahNumber));
         saveToStorage(STORAGE_KEYS.bookmarks, updated);
         if (user) {
-          quranRepository.removeBookmark(user.id, surahNumber, ayahNumber).catch((e) => console.warn('[Ilmify] Supabase sync failed:', e));
+          quranRepository.removeBookmark(user.id, surahNumber, ayahNumber).catch((e) => console.warn('[Ilmify] Failed to remove bookmark from Supabase:', e));
         }
         return updated;
       });
@@ -279,7 +279,7 @@ export function useQuranBookmarks() {
         );
         saveToStorage(STORAGE_KEYS.bookmarks, updated);
         if (user) {
-          quranRepository.updateBookmarkNote(user.id, surahNumber, ayahNumber, note).catch((e) => console.warn('[Ilmify] Supabase sync failed:', e));
+          quranRepository.updateBookmarkNote(user.id, surahNumber, ayahNumber, note).catch((e) => console.warn('[Ilmify] Failed to update bookmark note in Supabase:', e));
         }
         return updated;
       });
@@ -295,7 +295,7 @@ export function useQuranBookmarks() {
         );
         saveToStorage(STORAGE_KEYS.bookmarks, updated);
         if (user) {
-          quranRepository.updateBookmarkCategory(user.id, surahNumber, ayahNumber, category).catch((e) => console.warn('[Ilmify] Supabase sync failed:', e));
+          quranRepository.updateBookmarkCategory(user.id, surahNumber, ayahNumber, category).catch((e) => console.warn('[Ilmify] Failed to update bookmark category in Supabase:', e));
         }
         return updated;
       });
@@ -343,7 +343,7 @@ export function useQuranPosition() {
         setPosition(remote);
         saveToStorage(STORAGE_KEYS.position, remote);
       }
-    }).catch((e) => console.warn('[Ilmify] Supabase sync failed:', e));
+    }).catch((e) => console.warn('[Ilmify] Failed to load reading position from Supabase:', e));
   }, [user]);
 
   const savePosition = useCallback(
@@ -358,7 +358,7 @@ export function useQuranPosition() {
       saveToStorage(STORAGE_KEYS.position, pos);
       // Sync to Supabase
       if (user) {
-        quranRepository.savePosition(user.id, pos).catch((e) => console.warn('[Ilmify] Supabase sync failed:', e));
+        quranRepository.savePosition(user.id, pos).catch((e) => console.warn('[Ilmify] Failed to save reading position to Supabase:', e));
       }
     },
     [user]
