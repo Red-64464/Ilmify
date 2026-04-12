@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import { Search, BookOpen, Moon, Star, BookOpenCheck, SearchCode, Loader2 } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import SurahCard from '@/components/quran/SurahCard';
@@ -23,6 +23,7 @@ export default function QuranPage() {
   const [search, setSearch] = useState('');
   const { memorizations, updateStatus } = useQuranMemorization();
   const { position } = useQuranPosition();
+  const router = useRouter();
 
   // Full-text search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -42,7 +43,7 @@ export default function QuranPage() {
   }, [search]);
 
   const navigateToSurah = (n: number) => {
-    window.location.href = `/quran/${n}`;
+    router.push(`/quran/${n}`);
   };
 
   const handleFullTextSearch = useCallback(async () => {
@@ -100,7 +101,7 @@ export default function QuranPage() {
       {hasPosition && positionSurah && (
         <div className="px-4 pt-3">
           <button
-            onClick={() => { window.location.href = `/quran/${position.surahNumber}`; }}
+            onClick={() => { router.push(`/quran/${position.surahNumber}`); }}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors"
             style={{
               background: 'rgba(46,158,140,0.08)',
@@ -165,24 +166,10 @@ export default function QuranPage() {
               />
             </div>
 
-            {/* Surah list */}
-            <motion.div
-              className="space-y-2"
-              initial="hidden"
-              animate="visible"
-              variants={{
-                hidden: {},
-                visible: { transition: { staggerChildren: 0.02 } },
-              }}
-            >
+            {/* Surah list — minimal stagger for mobile performance */}
+            <div className="space-y-2">
               {filtered.map((surah) => (
-                <motion.div
-                  key={surah.number}
-                  variants={{
-                    hidden: { opacity: 0, y: 8 },
-                    visible: { opacity: 1, y: 0, transition: { duration: 0.25 } },
-                  }}
-                >
+                <div key={surah.number}>
                   <SurahCard
                     number={surah.number}
                     name={surah.name}
@@ -193,14 +180,14 @@ export default function QuranPage() {
                     memorization={memorizations.find((m) => m.surahNumber === surah.number)}
                     onClick={() => navigateToSurah(surah.number)}
                   />
-                </motion.div>
+                </div>
               ))}
               {filtered.length === 0 && (
                 <div className="py-8 text-center" style={{ color: 'var(--text-muted)' }}>
                   Aucune sourate trouvée
                 </div>
               )}
-            </motion.div>
+            </div>
           </>
         )}
 
@@ -266,7 +253,7 @@ export default function QuranPage() {
                   {searchResults.map((r, i) => (
                     <button
                       key={i}
-                      onClick={() => { window.location.href = `/quran/${r.surah}`; }}
+                      onClick={() => { router.push(`/quran/${r.surah}`); }}
                       className="w-full text-left rounded-xl p-3 transition-colors"
                       style={{
                         background: 'var(--bg-card)',

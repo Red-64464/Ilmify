@@ -460,3 +460,20 @@ ALTER TABLE public.quran_reading_position ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users see own position" ON public.quran_reading_position FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users upsert own position" ON public.quran_reading_position FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users update own position" ON public.quran_reading_position FOR UPDATE USING (auth.uid() = user_id);
+
+-- 18. Quran Settings (per-user reader preferences)
+CREATE TABLE public.quran_settings (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL UNIQUE,
+  reciter_id int NOT NULL DEFAULT 7,
+  arabic_font_size real NOT NULL DEFAULT 1.5,
+  translation_lang text NOT NULL DEFAULT 'fr' CHECK (translation_lang IN ('fr', 'en')),
+  show_transliteration boolean NOT NULL DEFAULT true,
+  updated_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE public.quran_settings ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users see own settings" ON public.quran_settings FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users upsert own settings" ON public.quran_settings FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users update own settings" ON public.quran_settings FOR UPDATE USING (auth.uid() = user_id);

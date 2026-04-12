@@ -553,6 +553,125 @@ export interface Database {
         };
         Relationships: [];
       };
+      quran_memorization: {
+        Row: {
+          id: string;
+          user_id: string;
+          surah_number: number;
+          status: 'memorized' | 'in-progress' | 'not-started';
+          memorized_ayahs: number[];
+          last_reviewed_at: string | null;
+          started_at: string | null;
+          completed_at: string | null;
+          review_count: number;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          surah_number: number;
+          status?: 'memorized' | 'in-progress' | 'not-started';
+          memorized_ayahs?: number[];
+          last_reviewed_at?: string | null;
+          started_at?: string | null;
+          completed_at?: string | null;
+          review_count?: number;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          status?: 'memorized' | 'in-progress' | 'not-started';
+          memorized_ayahs?: number[];
+          last_reviewed_at?: string | null;
+          started_at?: string | null;
+          completed_at?: string | null;
+          review_count?: number;
+          notes?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      quran_bookmarks: {
+        Row: {
+          id: string;
+          user_id: string;
+          surah_number: number;
+          ayah_number: number;
+          note: string | null;
+          category: 'favorite' | 'dua' | 'revision' | 'important';
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          surah_number: number;
+          ayah_number: number;
+          note?: string | null;
+          category?: 'favorite' | 'dua' | 'revision' | 'important';
+          created_at?: string;
+        };
+        Update: {
+          note?: string | null;
+          category?: 'favorite' | 'dua' | 'revision' | 'important';
+        };
+        Relationships: [];
+      };
+      quran_reading_position: {
+        Row: {
+          id: string;
+          user_id: string;
+          surah_number: number;
+          ayah_number: number;
+          juz_number: number | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          surah_number: number;
+          ayah_number: number;
+          juz_number?: number | null;
+          updated_at?: string;
+        };
+        Update: {
+          surah_number?: number;
+          ayah_number?: number;
+          juz_number?: number | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      quran_settings: {
+        Row: {
+          id: string;
+          user_id: string;
+          reciter_id: number;
+          arabic_font_size: number;
+          translation_lang: 'fr' | 'en';
+          show_transliteration: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          reciter_id?: number;
+          arabic_font_size?: number;
+          translation_lang?: 'fr' | 'en';
+          show_transliteration?: boolean;
+          updated_at?: string;
+        };
+        Update: {
+          reciter_id?: number;
+          arabic_font_size?: number;
+          translation_lang?: 'fr' | 'en';
+          show_transliteration?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

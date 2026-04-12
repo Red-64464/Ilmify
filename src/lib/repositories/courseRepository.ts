@@ -130,6 +130,25 @@ export const courseRepository = {
     return (data || []).map(rowToPage);
   },
 
+  /** Lightweight query for list/preview — no blocks */
+  async listPages(limit?: number): Promise<Pick<CoursePage, 'id' | 'folderId' | 'title' | 'description' | 'icon' | 'order'>[]> {
+    let query = supabase
+      .from('course_pages')
+      .select('id, folder_id, title, description, icon, order_num')
+      .order('order_num', { ascending: true });
+    if (limit) query = query.limit(limit);
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    return (data || []).map((r) => ({
+      id: r.id as string,
+      folderId: r.folder_id as string,
+      title: r.title as string,
+      description: (r.description as string) || undefined,
+      icon: (r.icon as string) || undefined,
+      order: (r.order_num as number) || 0,
+    }));
+  },
+
   async getPageById(id: string): Promise<CoursePage | null> {
     const { data, error } = await supabase
       .from('course_pages')

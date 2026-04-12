@@ -62,11 +62,18 @@ export const favoriteRepository = {
   },
 
   async toggle(userId: string, fav: Omit<Favorite, 'id' | 'addedAt'>): Promise<boolean> {
-    const exists = await this.isFavorite(userId, fav.itemType, fav.itemId);
-    if (exists) {
-      await this.remove(userId, fav.itemType, fav.itemId);
-      return false;
+    // Try to delete first — if a row was deleted, it existed (1 query instead of 2)
+    const { data: deleted } = await supabase
+      .from('favorites')
+      .delete()
+      .eq('user_id', userId)
+      .eq('item_type', fav.itemType)
+      .eq('item_id', fav.itemId)
+      .select('id');
+    if (deleted && deleted.length > 0) {
+      return false; // was favorite, now removed
     }
+    // Didn't exist, so add it
     await this.add(userId, fav);
     return true;
   },

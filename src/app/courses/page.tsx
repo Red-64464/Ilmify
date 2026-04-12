@@ -127,13 +127,15 @@ export default function CoursesPage() {
     return () => { cancelled = true; };
   }, [authLoading, user]);
 
-  // Search
+  // Search (debounced to avoid excessive Supabase queries on keystroke)
   useEffect(() => {
     if (authLoading) return;
     if (!search) { setFilteredPages([]); return; }
     let cancelled = false;
-    courseRepository.searchPages(search).then(p => { if (!cancelled) setFilteredPages(p); }).catch(() => {});
-    return () => { cancelled = true; };
+    const timeout = setTimeout(() => {
+      courseRepository.searchPages(search).then(p => { if (!cancelled) setFilteredPages(p); }).catch(() => {});
+    }, 300);
+    return () => { cancelled = true; clearTimeout(timeout); };
   }, [search, authLoading, user]);
 
   // Current folder's children & pages
@@ -157,6 +159,15 @@ export default function CoursesPage() {
     () => editingFolder ? getFolderOptions(allFolders, editingFolder.id) : [],
     [allFolders, editingFolder],
   );
+
+  // Pre-compute page counts for all folders (avoids O(n²) per render)
+  const folderPageCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const folder of allFolders) {
+      counts.set(folder.id, countPagesRecursive(folder.id, allFolders, allPages));
+    }
+    return counts;
+  }, [allFolders, allPages]);
 
   // Toggle collapse
   const toggleCollapse = useCallback((id: string) => {
@@ -316,7 +327,7 @@ export default function CoursesPage() {
 
   // Render a folder card (used in both root view and navigated view)
   const renderFolderCard = (folder: CourseFolder, navigable: boolean) => {
-    const pageCount = countPagesRecursive(folder.id, allFolders, allPages);
+    const pageCount = folderPageCounts.get(folder.id) ?? 0;
     const directSubfolders = allFolders.filter((f) => f.parentId === folder.id).length;
     const isCollapsed = collapsedFolders.has(folder.id);
     const directPages = allPages.filter((p) => p.folderId === folder.id);
@@ -419,7 +430,7 @@ export default function CoursesPage() {
                             </h4>
                           </div>
                           <Badge variant="default" size="sm">
-                            {countPagesRecursive(sub.id, allFolders, allPages)} pages
+                            {folderPageCounts.get(sub.id) ?? 0} pages
                           </Badge>
                           <ChevronRight size={14} style={{ color: 'var(--text-muted)' }} />
                         </div>

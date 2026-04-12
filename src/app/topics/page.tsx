@@ -60,24 +60,27 @@ export default function TopicsPage() {
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
-    setDataLoading(true);
-    const loadTopics = async () => {
-      try {
-        let result = search
-          ? await topicRepository.search(user.id, search)
-          : await topicRepository.getByUser(user.id);
-        if (categoryFilter !== 'Tous') {
-          result = result.filter((t) => t.category === categoryFilter);
+    // Debounce search to avoid firing Supabase query on every keystroke
+    const timeout = setTimeout(() => {
+      setDataLoading(true);
+      const loadTopics = async () => {
+        try {
+          let result = search
+            ? await topicRepository.search(user.id, search)
+            : await topicRepository.getByUser(user.id);
+          if (categoryFilter !== 'Tous') {
+            result = result.filter((t) => t.category === categoryFilter);
+          }
+          if (!cancelled) setTopics(result);
+        } catch {
+          if (!cancelled) setTopics([]);
+        } finally {
+          if (!cancelled) setDataLoading(false);
         }
-        if (!cancelled) setTopics(result);
-      } catch {
-        if (!cancelled) setTopics([]);
-      } finally {
-        if (!cancelled) setDataLoading(false);
-      }
-    };
-    loadTopics();
-    return () => { cancelled = true; };
+      };
+      loadTopics();
+    }, search ? 300 : 0); // instant load for initial/filter changes, debounce for typing
+    return () => { cancelled = true; clearTimeout(timeout); };
   }, [user, search, categoryFilter]);
 
   const [error, setError] = useState('');

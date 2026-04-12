@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Bookmark, Trash2, Play, ChevronLeft, Pencil, Check, X } from 'lucide-react';
 import { SURAH_LIST, getAudioUrl, getVerseTranslation, getArabicVerse } from '@/lib/api/quranApi';
@@ -23,6 +24,7 @@ interface VerseData {
 export default function BookmarksPage() {
   const { bookmarks, removeBookmark, updateBookmarkNote, updateBookmarkCategory } = useQuranBookmarks();
   const { settings } = useQuranSettings();
+  const router = useRouter();
   const [filter, setFilter] = useState<QuranBookmark['category'] | 'all'>('all');
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [verseCache, setVerseCache] = useState<Record<string, VerseData>>({});
@@ -30,24 +32,45 @@ export default function BookmarksPage() {
   const [noteText, setNoteText] = useState('');
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
 
-  // Fetch Arabic text and translation for bookmarked verses
+  // Fetch Arabic text and translation for bookmarked verses (batched with concurrency limit)
   useEffect(() => {
-    bookmarks.forEach(async (bm) => {
-      const key = `${bm.surahNumber}:${bm.ayahNumber}`;
-      if (verseCache[key]) return;
-      try {
-        const [translationData, arabic] = await Promise.all([
-          getVerseTranslation(bm.surahNumber, bm.ayahNumber),
-          getArabicVerse(bm.surahNumber, bm.ayahNumber),
-        ]);
-        setVerseCache((prev) => ({
-          ...prev,
-          [key]: { arabic, translation: translationData.translation },
-        }));
-      } catch {
-        // ignore
+    const pending = bookmarks.filter((bm) => !verseCache[`${bm.surahNumber}:${bm.ayahNumber}`]);
+    if (pending.length === 0) return;
+
+    let cancelled = false;
+    // Process in batches of 5 to avoid overwhelming the API
+    const BATCH_SIZE = 5;
+    (async () => {
+      for (let i = 0; i < pending.length; i += BATCH_SIZE) {
+        if (cancelled) break;
+        const batch = pending.slice(i, i + BATCH_SIZE);
+        const results = await Promise.allSettled(
+          batch.map(async (bm) => {
+            const [translationData, arabic] = await Promise.all([
+              getVerseTranslation(bm.surahNumber, bm.ayahNumber),
+              getArabicVerse(bm.surahNumber, bm.ayahNumber),
+            ]);
+            return {
+              key: `${bm.surahNumber}:${bm.ayahNumber}`,
+              arabic,
+              translation: translationData.translation,
+            };
+          })
+        );
+        if (cancelled) break;
+        const newEntries: Record<string, VerseData> = {};
+        for (const r of results) {
+          if (r.status === 'fulfilled') {
+            newEntries[r.value.key] = { arabic: r.value.arabic, translation: r.value.translation };
+          }
+        }
+        if (Object.keys(newEntries).length > 0) {
+          setVerseCache((prev) => ({ ...prev, ...newEntries }));
+        }
       }
-    });
+    })();
+
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookmarks]);
 
@@ -66,12 +89,23 @@ export default function BookmarksPage() {
     return groups;
   }, [filtered]);
 
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
   const playAudio = useCallback((surahNumber: number, ayahNumber: number) => {
     const id = `${surahNumber}:${ayahNumber}`;
+    // Stop previous audio to prevent memory leak
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
     const audio = new Audio(getAudioUrl(surahNumber, ayahNumber, settings.reciterId));
+    audioRef.current = audio;
     audio.play();
     setPlayingId(id);
-    audio.onended = () => setPlayingId(null);
+    audio.onended = () => {
+      setPlayingId(null);
+      audioRef.current = null;
+    };
   }, [settings.reciterId]);
 
   const startEditNote = (bm: QuranBookmark) => {
@@ -94,7 +128,7 @@ export default function BookmarksPage() {
         style={{ background: 'rgba(6,18,15,0.95)', backdropFilter: 'blur(12px)', borderBottom: '1px solid var(--border-subtle)' }}
       >
         <button
-          onClick={() => { window.location.href = '/quran'; }}
+          onClick={() => { router.push('/quran'); }}
           className="p-2 rounded-xl"
           style={{ background: 'var(--bg-card)', color: 'var(--text-secondary)', cursor: 'pointer' }}
         >
@@ -143,7 +177,7 @@ export default function BookmarksPage() {
               Marquez des versets comme favoris en lisant le Coran
             </p>
             <button
-              onClick={() => { window.location.href = '/quran'; }}
+              onClick={() => { router.push('/quran'); }}
               className="mt-2 px-4 py-2 rounded-xl text-sm font-medium"
               style={{ background: 'var(--accent)', color: '#fff', cursor: 'pointer' }}
             >
@@ -162,7 +196,7 @@ export default function BookmarksPage() {
               <div key={surahNum}>
                 {/* Surah header */}
                 <button
-                  onClick={() => { window.location.href = `/quran/${surahNum}`; }}
+                  onClick={() => { router.push(`/quran/${surahNum}`); }}
                   className="flex items-center gap-2 mb-2 group"
                   style={{ cursor: 'pointer' }}
                 >
