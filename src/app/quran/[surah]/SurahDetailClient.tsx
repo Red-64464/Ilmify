@@ -116,6 +116,7 @@ export default function SurahDetailClient({ surah }: SurahDetailClientProps) {
   const [thematicSearch, setThematicSearch] = useState('');
   const [thematicResult, setThematicResult] = useState<{ introduction: string; verses: { surah: number; ayah: number; surahName: string; explanation: string }[]; conclusion: string } | null>(null);
   const [basmalAnimated, setBasmalAnimated] = useState(true);
+  const [tajwidEnabled, setTajwidEnabled] = useState(false);
 
   const { settings, updateSettings } = useQuranSettings();
   const { isBookmarked, toggleBookmark } = useQuranBookmarks();
@@ -522,6 +523,23 @@ export default function SurahDetailClient({ surah }: SurahDetailClientProps) {
                   }}
                 >
                   {focusMode ? 'Actif' : 'Désactivé'}
+                </button>
+              </div>
+
+              {/* Row 6b: Tajwid mode */}
+              <div className="flex items-center gap-3">
+                <span className="text-sm" style={{ color: 'var(--text-muted)' }}>🎨</span>
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Mode tajwid (couleurs)</span>
+                <button
+                  onClick={() => setTajwidEnabled(v => !v)}
+                  className="ml-auto px-3 py-1 rounded-lg text-xs font-medium"
+                  style={{
+                    background: tajwidEnabled ? 'rgba(46,158,140,0.2)' : 'var(--bg-card)',
+                    color: tajwidEnabled ? 'var(--accent)' : 'var(--text-muted)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {tajwidEnabled ? 'Actif' : 'Désactivé'}
                 </button>
               </div>
 
@@ -941,6 +959,7 @@ export default function SurahDetailClient({ surah }: SurahDetailClientProps) {
               tafsirLang={settings.translationLang}
               ayahRef={setAyahRef(ayahData.ayah)}
               translationFontSize={translationFontSize}
+              tajwidEnabled={tajwidEnabled}
             />
           ))
         )}

@@ -2,10 +2,12 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, Bookmark, BookmarkCheck, CheckCircle2, Circle, Share2, ChevronDown, BookOpen, Loader2, Link2, BookMarked, Languages, HelpCircle } from 'lucide-react';
+import { Play, Pause, Bookmark, BookmarkCheck, CheckCircle2, Circle, Share2, ChevronDown, BookOpen, Loader2, Link2, BookMarked, Languages, HelpCircle, Image } from 'lucide-react';
 import { getTafsir, SURAH_LIST } from '@/lib/api/quranApi';
 import { generateTafsirFr, generateHadithSuggestions, generateVerseConnections, generateAsbabNuzul, generateWordByWord } from '@/lib/ai/groq';
 import type { HadithSuggestion, WordTranslation } from '@/lib/ai/groq';
+import TajwidDisplay from './TajwidDisplay';
+import VerseImageShare from './VerseImageShare';
 
 interface AyahDisplayProps {
   surah: number;
@@ -26,6 +28,7 @@ interface AyahDisplayProps {
   tafsirLang?: 'fr' | 'en';
   ayahRef?: (el: HTMLDivElement | null) => void;
   translationFontSize?: number;
+  tajwidEnabled?: boolean;
 }
 
 export default function AyahDisplay({
@@ -47,6 +50,7 @@ export default function AyahDisplay({
   tafsirLang = 'fr',
   ayahRef,
   translationFontSize = 0.875,
+  tajwidEnabled = false,
 }: AyahDisplayProps) {
   const [localPlaying, setLocalPlaying] = useState(false);
   const audioRefEl = useRef<HTMLAudioElement | null>(null);
@@ -54,6 +58,7 @@ export default function AyahDisplay({
   const [tafsirText, setTafsirText] = useState<string | null>(null);
   const [tafsirLoading, setTafsirLoading] = useState(false);
   const [showMoreActions, setShowMoreActions] = useState(false);
+  const [showImageShare, setShowImageShare] = useState(false);
 
   // AI features per-verse
   const [hadithSuggestions, setHadithSuggestions] = useState<HadithSuggestion[] | null>(null);
@@ -311,35 +316,39 @@ export default function AyahDisplay({
         </div>
       </div>
 
-      {/* Arabic text — word-by-word highlighting when playing */}
-      <p
-        className="font-arabic leading-loose text-right"
-        style={{
-          color: 'var(--text-primary)',
-          direction: 'rtl',
-          lineHeight: '2.4',
-          fontSize: `${arabicFontSize}rem`,
-        }}
-      >
-        {activeWordIdx >= 0
-          ? arabicWords.map((word, idx) => (
-              <span
-                key={idx}
-                style={{
-                  color: idx === activeWordIdx ? '#d4ad4a' : idx < activeWordIdx ? 'var(--text-muted)' : 'var(--text-primary)',
-                  transition: 'color 0.2s',
-                  display: 'inline-block',
-                  marginRight: idx < arabicWords.length - 1 ? '0.25em' : 0,
-                  background: idx === activeWordIdx ? 'rgba(212,173,74,0.12)' : 'transparent',
-                  borderRadius: '4px',
-                  padding: idx === activeWordIdx ? '0 2px' : '0',
-                }}
-              >
-                {word}
-              </span>
-            ))
-          : arabic}
-      </p>
+      {/* Arabic text — tajwid mode or word-by-word highlighting when playing */}
+      {tajwidEnabled && activeWordIdx < 0 ? (
+        <TajwidDisplay text={arabic} fontSize={arabicFontSize} enabled={true} />
+      ) : (
+        <p
+          className="font-arabic leading-loose text-right"
+          style={{
+            color: 'var(--text-primary)',
+            direction: 'rtl',
+            lineHeight: '2.4',
+            fontSize: `${arabicFontSize}rem`,
+          }}
+        >
+          {activeWordIdx >= 0
+            ? arabicWords.map((word, idx) => (
+                <span
+                  key={idx}
+                  style={{
+                    color: idx === activeWordIdx ? '#d4ad4a' : idx < activeWordIdx ? 'var(--text-muted)' : 'var(--text-primary)',
+                    transition: 'color 0.2s',
+                    display: 'inline-block',
+                    marginRight: idx < arabicWords.length - 1 ? '0.25em' : 0,
+                    background: idx === activeWordIdx ? 'rgba(212,173,74,0.12)' : 'transparent',
+                    borderRadius: '4px',
+                    padding: idx === activeWordIdx ? '0 2px' : '0',
+                  }}
+                >
+                  {word}
+                </span>
+              ))
+            : arabic}
+        </p>
+      )}
 
       {/* Transliteration */}
       {showTransliteration && transliteration && (
@@ -377,6 +386,9 @@ export default function AyahDisplay({
               </button>
               <button onClick={handleAsbab} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium" style={{ background: showAsbab ? 'rgba(212,173,74,0.15)' : 'var(--bg-elevated)', color: showAsbab ? '#d4ad4a' : 'var(--text-muted)', cursor: 'pointer' }}>
                 {asbabLoading ? <Loader2 size={10} className="animate-spin" /> : <HelpCircle size={10} />} Asbab al-Nuzul
+              </button>
+              <button onClick={() => setShowImageShare(true)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                <Image size={10} /> Image verset
               </button>
             </div>
           </motion.div>
@@ -527,6 +539,18 @@ export default function AyahDisplay({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Verse image share modal */}
+      {showImageShare && (
+        <VerseImageShare
+          surahName={SURAH_LIST[surah - 1]?.name || `Sourate ${surah}`}
+          surahNameAr={SURAH_LIST[surah - 1]?.nameAr || ''}
+          ayahNumber={ayah}
+          arabic={arabic}
+          translation={translation}
+          onClose={() => setShowImageShare(false)}
+        />
+      )}
     </motion.div>
   );
 }
