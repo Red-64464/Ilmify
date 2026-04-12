@@ -10,6 +10,8 @@ export const RECITERS = [
   { id: 1, name: 'Abdul Basit Abdul Samad', nameAr: 'عبد الباسط عبد الصمد', style: 'Murattal' },
   { id: 4, name: 'Abu Bakr Al-Shatri', nameAr: 'أبو بكر الشاطري', style: 'Murattal' },
   { id: 6, name: 'Saad Al-Ghamdi', nameAr: 'سعد الغامدي', style: 'Murattal' },
+  { id: 12, name: 'Yasser Al-Dosari', nameAr: 'ياسر الدوسري', style: 'Murattal' },
+  { id: 9, name: 'Muhammad Al-Luhaidan', nameAr: 'محمد اللحيدان', style: 'Murattal' },
 ];
 
 // --- Surah metadata (local, lightweight) ---
@@ -195,6 +197,8 @@ const RECITER_SLUGS: Record<number, string> = {
   1: 'ar.abdulbasitmurattal',
   4: 'ar.shaatree',
   6: 'ar.saoodshuraym',
+  12: 'ar.yasseraldossari',
+  9: 'ar.luhaidan',
 };
 
 // --- Quran.com: get audio URL ---
