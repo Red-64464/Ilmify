@@ -35,6 +35,15 @@ interface AyahData {
   audioUrl: string;
 }
 
+/** Extract the ayah number from an Arabic verse object returned by the API. */
+function getAyahNumber(verse: { id?: number; verse_key?: string }, fallbackIndex: number): number {
+  if (verse.verse_key) {
+    const part = verse.verse_key.split(':')[1];
+    if (part) return parseInt(part, 10);
+  }
+  return fallbackIndex + 1;
+}
+
 export default function SurahDetailClient({ surah }: SurahDetailClientProps) {
   const surahNum = parseInt(surah, 10);
   const surahInfo = SURAH_LIST.find((s) => s.number === surahNum);
@@ -66,12 +75,7 @@ export default function SurahDetailClient({ surah }: SurahDetailClientProps) {
     ])
       .then(([arabicVerses, translations, transliterations]) => {
         const data: AyahData[] = arabicVerses.map((v, i) => ({
-          ayah: v.id
-            ? (() => {
-                const key = v.verse_key?.split(':')[1];
-                return key ? parseInt(key, 10) : i + 1;
-              })()
-            : i + 1,
+          ayah: getAyahNumber(v, i),
           arabic: v.text_uthmani,
           transliteration: transliterations[i]?.text ?? '',
           translation: translations[i]?.translation ?? '',
