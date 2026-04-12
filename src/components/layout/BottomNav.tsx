@@ -18,12 +18,14 @@ import {
   User,
   X,
   Video,
+  BookMarked,
 } from 'lucide-react';
 
 const navItems = [
   { href: '/', label: 'Home', icon: Home },
+  { href: '/quran', label: 'Coran', icon: BookMarked },
   { href: '/courses', label: 'Cours', icon: GraduationCap },
-  { href: '/library', label: 'Bibliothèque', icon: BookOpen },
+  { href: '/library', label: 'Biblio', icon: BookOpen },
 ] as const;
 
 const moreGroups = [

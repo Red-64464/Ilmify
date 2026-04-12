@@ -401,3 +401,62 @@ create policy "Users delete own media videos"
 -- =============================================================
 -- DONE! Your database is ready.
 -- =============================================================
+
+-- 15. Quran Memorization Tracking
+CREATE TABLE public.quran_memorization (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  surah_number int NOT NULL CHECK (surah_number BETWEEN 1 AND 114),
+  status text NOT NULL DEFAULT 'not-started'
+    CHECK (status IN ('memorized', 'in-progress', 'not-started')),
+  memorized_ayahs int[] DEFAULT '{}',
+  last_reviewed_at timestamptz,
+  started_at timestamptz,
+  completed_at timestamptz,
+  review_count int DEFAULT 0,
+  notes text,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  UNIQUE(user_id, surah_number)
+);
+
+ALTER TABLE public.quran_memorization ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users see own memorization" ON public.quran_memorization FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users insert own memorization" ON public.quran_memorization FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users update own memorization" ON public.quran_memorization FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users delete own memorization" ON public.quran_memorization FOR DELETE USING (auth.uid() = user_id);
+
+-- 16. Quran Bookmarks
+CREATE TABLE public.quran_bookmarks (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  surah_number int NOT NULL,
+  ayah_number int NOT NULL,
+  note text,
+  category text DEFAULT 'favorite' CHECK (category IN ('favorite', 'dua', 'revision', 'important')),
+  created_at timestamptz DEFAULT now(),
+  UNIQUE(user_id, surah_number, ayah_number)
+);
+
+ALTER TABLE public.quran_bookmarks ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users see own bookmarks" ON public.quran_bookmarks FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users insert own bookmarks" ON public.quran_bookmarks FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users delete own bookmarks" ON public.quran_bookmarks FOR DELETE USING (auth.uid() = user_id);
+
+-- 17. Quran Reading Position
+CREATE TABLE public.quran_reading_position (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL UNIQUE,
+  surah_number int NOT NULL DEFAULT 1,
+  ayah_number int NOT NULL DEFAULT 1,
+  juz_number int,
+  updated_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE public.quran_reading_position ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users see own position" ON public.quran_reading_position FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users upsert own position" ON public.quran_reading_position FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users update own position" ON public.quran_reading_position FOR UPDATE USING (auth.uid() = user_id);
