@@ -8,6 +8,7 @@ import {
   FileText,
   GraduationCap,
   BookOpen,
+  BookMarked,
   User,
   Brain,
   Layers,
@@ -23,6 +24,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 
 const savoirNav = [
+  { href: '/quran', label: 'Coran', icon: BookMarked },
   { href: '/topics', label: 'Mes Topics', icon: FileText },
   { href: '/courses', label: 'Cours', icon: GraduationCap },
   { href: '/library', label: 'Bibliothèque', icon: BookOpen },
