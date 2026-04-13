@@ -15,15 +15,37 @@ import {
   Eye,
   EyeOff,
   BookOpenCheck,
+  Focus,
+  Sparkles,
+  MessageSquare,
+  BookOpen,
+  GraduationCap,
+  Calendar,
+  Search,
+  Loader2,
 } from 'lucide-react';
 import {
   SURAH_LIST,
   getArabicSurah,
   getSurahTranslation,
   getTransliteration,
+  getSurahAudio,
   getAudioUrl,
+  reciterNeedsApi,
   getTranslationKey,
 } from '@/lib/api/quranApi';
+import {
+  generateSurahSummary,
+  generateSurahQuiz,
+  generateSurahFlashcards,
+  generateHifzPlan,
+  generateThematicExplanation,
+} from '@/lib/ai/groq';
+import type {
+  SurahQuizQuestion,
+  SurahFlashcard,
+  HifzPlanResult,
+} from '@/lib/ai/groq';
 import { useQuranBookmarks, useQuranMemorization, useQuranPosition, useQuranSettings } from '@/lib/quranStorage';
 import AyahDisplay from '@/components/quran/AyahDisplay';
 import QuranAudioPlayer from '@/components/quran/QuranAudioPlayer';
@@ -65,6 +87,25 @@ export default function SurahDetailClient({ surah }: SurahDetailClientProps) {
   const [showPlayer, setShowPlayer] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
 
+  // New feature states
+  const [focusMode, setFocusMode] = useState(false);
+  const [listenOnlyMode, setListenOnlyMode] = useState(false);
+  const [translationFontSize, setTranslationFontSize] = useState(0.875); // rem
+  const [showAiPanel, setShowAiPanel] = useState(false);
+  const [aiLoading, setAiLoading] = useState<string | null>(null);
+  const [surahSummary, setSurahSummary] = useState<string | null>(null);
+  const [surahQuiz, setSurahQuiz] = useState<SurahQuizQuestion[] | null>(null);
+  const [quizAnswers, setQuizAnswers] = useState<Record<number, number>>({});
+  const [surahFlashcards, setSurahFlashcards] = useState<SurahFlashcard[] | null>(null);
+  const [flashcardIndex, setFlashcardIndex] = useState(0);
+  const [flashcardFlipped, setFlashcardFlipped] = useState(false);
+  const [hifzPlan, setHifzPlan] = useState<HifzPlanResult | null>(null);
+  const [hifzWeeks] = useState(4);
+  const [thematicSearch, setThematicSearch] = useState('');
+  const [thematicResult, setThematicResult] = useState<{ introduction: string; verses: { surah: number; ayah: number; surahName: string; explanation: string }[]; conclusion: string } | null>(null);
+  const [basmalAnimated] = useState(true);
+  const [tajwidEnabled, setTajwidEnabled] = useState(false);
+
   const { settings, updateSettings } = useQuranSettings();
   const { isBookmarked, toggleBookmark } = useQuranBookmarks();
   const { isAyahMemorized, toggleAyahMemorized } = useQuranMemorization();
@@ -90,19 +131,22 @@ export default function SurahDetailClient({ surah }: SurahDetailClientProps) {
     setError(null);
 
     const translationKey = getTranslationKey(settings.translationLang);
+    const needsApiAudio = reciterNeedsApi(settings.reciterId);
 
     Promise.all([
       getArabicSurah(surahNum),
       getSurahTranslation(surahNum, translationKey),
       getTransliteration(surahNum),
+      // Always fetch from Quran.com API for reliable audio across all reciters
+      getSurahAudio(surahNum, settings.reciterId),
     ])
-      .then(([arabicVerses, translations, transliterations]) => {
+      .then(([arabicVerses, translations, transliterations, audioUrls]) => {
         const data: AyahData[] = arabicVerses.map((v, i) => ({
           ayah: getAyahNumber(v, i),
           arabic: v.text_uthmani,
           transliteration: transliterations[i]?.text ?? '',
           translation: translations[i]?.translation ?? '',
-          audioUrl: getAudioUrl(surahNum, i + 1, settings.reciterId),
+          audioUrl: audioUrls[i] || (needsApiAudio ? '' : getAudioUrl(surahNum, i + 1, settings.reciterId)),
         }));
         setAyahs(data);
       })
@@ -196,6 +240,12 @@ export default function SurahDetailClient({ surah }: SurahDetailClientProps) {
     }
   };
 
+  const handleNextSurah = () => {
+    if (surahNum < 114) {
+      router.push(`/quran/${surahNum + 1}`);
+    }
+  };
+
   const scrollToTop = () => {
     containerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -209,6 +259,59 @@ export default function SurahDetailClient({ surah }: SurahDetailClientProps) {
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
+  };
+
+  // AI handlers
+  const versesText = ayahs.map(a => `${a.ayah}. ${a.arabic}\n${a.translation}`).join('\n\n');
+
+  const handleSurahSummary = async () => {
+    if (surahSummary || !surahInfo) return;
+    setAiLoading('summary');
+    try {
+      const result = await generateSurahSummary(surahNum, surahInfo.name, versesText.slice(0, 6000));
+      setSurahSummary(result);
+    } catch { setSurahSummary('Erreur lors de la génération du résumé.'); }
+    setAiLoading(null);
+  };
+
+  const handleSurahQuiz = async () => {
+    if (surahQuiz || !surahInfo) return;
+    setAiLoading('quiz');
+    try {
+      const result = await generateSurahQuiz(surahNum, surahInfo.name, versesText.slice(0, 6000));
+      setSurahQuiz(result);
+    } catch { setSurahQuiz([]); }
+    setAiLoading(null);
+  };
+
+  const handleSurahFlashcards = async () => {
+    if (surahFlashcards || !surahInfo) return;
+    setAiLoading('flashcards');
+    try {
+      const result = await generateSurahFlashcards(surahNum, surahInfo.name, versesText.slice(0, 6000));
+      setSurahFlashcards(result);
+    } catch { setSurahFlashcards([]); }
+    setAiLoading(null);
+  };
+
+  const handleHifzPlan = async () => {
+    if (hifzPlan || !surahInfo) return;
+    setAiLoading('hifz');
+    try {
+      const result = await generateHifzPlan(surahNum, surahInfo.name, surahInfo.ayahCount, hifzWeeks);
+      setHifzPlan(result);
+    } catch { setHifzPlan(null); }
+    setAiLoading(null);
+  };
+
+  const handleThematicSearch = async () => {
+    if (!thematicSearch.trim()) return;
+    setAiLoading('thematic');
+    try {
+      const result = await generateThematicExplanation(thematicSearch);
+      setThematicResult(result);
+    } catch { setThematicResult(null); }
+    setAiLoading(null);
   };
 
   const audioUrls = ayahs.map((a) => a.audioUrl);
@@ -374,6 +477,74 @@ export default function SurahDetailClient({ surah }: SurahDetailClientProps) {
                   {settings.showTransliteration ? 'Visible' : 'Masqué'}
                 </button>
               </div>
+
+              {/* Row 5: Translation font size */}
+              <div className="flex items-center gap-3">
+                <Type size={14} style={{ color: 'var(--text-muted)' }} />
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Taille traduction</span>
+                <input
+                  type="range"
+                  min={0.7}
+                  max={1.3}
+                  step={0.05}
+                  value={translationFontSize}
+                  onChange={(e) => setTranslationFontSize(parseFloat(e.target.value))}
+                  className="flex-1 h-1 rounded-full appearance-none cursor-pointer"
+                  style={{ accentColor: '#d4ad4a' }}
+                />
+                <span className="text-xs font-mono w-10 text-right" style={{ color: 'var(--text-muted)' }}>
+                  {translationFontSize.toFixed(1)}x
+                </span>
+              </div>
+
+              {/* Row 6: Focus mode */}
+              <div className="flex items-center gap-3">
+                <Focus size={14} style={{ color: 'var(--text-muted)' }} />
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Mode focus (arabe seul)</span>
+                <button
+                  onClick={() => setFocusMode(v => !v)}
+                  className="ml-auto px-3 py-1 rounded-lg text-xs font-medium"
+                  style={{
+                    background: focusMode ? 'rgba(212,173,74,0.2)' : 'var(--bg-card)',
+                    color: focusMode ? '#d4ad4a' : 'var(--text-muted)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {focusMode ? 'Actif' : 'Désactivé'}
+                </button>
+              </div>
+
+              {/* Row 6b: Tajwid mode */}
+              <div className="flex items-center gap-3">
+                <span className="text-sm" style={{ color: 'var(--text-muted)' }}>🎨</span>
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Mode tajwid (couleurs)</span>
+                <button
+                  onClick={() => setTajwidEnabled(v => !v)}
+                  className="ml-auto px-3 py-1 rounded-lg text-xs font-medium"
+                  style={{
+                    background: tajwidEnabled ? 'rgba(46,158,140,0.2)' : 'var(--bg-card)',
+                    color: tajwidEnabled ? 'var(--accent)' : 'var(--text-muted)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {tajwidEnabled ? 'Actif' : 'Désactivé'}
+                </button>
+              </div>
+
+              {/* Row 7: AI features button */}
+              <button
+                onClick={() => { setShowAiPanel(v => !v); setShowSettings(false); }}
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-colors"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(212,173,74,0.1), rgba(46,158,140,0.08))',
+                  color: '#d4ad4a',
+                  border: '1px solid rgba(212,173,74,0.15)',
+                  cursor: 'pointer',
+                }}
+              >
+                <Sparkles size={14} />
+                Outils IA (résumé, quiz, flashcards, hifz...)
+              </button>
             </div>
           </motion.div>
         )}
@@ -431,8 +602,19 @@ export default function SurahDetailClient({ surah }: SurahDetailClientProps) {
           {surahInfo.revelationType === 'Meccan' ? 'Mecquoise' : 'Médinoise'} • {surahInfo.ayahCount} versets
         </p>
 
-        {/* Bismillah (except At-Tawbah, surah 9) */}
-        {surahNum !== 9 && (
+        {/* Animated Bismillah (except At-Tawbah, surah 9) */}
+        {surahNum !== 9 && basmalAnimated && (
+          <motion.p
+            initial={{ opacity: 0, scale: 0.85, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] as const }}
+            className="font-arabic text-lg mt-3 relative"
+            style={{ color: 'var(--text-secondary)', direction: 'rtl', lineHeight: '2' }}
+          >
+            بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ
+          </motion.p>
+        )}
+        {surahNum !== 9 && !basmalAnimated && (
           <p
             className="font-arabic text-lg mt-3 relative"
             style={{ color: 'var(--text-secondary)', direction: 'rtl', lineHeight: '2' }}
@@ -442,17 +624,271 @@ export default function SurahDetailClient({ surah }: SurahDetailClientProps) {
         )}
       </div>
 
-      {/* Audio player */}
+      {/* Listen-only mode overlay */}
       <AnimatePresence>
-        {showPlayer && audioUrls.length > 0 && (
-          <div className="px-4 pt-4">
+        {listenOnlyMode && showPlayer && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center"
+            style={{ background: '#000' }}
+          >
+            <div className="text-center space-y-6 px-6 w-full max-w-md">
+              <p className="text-xs" style={{ color: 'rgba(212,173,74,0.5)' }}>
+                {surahInfo.name} ({surahInfo.nameAr})
+              </p>
+              <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto" style={{ background: 'rgba(212,173,74,0.1)', border: '2px solid rgba(212,173,74,0.3)' }}>
+                <span className="text-2xl font-bold" style={{ color: '#d4ad4a' }}>{audioIndex + 1}</span>
+              </div>
+              <p className="font-arabic text-xl leading-relaxed" style={{ color: 'rgba(255,255,255,0.9)', direction: 'rtl' }}>
+                {ayahs[audioIndex]?.arabic || ''}
+              </p>
+              <div className="pt-4">
+                <QuranAudioPlayer
+                  audioUrls={audioUrls}
+                  currentIndex={audioIndex}
+                  onIndexChange={(idx) => { setAudioIndex(idx); setAudioProgress(0); }}
+                  onProgress={setAudioProgress}
+                  surahNumber={surahNum}
+                  onNextSurah={handleNextSurah}
+                  onListenOnlyToggle={(v) => setListenOnlyMode(v)}
+                  isListenOnly={listenOnlyMode}
+                />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Audio player (sticky) */}
+      <AnimatePresence>
+        {showPlayer && audioUrls.length > 0 && !listenOnlyMode && (
+          <div className="px-4 pt-4 sticky top-[52px] z-20">
             <QuranAudioPlayer
               audioUrls={audioUrls}
               currentIndex={audioIndex}
               onIndexChange={(idx) => { setAudioIndex(idx); setAudioProgress(0); }}
               onProgress={setAudioProgress}
+              surahNumber={surahNum}
+              onNextSurah={handleNextSurah}
+              onListenOnlyToggle={(v) => setListenOnlyMode(v)}
+              isListenOnly={listenOnlyMode}
             />
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* AI Panel */}
+      <AnimatePresence>
+        {showAiPanel && !loading && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="px-4 pt-4 space-y-3">
+              {/* AI Panel Header */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={14} style={{ color: '#d4ad4a' }} />
+                  <span className="text-xs font-medium" style={{ color: '#d4ad4a' }}>Outils IA</span>
+                </div>
+                <button onClick={() => setShowAiPanel(false)} className="p-1" style={{ color: 'var(--text-muted)', cursor: 'pointer' }}>
+                  <X size={14} />
+                </button>
+              </div>
+
+              {/* AI Action buttons */}
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { key: 'summary', icon: <MessageSquare size={14} />, label: 'Résumé', handler: handleSurahSummary },
+                  { key: 'quiz', icon: <GraduationCap size={14} />, label: 'Quiz', handler: handleSurahQuiz },
+                  { key: 'flashcards', icon: <BookOpen size={14} />, label: 'Flashcards', handler: handleSurahFlashcards },
+                  { key: 'hifz', icon: <Calendar size={14} />, label: 'Plan Hifz', handler: handleHifzPlan },
+                ].map(({ key, icon, label, handler }) => (
+                  <button
+                    key={key}
+                    onClick={handler}
+                    disabled={aiLoading === key}
+                    className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium transition-colors"
+                    style={{
+                      background: 'var(--bg-card)',
+                      border: '1px solid var(--border-subtle)',
+                      color: 'var(--text-secondary)',
+                      cursor: 'pointer',
+                      opacity: aiLoading === key ? 0.6 : 1,
+                    }}
+                  >
+                    {aiLoading === key ? <Loader2 size={14} className="animate-spin" /> : icon}
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Thematic search */}
+              <div className="flex gap-2">
+                <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
+                  <Search size={12} style={{ color: 'var(--text-muted)' }} />
+                  <input
+                    type="text"
+                    placeholder="Que dit le Coran sur... (ex: patience)"
+                    value={thematicSearch}
+                    onChange={(e) => setThematicSearch(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleThematicSearch()}
+                    className="flex-1 bg-transparent text-xs outline-none"
+                    style={{ color: 'var(--text-primary)' }}
+                  />
+                </div>
+                <button
+                  onClick={handleThematicSearch}
+                  disabled={aiLoading === 'thematic' || !thematicSearch.trim()}
+                  className="px-3 py-2 rounded-xl text-xs"
+                  style={{ background: 'rgba(212,173,74,0.12)', color: '#d4ad4a', cursor: 'pointer' }}
+                >
+                  {aiLoading === 'thematic' ? <Loader2 size={12} className="animate-spin" /> : <Search size={12} />}
+                </button>
+              </div>
+
+              {/* Summary result */}
+              {surahSummary && (
+                <div className="rounded-xl p-3" style={{ background: 'rgba(46,158,140,0.06)', borderLeft: '3px solid var(--accent)' }}>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <MessageSquare size={12} style={{ color: 'var(--accent)' }} />
+                    <span className="text-xs font-medium" style={{ color: 'var(--accent)' }}>Résumé de la sourate</span>
+                  </div>
+                  <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{surahSummary}</p>
+                </div>
+              )}
+
+              {/* Quiz result */}
+              {surahQuiz && surahQuiz.length > 0 && (
+                <div className="rounded-xl p-3 space-y-3" style={{ background: 'rgba(212,173,74,0.04)', border: '1px solid rgba(212,173,74,0.1)' }}>
+                  <div className="flex items-center gap-1.5">
+                    <GraduationCap size={12} style={{ color: '#d4ad4a' }} />
+                    <span className="text-xs font-medium" style={{ color: '#d4ad4a' }}>Quiz - {surahInfo.name}</span>
+                  </div>
+                  {surahQuiz.map((q, qi) => (
+                    <div key={qi} className="space-y-1.5">
+                      <p className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{qi + 1}. {q.question}</p>
+                      <div className="space-y-1">
+                        {q.options.map((opt, oi) => {
+                          const answered = quizAnswers[qi] !== undefined;
+                          const isCorrect = oi === q.correctAnswer;
+                          const isSelected = quizAnswers[qi] === oi;
+                          return (
+                            <button
+                              key={oi}
+                              onClick={() => { if (!answered) setQuizAnswers(prev => ({ ...prev, [qi]: oi })); }}
+                              className="w-full text-left px-3 py-1.5 rounded-lg text-[11px] transition-colors"
+                              style={{
+                                background: answered
+                                  ? isCorrect ? 'rgba(58,170,96,0.15)' : isSelected ? 'rgba(220,38,38,0.12)' : 'var(--bg-elevated)'
+                                  : 'var(--bg-elevated)',
+                                color: answered
+                                  ? isCorrect ? '#3aaa60' : isSelected ? '#dc2626' : 'var(--text-muted)'
+                                  : 'var(--text-secondary)',
+                                border: `1px solid ${answered && isCorrect ? 'rgba(58,170,96,0.3)' : 'var(--border-subtle)'}`,
+                                cursor: answered ? 'default' : 'pointer',
+                              }}
+                            >
+                              {opt}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {quizAnswers[qi] !== undefined && (
+                        <p className="text-[10px] italic pl-2" style={{ color: 'var(--text-muted)' }}>{q.explanation}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Flashcards result */}
+              {surahFlashcards && surahFlashcards.length > 0 && (
+                <div className="rounded-xl p-3" style={{ background: 'rgba(46,158,140,0.04)', border: '1px solid rgba(46,158,140,0.1)' }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-1.5">
+                      <BookOpen size={12} style={{ color: 'var(--accent)' }} />
+                      <span className="text-xs font-medium" style={{ color: 'var(--accent)' }}>Flashcard {flashcardIndex + 1}/{surahFlashcards.length}</span>
+                    </div>
+                    <div className="flex gap-1">
+                      <button onClick={() => { setFlashcardIndex(Math.max(0, flashcardIndex - 1)); setFlashcardFlipped(false); }} className="px-2 py-1 rounded text-[10px]" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', cursor: 'pointer' }}>←</button>
+                      <button onClick={() => { setFlashcardIndex(Math.min(surahFlashcards.length - 1, flashcardIndex + 1)); setFlashcardFlipped(false); }} className="px-2 py-1 rounded text-[10px]" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', cursor: 'pointer' }}>→</button>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setFlashcardFlipped(v => !v)}
+                    className="w-full text-center py-4 rounded-xl transition-all"
+                    style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', cursor: 'pointer' }}
+                  >
+                    {!flashcardFlipped ? (
+                      <>
+                        <p className="font-arabic text-xl" style={{ color: '#d4ad4a', direction: 'rtl' }}>{surahFlashcards[flashcardIndex]?.arabic}</p>
+                        <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>Tap pour voir la signification</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xs italic" style={{ color: 'var(--accent)' }}>{surahFlashcards[flashcardIndex]?.transliteration}</p>
+                        <p className="text-sm font-medium mt-1" style={{ color: 'var(--text-primary)' }}>{surahFlashcards[flashcardIndex]?.meaning}</p>
+                        <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>{surahFlashcards[flashcardIndex]?.context}</p>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {/* Hifz plan result */}
+              {hifzPlan && (
+                <div className="rounded-xl p-3 space-y-2" style={{ background: 'rgba(212,173,74,0.04)', border: '1px solid rgba(212,173,74,0.1)' }}>
+                  <div className="flex items-center gap-1.5">
+                    <Calendar size={12} style={{ color: '#d4ad4a' }} />
+                    <span className="text-xs font-medium" style={{ color: '#d4ad4a' }}>Plan de mémorisation</span>
+                  </div>
+                  <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                    {hifzPlan.totalVerses} versets · ~{hifzPlan.versesPerDay} versets/jour
+                  </p>
+                  <p className="text-[11px] italic" style={{ color: 'var(--text-muted)' }}>{hifzPlan.advice}</p>
+                  {hifzPlan.weeks.map((week, wi) => (
+                    <div key={wi} className="pl-2">
+                      <p className="text-[10px] font-medium" style={{ color: '#d4ad4a' }}>Semaine {wi + 1}</p>
+                      {week.map((day, di) => (
+                        <div key={di} className="flex gap-2 text-[10px] py-0.5">
+                          <span style={{ color: 'var(--text-muted)' }}>{day.day}:</span>
+                          <span style={{ color: 'var(--text-secondary)' }}>{day.verses}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Thematic search result */}
+              {thematicResult && (
+                <div className="rounded-xl p-3 space-y-2" style={{ background: 'rgba(46,158,140,0.04)', border: '1px solid rgba(46,158,140,0.1)' }}>
+                  <div className="flex items-center gap-1.5">
+                    <Search size={12} style={{ color: 'var(--accent)' }} />
+                    <span className="text-xs font-medium" style={{ color: 'var(--accent)' }}>Recherche thématique</span>
+                  </div>
+                  <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{thematicResult.introduction}</p>
+                  {thematicResult.verses.map((v, i) => (
+                    <button
+                      key={i}
+                      onClick={() => router.push(`/quran/${v.surah}`)}
+                      className="w-full text-left rounded-lg p-2 transition-colors"
+                      style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', cursor: 'pointer' }}
+                    >
+                      <span className="text-[10px] font-medium" style={{ color: '#d4ad4a' }}>{v.surahName} {v.surah}:{v.ayah}</span>
+                      <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>{v.explanation}</p>
+                    </button>
+                  ))}
+                  <p className="text-xs italic" style={{ color: 'var(--text-muted)' }}>{thematicResult.conclusion}</p>
+                </div>
+              )}
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
 
@@ -492,8 +928,8 @@ export default function SurahDetailClient({ surah }: SurahDetailClientProps) {
               surah={surahNum}
               ayah={ayahData.ayah}
               arabic={ayahData.arabic}
-              transliteration={ayahData.transliteration}
-              translation={ayahData.translation}
+              transliteration={focusMode ? '' : ayahData.transliteration}
+              translation={focusMode ? '' : ayahData.translation}
               audioUrl={ayahData.audioUrl}
               isBookmarked={isBookmarked(surahNum, ayahData.ayah)}
               isMemorized={isAyahMemorized(surahNum, ayahData.ayah)}
@@ -507,9 +943,11 @@ export default function SurahDetailClient({ surah }: SurahDetailClientProps) {
                 setShowPlayer(true);
               }}
               arabicFontSize={settings.arabicFontSize}
-              showTransliteration={settings.showTransliteration}
+              showTransliteration={!focusMode && settings.showTransliteration}
               tafsirLang={settings.translationLang}
               ayahRef={setAyahRef(ayahData.ayah)}
+              translationFontSize={translationFontSize}
+              tajwidEnabled={tajwidEnabled}
             />
           ))
         )}
