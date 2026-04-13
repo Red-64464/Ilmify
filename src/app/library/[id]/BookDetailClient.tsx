@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useParams } from 'next/navigation';
-import { BookOpen, Star, FileQuestion, BookMarked, Plus, Upload, Link2, Image, Search, Edit3, Trash2, LayoutGrid, List, AlignJustify, ExternalLink, Download, Layers, Sparkles, FileText, BookOpenCheck, RefreshCw } from 'lucide-react';
+import { BookOpen, Star, FileQuestion, BookMarked, Plus, Upload, Link2, Image, Search, Edit3, Trash2, LayoutGrid, List, AlignJustify, ExternalLink, Download, Layers, Sparkles, FileText, BookOpenCheck, RefreshCw, Loader2, Calendar, ShieldCheck, FileDown, BookCheck } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
@@ -16,7 +16,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { bookRepository } from '@/lib/repositories/bookRepository';
 import { flashcardRepository } from '@/lib/repositories/flashcardRepository';
 import { exportPassagesToPdf } from '@/lib/exportPdf';
-import { generateFlashcardsFromPassage, summarizePassage, suggestSourcesForPassage, improveReflection, type GeneratedFlashcard } from '@/lib/ai/groq';
+import { exportToDocx } from '@/lib/exportDocx';
+import { generateFlashcardsFromPassage, summarizePassage, suggestSourcesForPassage, improveReflection, generateBookSummary, generateReadingPlan, verifyIslamicClaim, generateBookRecommendations, type GeneratedFlashcard } from '@/lib/ai/groq';
+import { useToast } from '@/components/ui/Toast';
 import type { Book, BookPassage, FlashcardDeck } from '@/types';
 
 const stagger = {
@@ -108,6 +110,25 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
   const [aiFlashcardSaving, setAiFlashcardSaving] = useState(false);
   const [improvingReflection, setImprovingReflection] = useState(false);
   const [improvedReflectionPreview, setImprovedReflectionPreview] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  // Book-level AI states
+  const [bookSummary, setBookSummary] = useState('');
+  const [bookSummaryLoading, setBookSummaryLoading] = useState(false);
+  const [showBookSummary, setShowBookSummary] = useState(false);
+
+  const [readingPlan, setReadingPlan] = useState<{ days: { day: number; fromPage: number; toPage: number; theme: string }[]; tip: string } | null>(null);
+  const [readingPlanLoading, setReadingPlanLoading] = useState(false);
+  const [showReadingPlan, setShowReadingPlan] = useState(false);
+  const [readingPlanDays, setReadingPlanDays] = useState('7');
+
+  const [islamicCheck, setIslamicCheck] = useState<{ status: string; issues: { text: string; severity: string; explanation: string }[] } | null>(null);
+  const [islamicCheckLoading, setIslamicCheckLoading] = useState(false);
+  const [showIslamicCheck, setShowIslamicCheck] = useState(false);
+
+  const [showRecommendations, setShowRecommendations] = useState(false);
+  const [recommendations, setRecommendations] = useState<{ title: string; author: string; reason: string }[]>([]);
+  const [recoLoading, setRecoLoading] = useState(false);
 
   useEffect(() => {
     if (user) flashcardRepository.getAllDecks(user.id).then(setFlashcardDecks).catch(() => {});
@@ -193,6 +214,80 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
       setImprovedReflectionPreview(improved);
     } catch { /* ignore */ }
     setImprovingReflection(false);
+  };
+
+  // Book-level AI handlers
+  const handleGenerateBookSummary = async () => {
+    if (!book || passages.length === 0 || bookSummaryLoading) return;
+    setBookSummaryLoading(true);
+    setShowBookSummary(true);
+    try {
+      const summary = await generateBookSummary(
+        book.title, book.author,
+        passages.map(p => ({ title: p.title, content: p.content, pageNumber: p.pageNumber })),
+      );
+      setBookSummary(summary);
+    } catch (e) {
+      toast('error', e instanceof Error ? e.message : 'Erreur IA');
+    } finally {
+      setBookSummaryLoading(false);
+    }
+  };
+
+  const handleGenerateReadingPlan = async () => {
+    if (!book || readingPlanLoading) return;
+    setReadingPlanLoading(true);
+    setShowReadingPlan(true);
+    try {
+      const totalPages = Math.max(...passages.map(p => p.pageNumber || 0), 200);
+      const plan = await generateReadingPlan(
+        book.title, totalPages, parseInt(readingPlanDays) || 7, book.progress ? Math.floor(totalPages * book.progress / 100) : 1,
+      );
+      setReadingPlan(plan);
+    } catch (e) {
+      toast('error', e instanceof Error ? e.message : 'Erreur IA');
+    } finally {
+      setReadingPlanLoading(false);
+    }
+  };
+
+  const handleIslamicCheck = async () => {
+    if (!book || passages.length === 0 || islamicCheckLoading) return;
+    setIslamicCheckLoading(true);
+    setShowIslamicCheck(true);
+    try {
+      const allText = passages.map(p => p.content).join('\n\n');
+      const result = await verifyIslamicClaim(allText);
+      setIslamicCheck(result);
+    } catch (e) {
+      toast('error', e instanceof Error ? e.message : 'Erreur IA');
+    } finally {
+      setIslamicCheckLoading(false);
+    }
+  };
+
+  const handleExportDocx = () => {
+    if (!book || passages.length === 0) return;
+    const blocks = passages.flatMap((p) => [
+      { id: `h-${p.id}`, type: 'heading2' as const, content: p.title, order: 0 },
+      { id: `p-${p.id}`, type: 'paragraph' as const, content: p.content, order: 1 },
+      ...(p.personalReflection ? [{ id: `r-${p.id}`, type: 'reflection' as const, content: p.personalReflection, order: 2 }] : []),
+    ]);
+    exportToDocx(book.title, blocks, `Par ${book.author}`);
+    toast('success', 'Export Word en cours...');
+  };
+
+  const handleOpenRecommendations = async () => {
+    if (recoLoading) return;
+    setShowRecommendations(true);
+    setRecoLoading(true);
+    try {
+      const reco = await generateBookRecommendations([
+        { title: book?.title || '', author: book?.author || '', category: book?.category || '', rating: book?.rating },
+      ]);
+      setRecommendations(reco);
+    } catch { /* ignore */ }
+    setRecoLoading(false);
   };
 
   // Filtered passages
@@ -435,6 +530,48 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
           </div>
         </div>
       </motion.div>
+
+      {/* ─── AI Actions Bar ─── */}
+      <div className="flex flex-wrap gap-2 mb-5">
+        <button
+          onClick={handleGenerateBookSummary}
+          disabled={passages.length === 0}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-all"
+          style={{ background: 'rgba(212,173,74,0.08)', border: '1px solid rgba(212,173,74,0.15)', color: '#d4ad4a', opacity: passages.length === 0 ? 0.5 : 1 }}
+        >
+          <Sparkles size={13} /> Résumé IA
+        </button>
+        <button
+          onClick={() => setShowReadingPlan(true)}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-all"
+          style={{ background: 'rgba(46,158,140,0.08)', border: '1px solid rgba(46,158,140,0.15)', color: '#2e9e8c' }}
+        >
+          <Calendar size={13} /> Plan de lecture
+        </button>
+        <button
+          onClick={handleIslamicCheck}
+          disabled={passages.length === 0}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-all"
+          style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.15)', color: '#60a5fa', opacity: passages.length === 0 ? 0.5 : 1 }}
+        >
+          <ShieldCheck size={13} /> Vérification islamique
+        </button>
+        <button
+          onClick={handleExportDocx}
+          disabled={passages.length === 0}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-all"
+          style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.15)', color: '#a78bfa', opacity: passages.length === 0 ? 0.5 : 1 }}
+        >
+          <FileDown size={13} /> Export Word
+        </button>
+        <button
+          onClick={handleOpenRecommendations}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-all"
+          style={{ background: 'rgba(236,72,153,0.08)', border: '1px solid rgba(236,72,153,0.15)', color: '#ec4899' }}
+        >
+          <BookCheck size={13} /> Recommandations
+        </button>
+      </div>
 
       {/* Passages Header */}
       <div className="flex items-center justify-between mb-4">
@@ -1127,6 +1264,121 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
             <Button variant="secondary" size="md" onClick={() => setShowFlashcard(false)} className="flex-1">Annuler</Button>
             <Button variant="primary" size="md" onClick={handleCreateFlashcard} disabled={!flashcardDeckId || !flashcardFront.trim() || !flashcardBack.trim() || flashcardSaving} className="flex-1">{flashcardSaving ? 'Création...' : 'Créer'}</Button>
           </div>
+        </div>
+      </Modal>
+
+      {/* Book Summary Modal */}
+      <Modal isOpen={showBookSummary} onClose={() => setShowBookSummary(false)} title="📖 Résumé IA du livre">
+        <div className="space-y-3">
+          {bookSummaryLoading ? (
+            <div className="flex items-center gap-2 py-8 justify-center">
+              <Loader2 size={18} className="animate-spin" style={{ color: '#d4ad4a' }} />
+              <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Génération du résumé...</span>
+            </div>
+          ) : bookSummary ? (
+            <div className="text-sm leading-[1.9] whitespace-pre-wrap" style={{ color: 'var(--text-secondary)' }}>
+              {bookSummary}
+            </div>
+          ) : (
+            <p className="text-sm text-center py-4" style={{ color: 'var(--text-muted)' }}>Aucun résumé disponible</p>
+          )}
+        </div>
+      </Modal>
+
+      {/* Reading Plan Modal */}
+      <Modal isOpen={showReadingPlan} onClose={() => setShowReadingPlan(false)} title="📅 Plan de lecture guidé">
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <label className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>Nombre de jours :</label>
+            <input
+              type="number" value={readingPlanDays} onChange={(e) => setReadingPlanDays(e.target.value)}
+              min={1} max={365}
+              className="w-20 rounded-lg px-3 py-2 text-sm outline-none text-center"
+              style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
+            />
+            <Button variant="primary" size="sm" onClick={handleGenerateReadingPlan} disabled={readingPlanLoading}>
+              {readingPlanLoading ? <Loader2 size={14} className="animate-spin" /> : 'Générer'}
+            </Button>
+          </div>
+          {readingPlan && (
+            <>
+              <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                {readingPlan.days.map((day) => (
+                  <div key={day.day} className="flex items-center gap-3 p-3 rounded-xl" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{ background: 'rgba(46,158,140,0.15)', color: '#2e9e8c' }}>
+                      J{day.day}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Pages {day.fromPage} – {day.toPage}</p>
+                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{day.theme}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {readingPlan.tip && (
+                <div className="p-3 rounded-xl" style={{ background: 'rgba(212,173,74,0.06)', border: '1px solid rgba(212,173,74,0.1)' }}>
+                  <p className="text-xs" style={{ color: '#d4ad4a' }}>💡 {readingPlan.tip}</p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </Modal>
+
+      {/* Islamic Verification Modal */}
+      <Modal isOpen={showIslamicCheck} onClose={() => setShowIslamicCheck(false)} title="🔍 Vérification islamique">
+        <div className="space-y-3">
+          {islamicCheckLoading ? (
+            <div className="flex items-center gap-2 py-8 justify-center">
+              <Loader2 size={18} className="animate-spin" style={{ color: '#60a5fa' }} />
+              <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Vérification en cours...</span>
+            </div>
+          ) : islamicCheck ? (
+            <>
+              <div className="flex items-center gap-2 p-3 rounded-xl" style={{
+                background: islamicCheck.status === 'ok' ? 'rgba(34,197,94,0.08)' : islamicCheck.status === 'warning' ? 'rgba(234,179,8,0.08)' : 'rgba(239,68,68,0.08)',
+                border: `1px solid ${islamicCheck.status === 'ok' ? 'rgba(34,197,94,0.2)' : islamicCheck.status === 'warning' ? 'rgba(234,179,8,0.2)' : 'rgba(239,68,68,0.2)'}`,
+              }}>
+                <span className="text-lg">{islamicCheck.status === 'ok' ? '✅' : islamicCheck.status === 'warning' ? '⚠️' : '❌'}</span>
+                <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                  {islamicCheck.status === 'ok' ? 'Aucun problème détecté' : `${islamicCheck.issues.length} point(s) à vérifier`}
+                </span>
+              </div>
+              {islamicCheck.issues.map((issue, i) => (
+                <div key={i} className="p-3 rounded-xl" style={{
+                  background: issue.severity === 'error' ? 'rgba(239,68,68,0.06)' : 'rgba(234,179,8,0.06)',
+                  border: `1px solid ${issue.severity === 'error' ? 'rgba(239,68,68,0.12)' : 'rgba(234,179,8,0.12)'}`,
+                }}>
+                  <p className="text-xs font-medium mb-1" style={{ color: issue.severity === 'error' ? '#f87171' : '#fbbf24' }}>
+                    {issue.severity === 'error' ? '❌' : '⚠️'} {issue.text}
+                  </p>
+                  <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>{issue.explanation}</p>
+                </div>
+              ))}
+            </>
+          ) : null}
+        </div>
+      </Modal>
+
+      {/* Recommendations Modal */}
+      <Modal isOpen={showRecommendations} onClose={() => setShowRecommendations(false)} title="📚 Recommandations IA">
+        <div className="space-y-3">
+          {recoLoading ? (
+            <div className="flex items-center gap-2 py-8 justify-center">
+              <Loader2 size={18} className="animate-spin" style={{ color: '#ec4899' }} />
+              <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Recherche de recommandations...</span>
+            </div>
+          ) : recommendations.length > 0 ? (
+            recommendations.map((reco, i) => (
+              <div key={i} className="p-3 rounded-xl" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
+                <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{reco.title}</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Par {reco.author}</p>
+                <p className="text-xs mt-1.5 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{reco.reason}</p>
+              </div>
+            ))
+          ) : (
+            <p className="text-sm text-center py-4" style={{ color: 'var(--text-muted)' }}>Aucune recommandation</p>
+          )}
         </div>
       </Modal>
     </div>

@@ -7,7 +7,7 @@ import {
   User, Star, Brain, Layers, BookOpen, Settings,
   Info, Shield, Heart, LogOut, GraduationCap,
   Camera, Edit3, Lock, Save, X, Check, Palette,
-  Download, MessageCircle,
+  Download, MessageCircle, Archive, Share2, Loader2,
 } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
@@ -25,11 +25,14 @@ import { computeBadges, detectNewBadges, getBadgeById } from '@/data/badges';
 import { useInstallGuide } from '@/components/ui/InstallGuide';
 import InstallGuide from '@/components/ui/InstallGuide';
 import { useToast } from '@/components/ui/Toast';
+import { exportAllUserData } from '@/lib/exportData';
 
 const DISCORD_INVITE_URL = 'https://discord.gg/ilmify';
 
 const menuItems = [
   { icon: Heart, label: 'Favoris', desc: 'Gérer vos favoris', href: '/favorites' },
+  { icon: Archive, label: 'Exporter mes données', desc: 'Télécharger toutes mes données (RGPD)', action: 'export-data' as const },
+  { icon: Share2, label: 'Partager mon profil', desc: 'Page publique avec vos stats', action: 'share-profile' as const },
   { icon: Download, label: 'Installer l\'app', desc: 'Ajouter à l\'écran d\'accueil', action: 'install' as const },
   { icon: MessageCircle, label: 'Communauté Discord', desc: 'Rejoindre la communauté', action: 'discord' as const },
   { icon: Settings, label: 'Paramètres', desc: 'Personnaliser l\'application' },
@@ -59,6 +62,16 @@ export default function ProfilePage() {
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
+
+  // Data export
+  const [exportingData, setExportingData] = useState(false);
+
+  // Islamic avatars
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const ISLAMIC_AVATARS = [
+    '🕌', '📖', '🌙', '⭐', '🤲', '📿', '🏛️', '🕋', '☪️',
+    '🌿', '🌺', '🪷', '🏔️', '🌅', '🌊', '✨', '🕊️', '💎',
+  ];
 
   // Dynamic stats from Supabase
   const [statsLoading, setStatsLoading] = useState(true);
@@ -230,6 +243,18 @@ export default function ProfilePage() {
           >
             <Camera size={14} style={{ color: '#fff' }} />
           </button>
+          <button
+            onClick={() => setShowAvatarPicker(!showAvatarPicker)}
+            className="absolute bottom-0 left-0 flex h-7 w-7 items-center justify-center rounded-full cursor-pointer transition-transform hover:scale-110 text-sm"
+            style={{
+              background: 'linear-gradient(135deg, #d4ad4a, #a88031)',
+              boxShadow: '0 2px 8px rgba(212,173,74,0.3)',
+              border: '2px solid var(--bg-primary)',
+            }}
+            title="Choisir un avatar islamique"
+          >
+            ☪️
+          </button>
           <input
             ref={fileInputRef}
             type="file"
@@ -238,6 +263,45 @@ export default function ProfilePage() {
             onChange={handleAvatarUpload}
           />
         </div>
+        {/* Islamic Avatar Picker */}
+        <AnimatePresence>
+          {showAvatarPicker && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="flex flex-wrap gap-2 justify-center mt-3"
+            >
+              {ISLAMIC_AVATARS.map((emoji) => (
+                <button
+                  key={emoji}
+                  onClick={() => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 128;
+                    canvas.height = 128;
+                    const ctx = canvas.getContext('2d');
+                    if (ctx) {
+                      ctx.fillStyle = '#1a2332';
+                      ctx.fillRect(0, 0, 128, 128);
+                      ctx.font = '64px serif';
+                      ctx.textAlign = 'center';
+                      ctx.textBaseline = 'middle';
+                      ctx.fillText(emoji, 64, 68);
+                      const dataUrl = canvas.toDataURL('image/png');
+                      updateUser({ avatarUrl: dataUrl });
+                      setShowAvatarPicker(false);
+                      toast('success', 'Avatar mis à jour !');
+                    }
+                  }}
+                  className="h-10 w-10 flex items-center justify-center rounded-full text-xl cursor-pointer transition-all hover:scale-110"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-subtle)' }}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
         <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
           {user.displayName}
         </h1>
@@ -493,9 +557,31 @@ export default function ProfilePage() {
                   ? openGuide
                   : 'action' in item && item.action === 'discord'
                     ? () => window.open(DISCORD_INVITE_URL, '_blank', 'noopener,noreferrer')
-                    : 'href' in item && item.href
-                      ? () => router.push(item.href!)
-                      : undefined
+                    : 'action' in item && item.action === 'export-data'
+                      ? async () => {
+                          if (!user || exportingData) return;
+                          setExportingData(true);
+                          try {
+                            await exportAllUserData(user.id, user.displayName);
+                            toast('success', 'Export téléchargé !');
+                          } catch {
+                            toast('error', 'Erreur lors de l\'export');
+                          } finally {
+                            setExportingData(false);
+                          }
+                        }
+                      : 'action' in item && item.action === 'share-profile'
+                        ? () => {
+                            const url = `${window.location.origin}/profile?user=${user?.username || ''}`;
+                            navigator.clipboard.writeText(url).then(() => {
+                              toast('success', 'Lien du profil copié !');
+                            }).catch(() => {
+                              toast('error', 'Impossible de copier le lien');
+                            });
+                          }
+                        : 'href' in item && item.href
+                          ? () => router.push(item.href!)
+                          : undefined
               }
             >
               <div className="flex items-center gap-3">
@@ -507,7 +593,11 @@ export default function ProfilePage() {
                         ? 'rgba(88,101,242,0.1)'
                         : 'action' in item && item.action === 'install'
                           ? 'rgba(46,158,140,0.1)'
-                          : 'rgba(255,255,255,0.05)',
+                          : 'action' in item && item.action === 'export-data'
+                            ? 'rgba(212,173,74,0.1)'
+                            : 'action' in item && item.action === 'share-profile'
+                              ? 'rgba(139,92,246,0.1)'
+                              : 'rgba(255,255,255,0.05)',
                   }}
                 >
                   <item.icon
@@ -518,7 +608,11 @@ export default function ProfilePage() {
                           ? '#5865f2'
                           : 'action' in item && item.action === 'install'
                             ? 'var(--accent)'
-                            : 'var(--text-muted)',
+                            : 'action' in item && item.action === 'export-data'
+                              ? '#d4ad4a'
+                              : 'action' in item && item.action === 'share-profile'
+                                ? '#a78bfa'
+                                : 'var(--text-muted)',
                     }}
                   />
                 </div>

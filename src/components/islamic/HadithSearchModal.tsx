@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { BookMarked, Search, Loader2, ChevronRight, ArrowLeft, Sparkles } from 'lucide-react';
+import { BookMarked, Search, Loader2, ChevronRight, ArrowLeft, Sparkles, MessageCircle, Link2 } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import {
   getRootCategories,
@@ -11,7 +11,7 @@ import {
   type HadeethListItem,
   type HadeethDetail,
 } from '@/lib/api/hadithApi';
-import { findBestHadithCategories, rankHadithResults } from '@/lib/ai/groq';
+import { findBestHadithCategories, rankHadithResults, explainHadith, explainIsnad } from '@/lib/ai/groq';
 import type { TopicBlock } from '@/types';
 
 interface HadithSearchModalProps {
@@ -37,6 +37,12 @@ export default function HadithSearchModal({ isOpen, onClose, onInsert }: HadithS
   const [aiQuery, setAiQuery] = useState('');
   const [aiSearching, setAiSearching] = useState(false);
   const [aiResults, setAiResults] = useState<HadeethListItem[]>([]);
+
+  // AI explanation states
+  const [aiExplanation, setAiExplanation] = useState('');
+  const [aiExplanationLoading, setAiExplanationLoading] = useState(false);
+  const [aiIsnad, setAiIsnad] = useState('');
+  const [aiIsnadLoading, setAiIsnadLoading] = useState(false);
 
   // Load categories
   useEffect(() => {
@@ -117,7 +123,34 @@ export default function HadithSearchModal({ isOpen, onClose, onInsert }: HadithS
     setSearchFilter('');
     setAiQuery('');
     setAiResults([]);
+    setAiExplanation('');
+    setAiIsnad('');
   };
+
+  const handleExplainHadith = useCallback(async () => {
+    if (!selectedHadith || aiExplanationLoading) return;
+    setAiExplanationLoading(true);
+    try {
+      const explanation = await explainHadith(
+        selectedHadith.hadeeth,
+        selectedHadith.attribution || selectedHadith.reference || '',
+        selectedHadith.grade,
+      );
+      setAiExplanation(explanation);
+    } catch { setAiExplanation('Erreur lors de la génération de l\'explication.'); }
+    setAiExplanationLoading(false);
+  }, [selectedHadith, aiExplanationLoading]);
+
+  const handleExplainIsnad = useCallback(async () => {
+    if (!selectedHadith || aiIsnadLoading) return;
+    setAiIsnadLoading(true);
+    try {
+      const chain = selectedHadith.attribution || selectedHadith.reference || '';
+      const explanation = await explainIsnad(selectedHadith.hadeeth, chain);
+      setAiIsnad(explanation);
+    } catch { setAiIsnad('Erreur lors de l\'explication de la chaîne de transmission.'); }
+    setAiIsnadLoading(false);
+  }, [selectedHadith, aiIsnadLoading]);
 
   const handleAISearch = useCallback(async () => {
     if (!aiQuery.trim() || aiSearching) return;
@@ -378,6 +411,52 @@ export default function HadithSearchModal({ isOpen, onClose, onInsert }: HadithS
                 </p>
                 <p className="text-xs leading-[1.8]" style={{ color: 'var(--text-secondary)' }}>
                   {selectedHadith.explanation}
+                </p>
+              </div>
+            )}
+
+            {/* AI Actions */}
+            <div className="flex flex-wrap gap-2 mt-3 pt-3" style={{ borderTop: '1px solid rgba(46, 158, 140, 0.15)' }}>
+              <button
+                onClick={handleExplainHadith}
+                disabled={aiExplanationLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-all"
+                style={{ background: 'rgba(212,173,74,0.08)', color: '#d4ad4a', border: '1px solid rgba(212,173,74,0.15)' }}
+              >
+                {aiExplanationLoading ? <Loader2 size={11} className="animate-spin" /> : <MessageCircle size={11} />}
+                Explication IA
+              </button>
+              <button
+                onClick={handleExplainIsnad}
+                disabled={aiIsnadLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-all"
+                style={{ background: 'rgba(139,92,246,0.08)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.15)' }}
+              >
+                {aiIsnadLoading ? <Loader2 size={11} className="animate-spin" /> : <Link2 size={11} />}
+                Chaîne de transmission
+              </button>
+            </div>
+
+            {/* AI Hadith Explanation */}
+            {aiExplanation && (
+              <div className="mt-3 p-3 rounded-xl" style={{ background: 'rgba(212,173,74,0.06)', border: '1px solid rgba(212,173,74,0.1)' }}>
+                <p className="text-[11px] font-medium uppercase tracking-wider mb-1.5" style={{ color: '#d4ad4a' }}>
+                  ✨ Explication IA
+                </p>
+                <p className="text-xs leading-[1.9] whitespace-pre-wrap" style={{ color: 'var(--text-secondary)' }}>
+                  {aiExplanation}
+                </p>
+              </div>
+            )}
+
+            {/* AI Isnad Explanation */}
+            {aiIsnad && (
+              <div className="mt-3 p-3 rounded-xl" style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                <p className="text-[11px] font-medium uppercase tracking-wider mb-1.5" style={{ color: '#a78bfa' }}>
+                  🔗 Chaîne de transmission
+                </p>
+                <p className="text-xs leading-[1.9] whitespace-pre-wrap" style={{ color: 'var(--text-secondary)' }}>
+                  {aiIsnad}
                 </p>
               </div>
             )}

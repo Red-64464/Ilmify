@@ -5,18 +5,21 @@ import { useRouter, useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, Edit3, Pin, Heart, Trash2,
-  Save, Tag, FileDown, Layers, Loader2,
+  Save, Tag, FileDown, Layers, Loader2, Sparkles, Mic, FileText,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
 import BlockEditor from '@/components/editor/BlockEditor';
+import MindMapViewer from '@/components/ui/MindMapViewer';
+import AudioRecorder from '@/components/ui/AudioRecorder';
 import { useAuth } from '@/contexts/AuthContext';
 import { topicRepository } from '@/lib/repositories/topicRepository';
 import { flashcardRepository } from '@/lib/repositories/flashcardRepository';
-import { generateFlashcardsFromPassage } from '@/lib/ai/groq';
+import { generateFlashcardsFromPassage, generateMindMap, type MindMapNode } from '@/lib/ai/groq';
 import { useToast } from '@/components/ui/Toast';
 import { exportToPdf } from '@/lib/exportPdf';
+import { exportToDocx } from '@/lib/exportDocx';
 import type { Topic, TopicBlock } from '@/types';
 
 export default function TopicDetailClient({ id: propId }: { id: string }) {
@@ -33,6 +36,14 @@ export default function TopicDetailClient({ id: propId }: { id: string }) {
   const [editBlocks, setEditBlocks] = useState<TopicBlock[]>([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [generatingFlashcards, setGeneratingFlashcards] = useState(false);
+
+  // Mind map state
+  const [showMindMap, setShowMindMap] = useState(false);
+  const [mindMapData, setMindMapData] = useState<MindMapNode | null>(null);
+  const [mindMapLoading, setMindMapLoading] = useState(false);
+
+  // Audio recorder
+  const [showAudioRecorder, setShowAudioRecorder] = useState(false);
 
   useEffect(() => {
     if (!id || id === '_placeholder') {
@@ -156,6 +167,40 @@ export default function TopicDetailClient({ id: propId }: { id: string }) {
     setGeneratingFlashcards(false);
   }, [topic, user, generatingFlashcards, toast, router]);
 
+  const handleGenerateMindMap = useCallback(async () => {
+    if (!topic || mindMapLoading) return;
+    setMindMapLoading(true);
+    setShowMindMap(true);
+    try {
+      const data = await generateMindMap(topic.title, topic.blocks.map(b => ({ type: b.type, content: b.content })));
+      setMindMapData(data);
+    } catch (err) {
+      toast('error', err instanceof Error ? err.message : 'Erreur IA');
+    } finally {
+      setMindMapLoading(false);
+    }
+  }, [topic, mindMapLoading, toast]);
+
+  const handleExportDocx = useCallback(() => {
+    if (!topic) return;
+    exportToDocx(topic.title, topic.blocks);
+    toast('success', 'Export Word en cours...');
+  }, [topic, toast]);
+
+  const handleAudioSave = useCallback(async (audioDataUrl: string, fileName: string) => {
+    if (!topic || !isEditing) return;
+    const newBlock: TopicBlock = {
+      id: `audio-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+      type: 'audio',
+      content: fileName,
+      metadata: { dataUrl: audioDataUrl, fileName },
+      order: editBlocks.length,
+    };
+    setEditBlocks(prev => [...prev, newBlock]);
+    setShowAudioRecorder(false);
+    toast('success', 'Note vocale ajoutée');
+  }, [topic, isEditing, editBlocks, toast]);
+
   if (loading) {
     return (
       <div className="pb-10">
@@ -239,12 +284,29 @@ export default function TopicDetailClient({ id: propId }: { id: string }) {
                 {generatingFlashcards ? <Loader2 size={16} className="animate-spin" /> : <Layers size={16} />}
               </button>
               <button
+                onClick={handleGenerateMindMap}
+                disabled={mindMapLoading}
+                className="p-2 rounded-lg transition-colors cursor-pointer"
+                style={{ color: mindMapLoading ? 'var(--text-muted)' : '#d4ad4a' }}
+                title="Générer une carte mentale"
+              >
+                {mindMapLoading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+              </button>
+              <button
                 onClick={() => exportToPdf(topic.title, topic.blocks)}
                 className="p-2 rounded-lg transition-colors cursor-pointer"
                 style={{ color: 'var(--text-muted)' }}
                 title="Exporter en PDF"
               >
                 <FileDown size={16} />
+              </button>
+              <button
+                onClick={handleExportDocx}
+                className="p-2 rounded-lg transition-colors cursor-pointer"
+                style={{ color: 'var(--text-muted)' }}
+                title="Exporter en Word"
+              >
+                <FileText size={16} />
               </button>
             </>
           )}
@@ -253,6 +315,14 @@ export default function TopicDetailClient({ id: propId }: { id: string }) {
             <div className="flex items-center gap-1.5 shrink-0">
               {isEditing ? (
                 <>
+                  <button
+                    onClick={() => setShowAudioRecorder(true)}
+                    className="p-2 rounded-lg transition-colors cursor-pointer"
+                    style={{ color: 'var(--accent)' }}
+                    title="Enregistrer une note vocale"
+                  >
+                    <Mic size={16} />
+                  </button>
                   <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>
                     Annuler
                   </Button>
@@ -357,6 +427,34 @@ export default function TopicDetailClient({ id: propId }: { id: string }) {
           </Button>
         </div>
       </Modal>
+
+      {/* Mind Map Modal */}
+      <Modal isOpen={showMindMap} onClose={() => setShowMindMap(false)} title="🧠 Carte mentale IA">
+        <div className="space-y-3">
+          {mindMapLoading ? (
+            <div className="flex items-center gap-2 py-12 justify-center">
+              <Loader2 size={18} className="animate-spin" style={{ color: '#d4ad4a' }} />
+              <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Génération de la carte mentale...</span>
+            </div>
+          ) : mindMapData ? (
+            <MindMapViewer data={mindMapData} />
+          ) : (
+            <p className="text-sm text-center py-6" style={{ color: 'var(--text-muted)' }}>Aucune donnée</p>
+          )}
+        </div>
+      </Modal>
+
+      {/* Audio Recorder */}
+      {showAudioRecorder && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
+          <div className="w-full max-w-md mb-8">
+            <AudioRecorder
+              onSave={handleAudioSave}
+              onCancel={() => setShowAudioRecorder(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
