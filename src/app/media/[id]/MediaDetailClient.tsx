@@ -339,11 +339,11 @@ export default function MediaDetailPage({ params }: { params: Promise<{ id: stri
     setSimilarLoading(true);
     setShowSimilar(true);
     try {
-      const allVideos = await mediaRepository.getVideos(video.folderId);
-      const others = allVideos.filter(v => v.id !== video.id);
+      const allVideos = await mediaRepository.getVideosByFolder(video.folderId);
+      const others = allVideos.filter((v: { id: string }) => v.id !== video.id);
       const ids = await findSimilarVideos(
         { title: video.title, tags: video.tags, channelName: video.channelName },
-        others.map(v => ({ id: v.id, title: v.title, tags: v.tags, channelName: v.channelName })),
+        others.map((v: { id: string; title: string; tags: string[]; channelName?: string }) => ({ id: v.id, title: v.title, tags: v.tags, channelName: v.channelName })),
       );
       setSimilarIds(ids);
     } catch {

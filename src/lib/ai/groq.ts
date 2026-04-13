@@ -679,8 +679,7 @@ RÈGLES pour le quiz (8-10 questions QCM) :
 
   // Fallback: Groq-only sequential mode
   report('Analyse du contenu (étape 1/2)...');
-  let textRaw: string;
-  textRaw = await callGroq(
+  const textRaw = await callGroq(
     [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: textPrompt }],
     true, 'llama-3.3-70b-versatile', 3, 6000,
   );
@@ -704,8 +703,7 @@ RÈGLES pour le quiz (8-10 questions QCM) :
 
   // Rebuild with smaller transcript for Groq TPM limit
   const groqBlocksPrompt = buildBlocksPrompt(4000);
-  let blocksRaw: string;
-  blocksRaw = await callGroq(
+  const blocksRaw = await callGroq(
     [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: groqBlocksPrompt }],
     true, 'llama-3.3-70b-versatile', 3, 8000,
   );

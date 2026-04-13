@@ -100,7 +100,7 @@ export function exportToDocx(title: string, blocks: TopicBlock[], subtitle?: str
   ];
 
   const zipData = buildMinimalZip(files);
-  const blob = new Blob([zipData], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+  const blob = new Blob([zipData.buffer as ArrayBuffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

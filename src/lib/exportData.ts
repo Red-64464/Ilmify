@@ -138,11 +138,11 @@ export async function exportAllUserData(userId: string, displayName: string) {
 
   // 5. Media
   try {
-    const mediaFolders = await mediaRepository.getFolders(userId);
+    const mediaFolders = await mediaRepository.getAllFolders();
     files.push({ path: 'media/folders.json', data: toJsonBytes(mediaFolders) });
     for (const folder of mediaFolders) {
       try {
-        const videos = await mediaRepository.getVideos(folder.id);
+        const videos = await mediaRepository.getVideosByFolder(folder.id);
         if (videos.length > 0) {
           files.push({
             path: `media/videos_${folder.id}.json`,
@@ -207,7 +207,7 @@ Conformité : RGPD - Export complet des données personnelles
 
   // Build and download ZIP
   const zipData = buildZip(files);
-  const blob = new Blob([zipData], { type: 'application/zip' });
+  const blob = new Blob([zipData.buffer as ArrayBuffer], { type: 'application/zip' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
