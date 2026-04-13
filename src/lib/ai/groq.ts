@@ -54,6 +54,15 @@ function extractJsonFromText(text: string): string {
   return text;
 }
 
+function extractJsonArrayFromText(text: string): string {
+  const start = text.indexOf('[');
+  const end = text.lastIndexOf(']');
+  if (start !== -1 && end > start) {
+    return text.slice(start, end + 1);
+  }
+  return text;
+}
+
 async function callGroq(
   messages: GroqMessage[],
   json = false,
@@ -866,6 +875,138 @@ Réponds uniquement avec l'explication, sans titre ni introduction.`;
   );
 }
 
+// ─── Quran AI features (per-verse) ───
+
+export interface HadithSuggestion {
+  text: string;
+  source: string;
+  relevance: string;
+}
+
+export interface WordTranslation {
+  arabic: string;
+  transliteration: string;
+  meaning: string;
+}
+
+export async function generateHadithSuggestions(
+  surah: number,
+  ayah: number,
+  arabic: string,
+  translation: string,
+): Promise<HadithSuggestion[]> {
+  const prompt = `Verset : Sourate ${surah}, Verset ${ayah}
+Texte arabe : ${arabic}
+Traduction : ${translation}
+
+Trouve 2 à 4 hadiths authentiques (sahih ou hasan) en lien avec ce verset.
+Réponds UNIQUEMENT en JSON valide, un tableau d'objets avec les clés : "text" (texte du hadith en français), "source" (collection et numéro, ex: Sahih Bukhari 1234), "relevance" (une phrase expliquant le lien avec le verset).`;
+
+  const raw = await callGroq(
+    [
+      { role: 'system', content: 'Tu es un spécialiste du hadith. Réponds uniquement en JSON valide (un tableau). Ne mets pas de markdown autour.' },
+      { role: 'user', content: prompt },
+    ],
+    true,
+    'llama-3.1-8b-instant',
+    2,
+    1200,
+  );
+  try {
+    const parsed = JSON.parse(raw.startsWith('[') ? raw : extractJsonArrayFromText(raw));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function generateVerseConnections(
+  surah: number,
+  ayah: number,
+  arabic: string,
+  translation: string,
+): Promise<{ surah: number; ayah: number; surahName: string; reason: string }[]> {
+  const prompt = `Verset : Sourate ${surah}, Verset ${ayah}
+Texte arabe : ${arabic}
+Traduction : ${translation}
+
+Trouve 3 à 5 versets du Coran thématiquement liés à celui-ci.
+Réponds UNIQUEMENT en JSON valide, un tableau d'objets avec les clés : "surah" (numéro), "ayah" (numéro), "surahName" (nom en français), "reason" (une phrase expliquant le lien).`;
+
+  const raw = await callGroq(
+    [
+      { role: 'system', content: 'Tu es un spécialiste du Coran. Réponds uniquement en JSON valide (un tableau). Ne mets pas de markdown autour.' },
+      { role: 'user', content: prompt },
+    ],
+    true,
+    'llama-3.1-8b-instant',
+    2,
+    1200,
+  );
+  try {
+    const parsed = JSON.parse(raw.startsWith('[') ? raw : extractJsonArrayFromText(raw));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function generateAsbabNuzul(
+  surah: number,
+  ayah: number,
+  arabic: string,
+  translation: string,
+): Promise<string> {
+  const prompt = `Verset : Sourate ${surah}, Verset ${ayah}
+Texte arabe : ${arabic}
+Traduction : ${translation}
+
+Explique les circonstances de révélation (Asbab al-Nuzul) de ce verset en 3 à 6 phrases.
+Si les circonstances exactes ne sont pas connues, mentionne-le et donne le contexte historique général de la sourate.
+Réponds uniquement avec l'explication, sans titre ni introduction.`;
+
+  return callGroq(
+    [
+      { role: 'system', content: 'Tu es un spécialiste du Coran et des sciences coraniques. Tu fournis des informations sur les Asbab al-Nuzul basées sur les sources reconnues (Al-Wahidi, Al-Suyuti). Réponds en français.' },
+      { role: 'user', content: prompt },
+    ],
+    false,
+    'llama-3.1-8b-instant',
+    2,
+    600,
+  );
+}
+
+export async function generateWordByWord(
+  surah: number,
+  ayah: number,
+  arabic: string,
+): Promise<WordTranslation[]> {
+  const prompt = `Verset : Sourate ${surah}, Verset ${ayah}
+Texte arabe : ${arabic}
+
+Donne la traduction mot à mot de ce verset.
+Réponds UNIQUEMENT en JSON valide, un tableau d'objets avec les clés : "arabic" (le mot arabe), "transliteration" (translittération), "meaning" (sens en français).
+L'ordre doit suivre l'ordre des mots arabes (de droite à gauche).`;
+
+  const raw = await callGroq(
+    [
+      { role: 'system', content: 'Tu es un spécialiste de la langue arabe coranique. Réponds uniquement en JSON valide (un tableau). Ne mets pas de markdown autour.' },
+      { role: 'user', content: prompt },
+    ],
+    true,
+    'llama-3.1-8b-instant',
+    2,
+    1500,
+  );
+  try {
+    const parsed = JSON.parse(raw.startsWith('[') ? raw : extractJsonArrayFromText(raw));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 // ─── 12. Book summary from passages ───
 
 export async function generateBookSummary(
@@ -1267,4 +1408,95 @@ Réponds en JSON :
   );
   const parsed = JSON.parse(raw);
   return (parsed.similarIds || []) as string[];
+}
+
+// ─── 24. Surah-level AI features ───
+
+export type SurahQuizQuestion = {
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+};
+
+export type SurahFlashcard = {
+  arabic: string;
+  transliteration: string;
+  meaning: string;
+  context: string;
+};
+
+export type HifzPlanResult = {
+  totalVerses: number;
+  versesPerDay: number;
+  advice: string;
+  weeks: { week: number; verses: string; tip: string }[];
+};
+
+export async function generateSurahSummary(
+  surahNumber: number,
+  surahName: string,
+  versesText: string,
+): Promise<string> {
+  const prompt = `Voici les versets de la sourate ${surahNumber} (${surahName}) :\n\n${versesText}\n\nRédige un résumé concis et pédagogique de cette sourate en français. Mentionne les thèmes principaux, le contexte de révélation si pertinent, et les leçons clés. Maximum 300 mots.`;
+
+  return await callGroq(
+    [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: prompt }],
+    false, 'llama-3.3-70b-versatile', 2, 1024,
+  );
+}
+
+export async function generateSurahQuiz(
+  surahNumber: number,
+  surahName: string,
+  versesText: string,
+): Promise<SurahQuizQuestion[]> {
+  const prompt = `Voici les versets de la sourate ${surahNumber} (${surahName}) :\n\n${versesText}\n\nGénère 5 questions de quiz à choix multiple basées UNIQUEMENT sur le contenu de ces versets.\n\nRéponds en JSON :\n[{ "question": "...", "options": ["A", "B", "C", "D"], "correctIndex": 0, "explanation": "..." }]`;
+
+  const raw = await callGroq(
+    [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: prompt }],
+    true, 'llama-3.3-70b-versatile', 2, 2048,
+  );
+  return JSON.parse(extractJsonArrayFromText(raw));
+}
+
+export async function generateSurahFlashcards(
+  surahNumber: number,
+  surahName: string,
+  versesText: string,
+): Promise<SurahFlashcard[]> {
+  const prompt = `Voici les versets de la sourate ${surahNumber} (${surahName}) :\n\n${versesText}\n\nGénère 8 flashcards de vocabulaire/concepts clés tirés de ces versets.\n\nRéponds en JSON :\n[{ "arabic": "mot arabe", "transliteration": "translittération", "meaning": "sens en français", "context": "contexte dans la sourate" }]`;
+
+  const raw = await callGroq(
+    [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: prompt }],
+    true, 'llama-3.3-70b-versatile', 2, 2048,
+  );
+  return JSON.parse(extractJsonArrayFromText(raw));
+}
+
+export async function generateHifzPlan(
+  surahNumber: number,
+  surahName: string,
+  totalVerses: number,
+  weeks: number,
+): Promise<HifzPlanResult> {
+  const prompt = `Crée un plan de mémorisation (hifz) pour la sourate ${surahNumber} (${surahName}) qui contient ${totalVerses} versets, à réaliser en ${weeks} semaines.\n\nRéponds en JSON :\n{ "totalVerses": ${totalVerses}, "versesPerDay": <nombre>, "advice": "conseil général", "weeks": [{ "week": 1, "verses": "versets 1-10", "tip": "conseil pour cette semaine" }] }`;
+
+  const raw = await callGroq(
+    [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: prompt }],
+    true, 'llama-3.3-70b-versatile', 2, 1500,
+  );
+  return JSON.parse(extractJsonFromText(raw));
+}
+
+export async function generateThematicExplanation(
+  query: string,
+): Promise<{ introduction: string; verses: { surah: number; ayah: number; surahName: string; explanation: string }[]; conclusion: string }> {
+  const prompt = `L'utilisateur recherche des versets coraniques sur le thème : "${query}".\n\nÀ partir de tes connaissances du Coran, trouve 3 à 5 versets pertinents et explique le lien avec le thème.\n\nRéponds en JSON :\n{ "introduction": "introduction du thème", "verses": [{ "surah": 2, "ayah": 255, "surahName": "Al-Baqara", "explanation": "explication du lien" }], "conclusion": "conclusion" }`;
+
+  const raw = await callGroq(
+    [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: prompt }],
+    true, 'llama-3.3-70b-versatile', 2, 2048,
+  );
+  return JSON.parse(extractJsonFromText(raw));
 }
