@@ -775,7 +775,7 @@ export default function SurahDetailClient({ surah }: SurahDetailClientProps) {
                       <div className="space-y-1">
                         {q.options.map((opt, oi) => {
                           const answered = quizAnswers[qi] !== undefined;
-                          const isCorrect = oi === q.correctAnswer;
+                          const isCorrect = oi === q.correctIndex;
                           const isSelected = quizAnswers[qi] === oi;
                           return (
                             <button
@@ -853,13 +853,11 @@ export default function SurahDetailClient({ surah }: SurahDetailClientProps) {
                   <p className="text-[11px] italic" style={{ color: 'var(--text-muted)' }}>{hifzPlan.advice}</p>
                   {hifzPlan.weeks.map((week, wi) => (
                     <div key={wi} className="pl-2">
-                      <p className="text-[10px] font-medium" style={{ color: '#d4ad4a' }}>Semaine {wi + 1}</p>
-                      {week.map((day, di) => (
-                        <div key={di} className="flex gap-2 text-[10px] py-0.5">
-                          <span style={{ color: 'var(--text-muted)' }}>{day.day}:</span>
-                          <span style={{ color: 'var(--text-secondary)' }}>{day.verses}</span>
-                        </div>
-                      ))}
+                      <p className="text-[10px] font-medium" style={{ color: '#d4ad4a' }}>Semaine {week.week}</p>
+                      <div className="flex gap-2 text-[10px] py-0.5">
+                        <span style={{ color: 'var(--text-muted)' }}>{week.verses}</span>
+                      </div>
+                      <p className="text-[10px] italic" style={{ color: 'var(--text-muted)' }}>{week.tip}</p>
                     </div>
                   ))}
                 </div>
