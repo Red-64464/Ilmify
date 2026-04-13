@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, Bookmark, BookmarkCheck, CheckCircle2, Circle, Share2, ChevronDown, BookOpen, Loader2, Link2, BookMarked, Languages, HelpCircle, Image } from 'lucide-react';
+import { Play, Pause, Bookmark, BookmarkCheck, CheckCircle2, Circle, Share2, ChevronDown, BookOpen, Loader2, Link2, BookMarked, Languages, HelpCircle, ImagePlus } from 'lucide-react';
 import { getTafsir, SURAH_LIST } from '@/lib/api/quranApi';
 import { generateTafsirFr, generateHadithSuggestions, generateVerseConnections, generateAsbabNuzul, generateWordByWord } from '@/lib/ai/groq';
 import type { HadithSuggestion, WordTranslation } from '@/lib/ai/groq';
@@ -388,7 +388,7 @@ export default function AyahDisplay({
                 {asbabLoading ? <Loader2 size={10} className="animate-spin" /> : <HelpCircle size={10} />} Asbab al-Nuzul
               </button>
               <button onClick={() => setShowImageShare(true)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                <Image size={10} /> Image verset
+                <ImagePlus size={10} /> Image verset
               </button>
             </div>
           </motion.div>

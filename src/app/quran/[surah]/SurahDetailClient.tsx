@@ -17,17 +17,12 @@ import {
   BookOpenCheck,
   Focus,
   Sparkles,
-  Brain,
   MessageSquare,
   BookOpen,
-  Lightbulb,
   GraduationCap,
   Calendar,
   Search,
-  Link2,
-  HelpCircle,
   Loader2,
-  ChevronDown,
 } from 'lucide-react';
 import {
   SURAH_LIST,
@@ -44,18 +39,12 @@ import {
   generateSurahQuiz,
   generateSurahFlashcards,
   generateHifzPlan,
-  generateHadithSuggestions,
-  generateVerseConnections,
-  generateAsbabNuzul,
   generateThematicExplanation,
-  generateWordByWord,
 } from '@/lib/ai/groq';
 import type {
   SurahQuizQuestion,
   SurahFlashcard,
   HifzPlanResult,
-  HadithSuggestion,
-  WordTranslation,
 } from '@/lib/ai/groq';
 import { useQuranBookmarks, useQuranMemorization, useQuranPosition, useQuranSettings } from '@/lib/quranStorage';
 import AyahDisplay from '@/components/quran/AyahDisplay';
@@ -107,15 +96,14 @@ export default function SurahDetailClient({ surah }: SurahDetailClientProps) {
   const [surahSummary, setSurahSummary] = useState<string | null>(null);
   const [surahQuiz, setSurahQuiz] = useState<SurahQuizQuestion[] | null>(null);
   const [quizAnswers, setQuizAnswers] = useState<Record<number, number>>({});
-  const [showQuizResults, setShowQuizResults] = useState(false);
   const [surahFlashcards, setSurahFlashcards] = useState<SurahFlashcard[] | null>(null);
   const [flashcardIndex, setFlashcardIndex] = useState(0);
   const [flashcardFlipped, setFlashcardFlipped] = useState(false);
   const [hifzPlan, setHifzPlan] = useState<HifzPlanResult | null>(null);
-  const [hifzWeeks, setHifzWeeks] = useState(4);
+  const [hifzWeeks] = useState(4);
   const [thematicSearch, setThematicSearch] = useState('');
   const [thematicResult, setThematicResult] = useState<{ introduction: string; verses: { surah: number; ayah: number; surahName: string; explanation: string }[]; conclusion: string } | null>(null);
-  const [basmalAnimated, setBasmalAnimated] = useState(true);
+  const [basmalAnimated] = useState(true);
   const [tajwidEnabled, setTajwidEnabled] = useState(false);
 
   const { settings, updateSettings } = useQuranSettings();
