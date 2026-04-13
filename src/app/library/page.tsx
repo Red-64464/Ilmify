@@ -52,6 +52,7 @@ const BOOK_EMOJIS = ['📖', '📚', '📕', '📗', '📘', '📙', '📓', '�
 // Dashboard reading-time estimate assumptions
 const ESTIMATED_PAGES_PER_BOOK = 30;
 const READING_SPEED_WPM = 250;
+const WORDS_PER_PAGE = 250;
 
 const stagger = {
   hidden: {},
@@ -448,7 +449,7 @@ export default function LibraryPage() {
               style={{ background: 'rgba(58,170,96,0.06)', border: '1px solid rgba(58,170,96,0.1)' }}
             >
               <p className="text-lg font-bold" style={{ color: '#3aaa60' }}>
-                {Math.round(books.filter(b => b.status === 'read').length * ESTIMATED_PAGES_PER_BOOK * READING_SPEED_WPM / 60)}
+                {Math.round(books.filter(b => b.status === 'read').length * ESTIMATED_PAGES_PER_BOOK * WORDS_PER_PAGE / READING_SPEED_WPM)}
               </p>
               <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>Min. lecture est.</p>
             </div>

@@ -125,7 +125,7 @@ export default function MediaDetailPage({ params }: { params: Promise<{ id: stri
   const [showTranscript, setShowTranscript] = useState(false);
 
   // Similar videos
-  const [similarIds, setSimilarIds] = useState<string[]>([]);
+  const [similarVideos, setSimilarVideos] = useState<{ id: string; title: string }[]>([]);
   const [similarLoading, setSimilarLoading] = useState(false);
   const [showSimilar, setShowSimilar] = useState(false);
 
@@ -345,9 +345,11 @@ export default function MediaDetailPage({ params }: { params: Promise<{ id: stri
         { title: video.title, tags: video.tags, channelName: video.channelName },
         others.map((v: { id: string; title: string; tags: string[]; channelName?: string }) => ({ id: v.id, title: v.title, tags: v.tags, channelName: v.channelName })),
       );
-      setSimilarIds(ids);
+      // Map IDs to {id, title} for display
+      const videoMap = new Map(others.map((v: { id: string; title: string }) => [v.id, v.title]));
+      setSimilarVideos(ids.map(id => ({ id, title: videoMap.get(id) || id })));
     } catch {
-      setSimilarIds([]);
+      setSimilarVideos([]);
     } finally {
       setSimilarLoading(false);
     }
@@ -607,11 +609,11 @@ export default function MediaDetailPage({ params }: { params: Promise<{ id: stri
                   <Loader2 size={16} className="animate-spin" style={{ color: '#ec4899' }} />
                   <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Recherche...</span>
                 </div>
-              ) : similarIds.length > 0 ? (
+              ) : similarVideos.length > 0 ? (
                 <div className="space-y-2">
-                  {similarIds.map((sid) => (
-                    <button key={sid} onClick={() => { window.location.href = `/media/${sid}`; }} className="w-full text-left p-3 rounded-xl cursor-pointer transition-colors hover:bg-white/5" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
-                      <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{sid}</span>
+                  {similarVideos.map((sv) => (
+                    <button key={sv.id} onClick={() => { window.location.href = `/media/${sv.id}`; }} className="w-full text-left p-3 rounded-xl cursor-pointer transition-colors hover:bg-white/5" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
+                      <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{sv.title}</span>
                     </button>
                   ))}
                 </div>
