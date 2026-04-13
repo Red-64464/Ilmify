@@ -7,6 +7,7 @@ import {
   ArrowLeft, Play, Clock, Plus, Trash2, Eye, EyeOff,
   Edit3, ExternalLink, Video, Sparkles, Loader2, CheckCircle2, BookOpen,
   MessageCircle, ChevronRight, Trophy, Send, RefreshCw,
+  Quote, Search, Download, ListVideo, Headphones,
 } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
@@ -17,7 +18,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import AuthGuard from '@/components/layout/AuthGuard';
 import { mediaRepository } from '@/lib/repositories/mediaRepository';
 import { topicRepository } from '@/lib/repositories/topicRepository';
-import { generateVideoAnalysis, answerVideoQuestion, type VideoAnalysis } from '@/lib/ai/groq';
+import { generateVideoAnalysis, answerVideoQuestion, extractVideoQuotes, findSimilarVideos, type VideoAnalysis } from '@/lib/ai/groq';
 import BlockEditor from '@/components/editor/BlockEditor';
 import type { MediaVideo, TimestampNote, TopicBlock } from '@/types';
 
@@ -113,6 +114,23 @@ export default function MediaDetailPage({ params }: { params: Promise<{ id: stri
   const [qaQuestion, setQaQuestion] = useState('');
   const [qaLoading, setQaLoading] = useState(false);
   const [qaAnswer, setQaAnswer] = useState<{ answer: string; citation: string } | null>(null);
+
+  // Quotes extraction
+  const [quotes, setQuotes] = useState<{ text: string; context: string; percentPosition: number }[]>([]);
+  const [quotesLoading, setQuotesLoading] = useState(false);
+  const [showQuotes, setShowQuotes] = useState(false);
+
+  // Transcript search
+  const [transcriptSearch, setTranscriptSearch] = useState('');
+  const [showTranscript, setShowTranscript] = useState(false);
+
+  // Similar videos
+  const [similarIds, setSimilarIds] = useState<string[]>([]);
+  const [similarLoading, setSimilarLoading] = useState(false);
+  const [showSimilar, setShowSimilar] = useState(false);
+
+  // Podcast mode (background audio)
+  const [podcastMode, setPodcastMode] = useState(false);
 
   useEffect(() => {
     mediaRepository.getVideoById(id)
@@ -300,6 +318,73 @@ export default function MediaDetailPage({ params }: { params: Promise<{ id: stri
     }
   };
 
+  // ─── Extract Quotes ───
+  const handleExtractQuotes = async () => {
+    if (!storedTranscript || !video || quotesLoading) return;
+    setQuotesLoading(true);
+    setShowQuotes(true);
+    try {
+      const result = await extractVideoQuotes(storedTranscript, video.title);
+      setQuotes(result.quotes || []);
+    } catch {
+      setQuotes([]);
+    } finally {
+      setQuotesLoading(false);
+    }
+  };
+
+  // ─── Find Similar Videos ───
+  const handleFindSimilar = async () => {
+    if (!video || similarLoading) return;
+    setSimilarLoading(true);
+    setShowSimilar(true);
+    try {
+      const allVideos = await mediaRepository.getVideos(video.folderId);
+      const others = allVideos.filter(v => v.id !== video.id);
+      const ids = await findSimilarVideos(
+        { title: video.title, tags: video.tags, channelName: video.channelName },
+        others.map(v => ({ id: v.id, title: v.title, tags: v.tags, channelName: v.channelName })),
+      );
+      setSimilarIds(ids);
+    } catch {
+      setSimilarIds([]);
+    } finally {
+      setSimilarLoading(false);
+    }
+  };
+
+  // ─── Download Transcript ───
+  const handleDownloadTranscript = (format: 'txt' | 'pdf') => {
+    if (!storedTranscript || !video) return;
+    if (format === 'txt') {
+      const blob = new Blob([storedTranscript], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${video.title.replace(/[^a-zA-Z0-9À-ÿ\s]/g, '').trim()}_transcription.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } else {
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) return;
+      printWindow.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"/><title>${video.title} - Transcription</title><style>body{font-family:Inter,sans-serif;max-width:800px;margin:0 auto;padding:2rem;color:#111;font-size:0.875rem;line-height:1.9}h1{font-size:1.5rem;margin-bottom:0.5rem}p.meta{color:#666;font-size:0.75rem;margin-bottom:2rem}</style></head><body><h1>${video.title}</h1><p class="meta">${video.channelName || ''} — Transcription exportée depuis Ilmify</p><div style="white-space:pre-wrap">${storedTranscript.replace(/</g, '&lt;')}</div></body></html>`);
+      printWindow.document.close();
+      setTimeout(() => printWindow.print(), 500);
+    }
+  };
+
+  // ─── Toggle Podcast Mode ───
+  const togglePodcastMode = () => {
+    if (!ytId) return;
+    setPodcastMode(!podcastMode);
+    if (!podcastMode && iframeRef.current) {
+      // Reload iframe with audio-friendly parameters
+      iframeRef.current.src = `https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1`;
+    }
+  };
+
   if (loading) {
     return (
       <AuthGuard>
@@ -405,10 +490,138 @@ export default function MediaDetailPage({ params }: { params: Promise<{ id: stri
 
       {/* Tags */}
       {video.tags.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-6">
+        <div className="flex flex-wrap gap-2 mb-4">
           {video.tags.map(t => <Badge key={t} variant="default" size="sm">{t}</Badge>)}
         </div>
       )}
+
+      {/* ─── Media AI Actions ─── */}
+      <div className="flex flex-wrap gap-2 mb-6">
+        {storedTranscript && (
+          <>
+            <button onClick={handleExtractQuotes} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-all" style={{ background: 'rgba(212,173,74,0.08)', border: '1px solid rgba(212,173,74,0.15)', color: '#d4ad4a' }}>
+              <Quote size={13} /> Citations IA
+            </button>
+            <button onClick={() => setShowTranscript(!showTranscript)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-all" style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.15)', color: '#60a5fa' }}>
+              <Search size={13} /> Transcription
+            </button>
+            <button onClick={() => handleDownloadTranscript('txt')} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-all" style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.15)', color: '#a78bfa' }}>
+              <Download size={13} /> .txt
+            </button>
+            <button onClick={() => handleDownloadTranscript('pdf')} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-all" style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.15)', color: '#a78bfa' }}>
+              <Download size={13} /> .pdf
+            </button>
+          </>
+        )}
+        <button onClick={handleFindSimilar} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-all" style={{ background: 'rgba(236,72,153,0.08)', border: '1px solid rgba(236,72,153,0.15)', color: '#ec4899' }}>
+          <ListVideo size={13} /> Similaires
+        </button>
+        {ytId && (
+          <button onClick={togglePodcastMode} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-all" style={{ background: podcastMode ? 'rgba(46,158,140,0.15)' : 'rgba(46,158,140,0.08)', border: `1px solid ${podcastMode ? 'rgba(46,158,140,0.3)' : 'rgba(46,158,140,0.15)'}`, color: '#2e9e8c' }}>
+            <Headphones size={13} /> {podcastMode ? 'Mode vidéo' : 'Mode podcast'}
+          </button>
+        )}
+      </div>
+
+      {/* ─── Podcast Mode Bar ─── */}
+      {podcastMode && ytId && (
+        <div className="mb-6 p-4 rounded-2xl" style={{ background: 'linear-gradient(135deg, rgba(46,158,140,0.08), rgba(46,158,140,0.03))', border: '1px solid rgba(46,158,140,0.15)' }}>
+          <div className="flex items-center gap-3">
+            <Headphones size={20} style={{ color: '#2e9e8c' }} />
+            <div className="flex-1">
+              <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Mode podcast activé</p>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>L&apos;audio continue en arrière-plan. Minimisez l&apos;app pour écouter.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Searchable Transcript ─── */}
+      <AnimatePresence>
+        {showTranscript && storedTranscript && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mb-6">
+            <div className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
+              <div className="flex items-center gap-2 mb-3">
+                <Search size={14} style={{ color: 'var(--text-muted)' }} />
+                <input
+                  type="text" value={transcriptSearch} onChange={(e) => setTranscriptSearch(e.target.value)}
+                  placeholder="Rechercher dans la transcription..."
+                  className="flex-1 bg-transparent text-sm outline-none"
+                  style={{ color: 'var(--text-primary)' }}
+                />
+              </div>
+              <div className="max-h-[300px] overflow-y-auto text-xs leading-[1.8] whitespace-pre-wrap" style={{ color: 'var(--text-secondary)' }}>
+                {transcriptSearch.trim() ? (
+                  storedTranscript.split(new RegExp(`(${transcriptSearch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')).map((part, i) =>
+                    part.toLowerCase() === transcriptSearch.toLowerCase()
+                      ? <mark key={i} style={{ background: 'rgba(212,173,74,0.3)', borderRadius: '2px', padding: '0 2px' }}>{part}</mark>
+                      : <span key={i}>{part}</span>
+                  )
+                ) : storedTranscript}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── Quotes Panel ─── */}
+      <AnimatePresence>
+        {showQuotes && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mb-6">
+            <div className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
+              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                <Quote size={14} style={{ color: '#d4ad4a' }} /> Citations extraites
+              </h3>
+              {quotesLoading ? (
+                <div className="flex items-center gap-2 py-4 justify-center">
+                  <Loader2 size={16} className="animate-spin" style={{ color: '#d4ad4a' }} />
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Extraction en cours...</span>
+                </div>
+              ) : quotes.length > 0 ? (
+                <div className="space-y-3">
+                  {quotes.map((q, i) => (
+                    <div key={i} className="p-3 rounded-xl" style={{ background: 'rgba(212,173,74,0.04)', border: '1px solid rgba(212,173,74,0.1)' }}>
+                      <p className="text-sm italic leading-relaxed" style={{ color: 'var(--text-primary)' }}>« {q.text} »</p>
+                      <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>{q.context} — ~{q.percentPosition}%</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-center py-3" style={{ color: 'var(--text-muted)' }}>Aucune citation trouvée</p>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── Similar Videos Panel ─── */}
+      <AnimatePresence>
+        {showSimilar && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mb-6">
+            <div className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
+              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                <ListVideo size={14} style={{ color: '#ec4899' }} /> Vidéos similaires
+              </h3>
+              {similarLoading ? (
+                <div className="flex items-center gap-2 py-4 justify-center">
+                  <Loader2 size={16} className="animate-spin" style={{ color: '#ec4899' }} />
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Recherche...</span>
+                </div>
+              ) : similarIds.length > 0 ? (
+                <div className="space-y-2">
+                  {similarIds.map((sid) => (
+                    <button key={sid} onClick={() => { window.location.href = `/media/${sid}`; }} className="w-full text-left p-3 rounded-xl cursor-pointer transition-colors hover:bg-white/5" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
+                      <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{sid}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-center py-3" style={{ color: 'var(--text-muted)' }}>Aucune vidéo similaire trouvée</p>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Timestamped Notes */}
       <div className="mb-6">
