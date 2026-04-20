@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
-  ArrowLeft, Edit3, Save, Trash2, GraduationCap, FileDown, Brain, Loader2, Layers,
+  ArrowLeft, Edit3, Save, Trash2, GraduationCap, FileDown, Brain, Loader2, Layers, Award, FileText,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -17,6 +17,8 @@ import { flashcardRepository } from '@/lib/repositories/flashcardRepository';
 import { generateQuizFromCourse, generateFlashcardsFromPassage } from '@/lib/ai/groq';
 import { useToast } from '@/components/ui/Toast';
 import { exportToPdf } from '@/lib/exportPdf';
+import { exportToDocx } from '@/lib/exportDocx';
+import { generateCertificate } from '@/lib/exportCertificate';
 import type { CoursePage, TopicBlock } from '@/types';
 
 export default function CourseDetailClient({ id: propId }: { id: string }) {
@@ -288,6 +290,30 @@ export default function CourseDetailClient({ id: propId }: { id: string }) {
                 title="Exporter en PDF"
               >
                 <FileDown size={16} />
+              </button>
+              <button
+                onClick={() => exportToDocx(page.title, page.blocks, folder ? `${folder.icon || ''} ${folder.title}`.trim() : undefined)}
+                className="p-2 rounded-lg transition-colors cursor-pointer"
+                style={{ color: 'var(--text-muted)' }}
+                title="Exporter en Word"
+              >
+                <FileText size={16} />
+              </button>
+              <button
+                onClick={() => {
+                  if (!user || !page) return;
+                  generateCertificate(
+                    user.displayName,
+                    page.title,
+                    new Date().toISOString(),
+                    page.blocks.length,
+                  );
+                }}
+                className="p-2 rounded-lg transition-colors cursor-pointer"
+                style={{ color: '#d4ad4a' }}
+                title="Certificat de complétion"
+              >
+                <Award size={16} />
               </button>
             </>
           )}

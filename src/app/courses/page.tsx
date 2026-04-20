@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   GraduationCap, FolderOpen, ChevronRight, Plus,
   Trash2, Edit3, ChevronDown, Home, FolderPlus,
-  ArrowRightLeft, Smile, FileText, Upload,
+  ArrowRightLeft, Smile, FileText, Upload, Sparkles, Loader2,
 } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import SearchInput from '@/components/ui/SearchInput';
@@ -19,6 +19,8 @@ import Skeleton from '@/components/ui/Skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthGuard from '@/components/layout/AuthGuard';
 import { courseRepository } from '@/lib/repositories/courseRepository';
+import { generateCoursePlan } from '@/lib/ai/groq';
+import { useToast } from '@/components/ui/Toast';
 import JsonImportModal from '@/components/editor/JsonImportModal';
 import type { CourseFolder, CoursePage, TopicBlock } from '@/types';
 
@@ -112,6 +114,88 @@ export default function CoursesPage() {
 
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
+
+  // AI course plan
+  const { toast } = useToast();
+  const [showAiPlan, setShowAiPlan] = useState(false);
+  const [aiPlanUrl, setAiPlanUrl] = useState('');
+  const [aiPlanLoading, setAiPlanLoading] = useState(false);
+  const aiPlanFileRef = useRef<HTMLInputElement>(null);
+
+  const handleAiCoursePlan = useCallback(async (transcript: string, sourceTitle: string, sourceType: 'youtube' | 'pdf') => {
+    if (aiPlanLoading || !user) return;
+    setAiPlanLoading(true);
+    try {
+      const plan = await generateCoursePlan(transcript, sourceTitle, sourceType);
+      // Create a folder for the course
+      const folder = await courseRepository.createFolder(user.id, {
+        title: plan.title || sourceTitle,
+        icon: '🤖',
+        parentId: currentFolderId || undefined,
+        order: 0,
+      });
+      // Create pages for each section
+      for (let i = 0; i < plan.sections.length; i++) {
+        const section = plan.sections[i];
+        const blocks: TopicBlock[] = section.blocks.map((b, j) => ({
+          id: `block-${Date.now()}-${Math.random().toString(36).substring(2, 9)}-${j}`,
+          type: b.type as TopicBlock['type'],
+          content: b.content,
+          metadata: b.metadata,
+          order: j,
+        }));
+        await courseRepository.createPage(user.id, {
+          folderId: folder.id,
+          title: section.title,
+          description: section.description,
+          blocks,
+          tags: [],
+          order: i,
+        });
+      }
+      // Refresh data
+      const [f, p] = await Promise.all([courseRepository.getAllFolders(), courseRepository.getAllPages()]);
+      setAllFolders(f);
+      setAllPages(p);
+      setShowAiPlan(false);
+      setAiPlanUrl('');
+      toast('success', `Cours "${plan.title}" généré avec ${plan.sections.length} leçons !`);
+    } catch (err) {
+      toast('error', err instanceof Error ? err.message : 'Erreur IA');
+    } finally {
+      setAiPlanLoading(false);
+    }
+  }, [aiPlanLoading, currentFolderId, toast, user]);
+
+  const handleAiPlanFromUrl = useCallback(async () => {
+    if (!aiPlanUrl.trim() || aiPlanLoading) return;
+    const ytMatch = aiPlanUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([\w-]+)/);
+    if (!ytMatch) {
+      toast('error', 'URL YouTube invalide');
+      return;
+    }
+    setAiPlanLoading(true);
+    try {
+      const endpoint = process.env.NODE_ENV === 'production'
+        ? `/.netlify/functions/youtube-transcript?videoId=${ytMatch[1]}`
+        : `/api/youtube-transcript?videoId=${ytMatch[1]}`;
+      const res = await fetch(endpoint);
+      const data = await res.json() as { transcript?: string; error?: string };
+      if (!data.transcript) throw new Error(data.error || 'Transcription vide');
+      await handleAiCoursePlan(data.transcript, aiPlanUrl, 'youtube');
+    } catch (err) {
+      toast('error', err instanceof Error ? err.message : 'Erreur');
+      setAiPlanLoading(false);
+    }
+  }, [aiPlanUrl, aiPlanLoading, handleAiCoursePlan, toast]);
+
+  const handleAiPlanFromFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    await handleAiCoursePlan(text, file.name.replace(/\.[^.]+$/, ''), 'pdf');
+    e.target.value = '';
+  }, [handleAiCoursePlan]);
 
   // Load all data
   useEffect(() => {
@@ -569,6 +653,17 @@ export default function CoursesPage() {
                 }}
               >
                 JSON
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                iconLeft={<Sparkles size={14} />}
+                onClick={() => {
+                  setAiPlanUrl('');
+                  setShowAiPlan(true);
+                }}
+              >
+                IA
               </Button>
               <Button
                 variant="primary"
@@ -1078,6 +1173,59 @@ export default function CoursesPage() {
         onImport={handleJsonImport}
         importing={creating}
       />
+
+      {/* AI Course Plan Modal */}
+      <Modal isOpen={showAiPlan} onClose={() => setShowAiPlan(false)} title="🤖 Générer un cours avec l'IA">
+        <div className="space-y-4">
+          <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+            Collez une URL YouTube ou importez un fichier texte/PDF pour générer automatiquement un plan de cours structuré.
+          </p>
+
+          {/* From YouTube URL */}
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>URL YouTube</label>
+            <div className="flex gap-2">
+              <input
+                type="url"
+                value={aiPlanUrl}
+                onChange={(e) => setAiPlanUrl(e.target.value)}
+                placeholder="https://youtube.com/watch?v=..."
+                className="flex-1 rounded-xl px-4 py-3 text-sm outline-none placeholder:text-[var(--text-muted)]"
+                style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
+                onKeyDown={(e) => e.key === 'Enter' && handleAiPlanFromUrl()}
+              />
+              <Button variant="primary" size="md" onClick={handleAiPlanFromUrl} disabled={aiPlanLoading || !aiPlanUrl.trim()}>
+                {aiPlanLoading ? <Loader2 size={14} className="animate-spin" /> : 'Générer'}
+              </Button>
+            </div>
+          </div>
+
+          {/* From File */}
+          <div className="text-center">
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>ou</span>
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Fichier texte / transcript</label>
+            <button
+              onClick={() => aiPlanFileRef.current?.click()}
+              disabled={aiPlanLoading}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium cursor-pointer transition-all"
+              style={{ background: 'rgba(212,173,74,0.08)', border: '1px dashed rgba(212,173,74,0.25)', color: '#d4ad4a' }}
+            >
+              <Upload size={14} />
+              {aiPlanLoading ? 'Génération...' : 'Importer un fichier .txt / .md'}
+            </button>
+            <input ref={aiPlanFileRef} type="file" accept=".txt,.md,.pdf" className="hidden" onChange={handleAiPlanFromFile} />
+          </div>
+
+          {aiPlanLoading && (
+            <div className="flex items-center gap-2 justify-center py-4">
+              <Loader2 size={16} className="animate-spin" style={{ color: '#d4ad4a' }} />
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Analyse et structuration du cours en cours...</span>
+            </div>
+          )}
+        </div>
+      </Modal>
     </div>
     </AuthGuard>
   );
