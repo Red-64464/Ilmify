@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import {
-  ArrowLeft, Heart, Trash2, ExternalLink, Loader2, Captions, Sparkles,
+  ArrowLeft, Heart, Trash2, ExternalLink, Loader2, Captions, Sparkles, Download,
   MessageSquare, Plus, AlertTriangle, BookOpen, Tag,
 } from 'lucide-react';
 import AuthGuard from '@/components/layout/AuthGuard';
@@ -56,6 +56,11 @@ function Inner({ postId }: { postId: string }) {
   const [newAnnotation, setNewAnnotation] = useState('');
   const [currentTime, setCurrentTime] = useState(0);
 
+  const frenchSubtitle = useMemo(
+    () => subtitles.find((subtitle) => subtitle.language === 'fr') || null,
+    [subtitles],
+  );
+
   useEffect(() => {
     if (authLoading) return;
     if (!user) { setLoading(false); return; }
@@ -94,11 +99,10 @@ function Inner({ postId }: { postId: string }) {
 
   // Parse subtitle cues for the custom overlay (prefer FR, fallback to first available)
   const overlayCues = useMemo(() => {
-    const frSub = subtitles.find((s) => s.language === 'fr');
-    const sub = frSub || subtitles[0];
+    const sub = frenchSubtitle || subtitles[0];
     if (!sub?.vttContent) return [];
     return parseVtt(sub.vttContent);
-  }, [subtitles]);
+  }, [frenchSubtitle, subtitles]);
 
   // Active subtitle text based on currentTime
   const activeSubtitleText = useMemo(() => {
@@ -197,6 +201,53 @@ function Inner({ postId }: { postId: string }) {
       });
       const saved = await socialPostRepository.upsertAnalysis(user.id, post.id, result);
       setAnalysis(saved);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur');
+    } finally {
+      setWorking(null);
+    }
+  };
+
+  const handleDownloadStyledVideo = async () => {
+    if (!post || !frenchSubtitle) {
+      setError('Genere d abord les sous-titres francais avant l export MP4.');
+      return;
+    }
+
+    setError('');
+    setWorking('export-video');
+
+    try {
+      const res = await fetch('/api/social/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: post.url,
+          platform: post.platform,
+          externalId: post.externalId,
+          title: post.title || post.caption || `social-${post.id}`,
+          subtitleVtt: frenchSubtitle.vttContent,
+          aspectMode: post.platform === 'youtube' ? 'landscape' : 'portrait',
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Export MP4 impossible (${res.status})`);
+      }
+
+      const blob = await res.blob();
+      const href = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = href;
+      link.download = getDownloadName(
+        res.headers.get('content-disposition'),
+        post.title || post.caption || 'ilmify-social-export',
+      );
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(href);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur');
     } finally {
@@ -545,6 +596,22 @@ function Inner({ postId }: { postId: string }) {
                   {analysis ? 'Ré-analyser' : '3. Analyser avec l\'IA'}
                 </Button>
               )}
+
+              {frenchSubtitle ? (
+                <Button
+                  variant="gold"
+                  size="sm"
+                  iconLeft={<Download size={14} />}
+                  loading={working === 'export-video'}
+                  onClick={handleDownloadStyledVideo}
+                >
+                  4. Export MP4 Ilmify
+                </Button>
+              ) : transcript ? (
+                <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                  Genere une piste FR pour exporter un MP4 avec sous-titres incrustes.
+                </p>
+              ) : null}
             </div>
           </Card>
 
@@ -644,4 +711,22 @@ function formatCount(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
   return String(n);
+}
+
+function getDownloadName(contentDisposition: string | null, fallbackTitle: string): string {
+  if (contentDisposition) {
+    const match = contentDisposition.match(/filename="([^"]+)"/i);
+    if (match?.[1]) return match[1];
+  }
+
+  const safeBase = fallbackTitle
+    .normalize('NFKD')
+    .replace(/[^\w\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 80)
+    .toLowerCase();
+
+  return `${safeBase || 'ilmify-social-export'}.mp4`;
 }

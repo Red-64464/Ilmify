@@ -1,5 +1,10 @@
 import type { User, Session, AuthCredentials, SignupData } from '@/types';
-import { supabase, supabaseUrl, supabaseAnonKey } from '@/lib/supabase/client';
+import {
+  supabase,
+  supabaseUrl,
+  supabaseAnonKey,
+  isSupabaseConfigured,
+} from '@/lib/supabase/client';
 
 // Auth service interface
 export interface IAuthService {
@@ -24,6 +29,14 @@ export function getCachedAuth(): { user: User | null; session: Session | null } 
   return { user: cachedUser, session: cachedSession };
 }
 
+function ensureSupabaseConfigured() {
+  if (!isSupabaseConfigured) {
+    throw new Error(
+      'Supabase n est pas configure. Ajoute NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_ANON_KEY dans .env.local.',
+    );
+  }
+}
+
 function profileToUser(profile: {
   id: string;
   username: string;
@@ -44,7 +57,9 @@ function profileToUser(profile: {
 
 export class SupabaseAuthService implements IAuthService {
   async login(credentials: AuthCredentials): Promise<{ user: User; session: Session }> {
-    // Supabase Auth uses email — we use username@ilmify.app as convention
+    ensureSupabaseConfigured();
+
+    // Supabase Auth uses email; we use username@ilmify.app as convention.
     const email = `${credentials.username}@ilmify.app`;
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -52,7 +67,7 @@ export class SupabaseAuthService implements IAuthService {
     });
 
     if (error || !data.user || !data.session) {
-      throw new Error('Nom d\'utilisateur ou mot de passe incorrect');
+      throw new Error("Nom d'utilisateur ou mot de passe incorrect");
     }
 
     const { data: profile, error: profileError } = await supabase
@@ -77,6 +92,8 @@ export class SupabaseAuthService implements IAuthService {
   }
 
   async signup(data: SignupData): Promise<{ user: User; session: Session }> {
+    ensureSupabaseConfigured();
+
     const email = `${data.username}@ilmify.app`;
     const { data: authData, error } = await supabase.auth.signUp({
       email,
@@ -91,17 +108,17 @@ export class SupabaseAuthService implements IAuthService {
 
     if (error) {
       if (error.message.includes('already registered')) {
-        throw new Error('Ce nom d\'utilisateur est déjà pris');
+        throw new Error("Ce nom d'utilisateur est deja pris");
       }
       throw new Error(error.message);
     }
 
     if (!authData.user) {
-      throw new Error('Erreur lors de l\'inscription');
+      throw new Error("Erreur lors de l'inscription");
     }
 
     // If email confirmation is enabled, session will be null.
-    // Try signing in immediately (works if auto-confirm is off but user was created).
+    // Try signing in immediately if the user was created.
     let activeSession = authData.session;
     if (!activeSession) {
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
@@ -110,27 +127,27 @@ export class SupabaseAuthService implements IAuthService {
       });
       if (signInError || !signInData.session) {
         throw new Error(
-          'Inscription réussie mais connexion impossible. ' +
-          'Désactivez la confirmation email dans Supabase : Authentication → Providers → Email → décocher "Confirm email"'
+          "Inscription reussie mais connexion impossible. Desactive la confirmation email dans Supabase si besoin.",
         );
       }
       activeSession = signInData.session;
     }
 
-    // Profile is auto-created by trigger, fetch it
     const { data: profile } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', authData.user.id)
       .single();
 
-    const user: User = profile ? profileToUser(profile) : {
-      id: authData.user.id,
-      username: data.username,
-      displayName: data.displayName,
-      role: 'user',
-      createdAt: new Date().toISOString(),
-    };
+    const user: User = profile
+      ? profileToUser(profile)
+      : {
+          id: authData.user.id,
+          username: data.username,
+          displayName: data.displayName,
+          role: 'user',
+          createdAt: new Date().toISOString(),
+        };
 
     const session: Session = {
       userId: authData.user.id,
@@ -143,6 +160,11 @@ export class SupabaseAuthService implements IAuthService {
   }
 
   async logout(): Promise<void> {
+    if (!isSupabaseConfigured) {
+      setCachedAuth(null, null);
+      return;
+    }
+
     await supabase.auth.signOut();
     setCachedAuth(null, null);
   }
@@ -162,6 +184,8 @@ export class SupabaseAuthService implements IAuthService {
   // --- User management methods ---
 
   async getAllUsersAsync(): Promise<User[]> {
+    ensureSupabaseConfigured();
+
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
@@ -176,7 +200,12 @@ export class SupabaseAuthService implements IAuthService {
     return [];
   }
 
-  async updateUserAsync(userId: string, updates: { displayName?: string; username?: string; avatarUrl?: string }): Promise<User> {
+  async updateUserAsync(
+    userId: string,
+    updates: { displayName?: string; username?: string; avatarUrl?: string },
+  ): Promise<User> {
+    ensureSupabaseConfigured();
+
     const dbUpdates: Record<string, string> = {};
     if (updates.displayName !== undefined) dbUpdates.display_name = updates.displayName;
     if (updates.username !== undefined) dbUpdates.username = updates.username;
@@ -191,7 +220,7 @@ export class SupabaseAuthService implements IAuthService {
 
     if (error) {
       if (error.message.includes('unique') || error.message.includes('duplicate')) {
-        throw new Error('Ce nom d\'utilisateur est déjà pris');
+        throw new Error("Ce nom d'utilisateur est deja pris");
       }
       throw new Error(error.message);
     }
@@ -203,8 +232,10 @@ export class SupabaseAuthService implements IAuthService {
     return user;
   }
 
-  updateUser(userId: string, updates: { displayName?: string; username?: string; avatarUrl?: string }): User {
-    // Fire async update, return optimistic cached user
+  updateUser(
+    userId: string,
+    updates: { displayName?: string; username?: string; avatarUrl?: string },
+  ): User {
     this.updateUserAsync(userId, updates);
     if (cachedUser && cachedUser.id === userId) {
       const updated = { ...cachedUser, ...updates };
@@ -215,6 +246,8 @@ export class SupabaseAuthService implements IAuthService {
   }
 
   async updatePasswordAsync(newPassword: string): Promise<void> {
+    ensureSupabaseConfigured();
+
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) throw new Error(error.message);
   }
@@ -224,7 +257,8 @@ export class SupabaseAuthService implements IAuthService {
   }
 
   async deleteUserAsync(userId: string): Promise<void> {
-    // Delete profile (cascade will clean up data)
+    ensureSupabaseConfigured();
+
     const { error } = await supabase
       .from('profiles')
       .delete()
@@ -237,7 +271,8 @@ export class SupabaseAuthService implements IAuthService {
   }
 
   async createUserAdmin(data: SignupData & { role?: 'admin' | 'user' }): Promise<User> {
-    // Admin creates user via signup, then updates role
+    ensureSupabaseConfigured();
+
     const email = `${data.username}@ilmify.app`;
     const { data: authData, error } = await supabase.auth.signUp({
       email,
@@ -252,14 +287,13 @@ export class SupabaseAuthService implements IAuthService {
 
     if (error) {
       if (error.message.includes('already registered')) {
-        throw new Error('Ce nom d\'utilisateur est déjà pris');
+        throw new Error("Ce nom d'utilisateur est deja pris");
       }
       throw new Error(error.message);
     }
 
-    if (!authData.user) throw new Error('Erreur lors de la création');
+    if (!authData.user) throw new Error('Erreur lors de la creation');
 
-    // Update role if admin
     if (data.role === 'admin') {
       await supabase
         .from('profiles')
@@ -273,16 +307,20 @@ export class SupabaseAuthService implements IAuthService {
       .eq('id', authData.user.id)
       .single();
 
-    return profile ? profileToUser(profile) : {
-      id: authData.user.id,
-      username: data.username,
-      displayName: data.displayName,
-      role: data.role || 'user',
-      createdAt: new Date().toISOString(),
-    };
+    return profile
+      ? profileToUser(profile)
+      : {
+          id: authData.user.id,
+          username: data.username,
+          displayName: data.displayName,
+          role: data.role || 'user',
+          createdAt: new Date().toISOString(),
+        };
   }
 
   async updateUserRoleAsync(userId: string, role: 'admin' | 'user'): Promise<User> {
+    ensureSupabaseConfigured();
+
     const { data, error } = await supabase
       .from('profiles')
       .update({ role })
@@ -299,7 +337,12 @@ export class SupabaseAuthService implements IAuthService {
     return { id: userId, username: '', displayName: '', role, createdAt: '' };
   }
 
-  async adminUpdateUserProfile(userId: string, updates: { displayName?: string; username?: string }): Promise<User> {
+  async adminUpdateUserProfile(
+    userId: string,
+    updates: { displayName?: string; username?: string },
+  ): Promise<User> {
+    ensureSupabaseConfigured();
+
     const dbUpdates: Record<string, string> = {};
     if (updates.displayName !== undefined) dbUpdates.display_name = updates.displayName;
     if (updates.username !== undefined) dbUpdates.username = updates.username;
@@ -313,7 +356,7 @@ export class SupabaseAuthService implements IAuthService {
 
     if (error) {
       if (error.message.includes('unique') || error.message.includes('duplicate')) {
-        throw new Error('Ce nom d\'utilisateur est déjà pris');
+        throw new Error("Ce nom d'utilisateur est deja pris");
       }
       throw new Error(error.message);
     }
@@ -321,10 +364,8 @@ export class SupabaseAuthService implements IAuthService {
   }
 
   async adminResetPassword(userId: string, newPassword: string): Promise<void> {
-    // Use Supabase service role or admin endpoint to reset password
-    // Since we use client SDK, we call an edge function or use a workaround:
-    // We sign in as the user with their email and reset via supabase auth admin
-    // For now, update via supabase.auth.admin if available, otherwise use the profiles approach
+    ensureSupabaseConfigured();
+
     const { data: profile } = await supabase
       .from('profiles')
       .select('username')
@@ -333,28 +374,21 @@ export class SupabaseAuthService implements IAuthService {
 
     if (!profile) throw new Error('Utilisateur introuvable');
 
-    // We use a Supabase RPC or direct approach - since admin API isn't available on client,
-    // we store a password_hash or use supabase edge function
-    // Workaround: Use `supabase.auth.admin.updateUserById` if supabase service role is configured
-    // For client-side, we'll create a temporary session approach
-    const email = `${profile.username}@ilmify.app`;
-
-    // Try admin API first
     try {
       const response = await fetch(`${supabaseUrl}/auth/v1/admin/users/${userId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-          'apikey': supabaseAnonKey,
+          Authorization: `Bearer ${supabaseAnonKey}`,
+          apikey: supabaseAnonKey,
         },
         body: JSON.stringify({ password: newPassword }),
       });
       if (!response.ok) {
-        throw new Error('Impossible de réinitialiser le mot de passe (permissions insuffisantes)');
+        throw new Error('Impossible de reinitialiser le mot de passe');
       }
     } catch {
-      throw new Error('La réinitialisation de mot de passe nécessite une clé admin Supabase');
+      throw new Error('La reinitialisation de mot de passe necessite une cle admin Supabase');
     }
   }
 }

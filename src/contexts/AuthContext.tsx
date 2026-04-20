@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { User, Session, AuthCredentials, SignupData } from '@/types';
 import { authService, setCachedAuth, getCachedAuth } from '@/lib/auth/authService';
-import { supabase } from '@/lib/supabase/client';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
 
 interface AuthContextValue {
   user: User | null;
@@ -35,6 +35,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Listen to Supabase auth state changes
   useEffect(() => {
+    if (!isSupabaseConfigured) {
+      setUser(null);
+      setSession(null);
+      setCachedAuth(null, null);
+      setIsLoading(false);
+      return;
+    }
+
     let mounted = true;
 
     // Safety timeout — never block loading forever (8s for slow mobile connections)
@@ -175,6 +183,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user]);
 
   const refreshUser = useCallback(async () => {
+    if (!isSupabaseConfigured) {
+      setUser(null);
+      setSession(null);
+      setCachedAuth(null, null);
+      return;
+    }
+
     const { data: { session: supaSession } } = await supabase.auth.getSession();
     if (supaSession?.user) {
       const { data: profile } = await supabase

@@ -30,6 +30,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
 
   // Schedule daily reminder notification via SW
   useEffect(() => {
+    if (process.env.NODE_ENV !== 'production') return;
     if (!user) return;
     try {
       const enabled = localStorage.getItem('ilmify-daily-reminder');
