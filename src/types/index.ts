@@ -341,6 +341,104 @@ export interface MediaVideo {
   updatedAt: string;
 }
 
+// Social Posts types (TikTok / Instagram / Twitter / YouTube imports)
+
+export type SocialPlatform = 'tiktok' | 'instagram' | 'twitter' | 'youtube' | 'other';
+
+export interface SocialPostStats {
+  likes?: number;
+  views?: number;
+  comments?: number;
+  shares?: number;
+}
+
+export interface SocialPost {
+  id: string;
+  url: string;
+  platform: SocialPlatform;
+  externalId?: string;
+  title?: string;
+  author?: string;
+  authorAvatarUrl?: string;
+  caption?: string;
+  thumbnailUrl?: string;
+  mediaUrl?: string;
+  mediaType: 'video' | 'image' | 'audio';
+  durationSec?: number;
+  stats: SocialPostStats;
+  themeTag?: string;
+  tags: string[];
+  isFavorite: boolean;
+  isArchived: boolean;
+  importedAt: string;
+  updatedAt: string;
+}
+
+export interface TranscriptSegment {
+  start: number;
+  end: number;
+  text: string;
+}
+
+export interface SocialTranscript {
+  id: string;
+  postId: string;
+  sourceLanguage?: string;
+  text: string;
+  segments: TranscriptSegment[];
+  createdAt: string;
+}
+
+export interface SocialSubtitle {
+  id: string;
+  postId: string;
+  language: string;
+  label?: string;
+  vttContent: string;
+  isOriginal: boolean;
+  createdAt: string;
+}
+
+export interface SocialAnnotation {
+  id: string;
+  postId: string;
+  timeSec: number;
+  text: string;
+  color?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IslamicCitation {
+  type: 'verse' | 'hadith' | 'scholar' | 'dua';
+  reference?: string;
+  text?: string;
+  arabic?: string;
+}
+
+export interface KeyPoint {
+  title: string;
+  detail?: string;
+}
+
+export interface DubiousFlag {
+  reason: string;
+  severity: 'info' | 'warning' | 'danger';
+  quote?: string;
+}
+
+export interface SocialAnalysis {
+  id: string;
+  postId: string;
+  summary?: string;
+  keyPoints: KeyPoint[];
+  citations: IslamicCitation[];
+  topics: Array<{ tag: string; description?: string }>;
+  dubiousFlags: DubiousFlag[];
+  languageDetected?: string;
+  createdAt: string;
+}
+
 // Activity & Settings types
 
 export interface RecentActivity {

@@ -29,6 +29,7 @@ const savoirNav = [
   { href: '/courses', label: 'Cours', icon: GraduationCap },
   { href: '/library', label: 'Bibliothèque', icon: BookOpen },
   { href: '/media', label: 'Médiathèque', icon: Video },
+  { href: '/social', label: 'Posts Sociaux', icon: MessageCircle },
 ] as const;
 
 const revisionNav = [

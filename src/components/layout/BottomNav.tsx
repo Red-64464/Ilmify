@@ -19,6 +19,7 @@ import {
   X,
   Video,
   BookMarked,
+  Sparkles,
 } from 'lucide-react';
 
 const navItems = [
@@ -34,6 +35,7 @@ const moreGroups = [
     items: [
       { href: '/topics', label: 'Mes Topics', icon: FileText },
       { href: '/media', label: 'Médiathèque', icon: Video },
+      { href: '/social', label: 'Posts Sociaux', icon: Sparkles },
     ],
   },
   {

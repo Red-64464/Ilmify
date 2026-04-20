@@ -64,6 +64,19 @@
   --animate-shimmer: shimmer 2.5s ease-in-out infinite;
 }
 
+/* ---- Video subtitles (movie-style) ---- */
+video::cue {
+  background: rgba(0, 0, 0, 0.75);
+  color: #ffffff;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 1.1rem;
+  line-height: 1.5;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+  font-weight: 500;
+}
+
 /* ---- Keyframes ---- */
 @keyframes spin {
   to { transform: rotate(360deg); }
