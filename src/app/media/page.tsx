@@ -19,6 +19,7 @@ import Skeleton from '@/components/ui/Skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthGuard from '@/components/layout/AuthGuard';
 import { mediaRepository } from '@/lib/repositories/mediaRepository';
+import { queryCache } from '@/lib/queryCache';
 import type { MediaFolder, MediaVideo } from '@/types';
 
 const FOLDER_EMOJIS = ['📁', '📂', '🎬', '🎥', '📺', '🎧', '🎙️', '🕌', '🕋', '☪️', '🌙', '⭐', '🤲', '📿', '🎓', '📚', '💡', '🌟', '🏆', '✨'];
@@ -95,9 +96,9 @@ export default function MediaPage() {
   const { isAdmin, user, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const [search, setSearch] = useState('');
-  const [allFolders, setAllFolders] = useState<MediaFolder[]>([]);
-  const [allVideos, setAllVideos] = useState<MediaVideo[]>([]);
-  const [dataLoading, setDataLoading] = useState(true);
+  const [allFolders, setAllFolders] = useState<MediaFolder[]>(() => queryCache.get<MediaFolder[]>('media:folders') ?? []);
+  const [allVideos, setAllVideos] = useState<MediaVideo[]>(() => queryCache.get<MediaVideo[]>('media:videos') ?? []);
+  const [dataLoading, setDataLoading] = useState(() => !queryCache.get('media:folders'));
 
   // Navigation
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
@@ -155,12 +156,15 @@ export default function MediaPage() {
     if (authLoading) return;
     if (!user) { setDataLoading(false); return; }
     let cancelled = false;
-    setDataLoading(true);
+    const hasCached = queryCache.get('media:folders') !== null;
+    if (!hasCached) setDataLoading(true);
     Promise.all([
       mediaRepository.getAllFolders(),
       mediaRepository.getAllVideos(),
     ]).then(([folders, videos]) => {
       if (!cancelled) {
+        queryCache.set('media:folders', folders, 120_000);
+        queryCache.set('media:videos', videos, 120_000);
         setAllFolders(folders);
         setAllVideos(videos);
         setDataLoading(false);

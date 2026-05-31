@@ -16,11 +16,22 @@ import Modal from '@/components/ui/Modal';
 import Skeleton from '@/components/ui/Skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthGuard from '@/components/layout/AuthGuard';
+import dynamic from 'next/dynamic';
 import { mediaRepository } from '@/lib/repositories/mediaRepository';
 import { topicRepository } from '@/lib/repositories/topicRepository';
 import { generateVideoAnalysis, answerVideoQuestion, extractVideoQuotes, findSimilarVideos, type VideoAnalysis } from '@/lib/ai/groq';
-import BlockEditor from '@/components/editor/BlockEditor';
 import type { MediaVideo, TimestampNote, TopicBlock } from '@/types';
+
+const BlockEditor = dynamic(() => import('@/components/editor/BlockEditor'), {
+  ssr: false,
+  loading: () => (
+    <div className="space-y-3 py-3">
+      {[1, 2].map(i => (
+        <div key={i} className="skeleton rounded-2xl" style={{ height: '3.5rem' }} aria-hidden="true" />
+      ))}
+    </div>
+  ),
+});
 
 type VideoPlatform = 'youtube' | 'tiktok' | 'instagram' | 'twitter';
 interface VideoInfo { platform: VideoPlatform; id: string }

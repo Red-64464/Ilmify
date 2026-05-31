@@ -7,11 +7,26 @@ import {
   ArrowLeft, Edit3, Pin, Heart, Trash2,
   Save, Tag, FileDown, Layers, Loader2, Sparkles, Mic, FileText,
 } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
-import BlockEditor from '@/components/editor/BlockEditor';
-import MindMapViewer from '@/components/ui/MindMapViewer';
+
+const BlockEditor = dynamic(() => import('@/components/editor/BlockEditor'), {
+  ssr: false,
+  loading: () => (
+    <div className="space-y-4 py-4">
+      {[1, 2, 3].map(i => (
+        <div key={i} className="skeleton rounded-2xl" style={{ height: i === 2 ? '8rem' : '3.5rem' }} aria-hidden="true" />
+      ))}
+    </div>
+  ),
+});
+
+const MindMapViewer = dynamic(() => import('@/components/ui/MindMapViewer'), {
+  ssr: false,
+  loading: () => <div className="skeleton rounded-2xl" style={{ height: '18rem' }} aria-hidden="true" />,
+});
 import AudioRecorder from '@/components/ui/AudioRecorder';
 import { useAuth } from '@/contexts/AuthContext';
 import { topicRepository } from '@/lib/repositories/topicRepository';

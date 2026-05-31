@@ -3,10 +3,15 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, BookOpen, Moon, Star, BookOpenCheck, SearchCode, Loader2 } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import PageHeader from '@/components/layout/PageHeader';
 import SurahCard from '@/components/quran/SurahCard';
-import HifzTracker from '@/components/quran/HifzTracker';
 import JuzList from '@/components/quran/JuzList';
+
+const HifzTracker = dynamic(() => import('@/components/quran/HifzTracker'), {
+  ssr: false,
+  loading: () => <div className="skeleton rounded-2xl mb-6" style={{ height: '8rem' }} aria-hidden="true" />,
+});
 import { SURAH_LIST, searchQuran } from '@/lib/api/quranApi';
 import type { QuranSearchResult } from '@/lib/api/quranApi';
 import { useQuranMemorization, useQuranPosition } from '@/lib/quranStorage';

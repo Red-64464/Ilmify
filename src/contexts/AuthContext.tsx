@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import type { User, Session, AuthCredentials, SignupData } from '@/types';
 import { authService, setCachedAuth, getCachedAuth } from '@/lib/auth/authService';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
+import { prefetchUserData, resetPrefetch } from '@/lib/prefetch';
 
 interface AuthContextValue {
   user: User | null;
@@ -84,6 +85,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUser(result.user);
             setSession(result.session);
             setCachedAuth(result.user, result.session);
+            // Warm the cache while the loading screen is still showing
+            prefetchUserData(result.user.id);
           }
         } catch {
           // Profile fetch failed — still allow app to load (user stays null → redirect to login)
@@ -153,6 +156,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await authService.logout();
     setUser(null);
     setSession(null);
+    resetPrefetch();
   }, []);
 
   const updateUser = useCallback((updates: { displayName?: string; username?: string; avatarUrl?: string }) => {

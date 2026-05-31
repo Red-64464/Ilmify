@@ -21,6 +21,7 @@ import JsonImportModal from '@/components/editor/JsonImportModal';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthGuard from '@/components/layout/AuthGuard';
 import { topicRepository } from '@/lib/repositories/topicRepository';
+import { queryCache, getCached, persistCache } from '@/lib/queryCache';
 import type { Topic, TopicBlock } from '@/types';
 
 const stagger = {
@@ -48,8 +49,9 @@ export default function TopicsPage() {
   const [newCategory, setNewCategory] = useState('');
   const [contextMenu, setContextMenu] = useState<string | null>(null);
   const [showJsonImport, setShowJsonImport] = useState(false);
-  const [topics, setTopics] = useState<Topic[]>([]);
-  const [dataLoading, setDataLoading] = useState(true);
+  const cacheKey = user ? `topics:${user.id}:all` : '';
+  const [topics, setTopics] = useState<Topic[]>(() => (user ? (getCached<Topic[]>(cacheKey) ?? []) : []));
+  const [dataLoading, setDataLoading] = useState(() => !(user && getCached(cacheKey)));
 
   // Article URL import
   const [showUrlImport, setShowUrlImport] = useState(false);
@@ -60,17 +62,17 @@ export default function TopicsPage() {
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
-    // Debounce search to avoid firing Supabase query on every keystroke
     const timeout = setTimeout(() => {
-      setDataLoading(true);
       const loadTopics = async () => {
+        // Skip loading state if we already have cached data (for non-search views)
+        const hasCached = !search && queryCache.get(cacheKey) !== null;
+        if (!hasCached) setDataLoading(true);
         try {
           let result = search
             ? await topicRepository.search(user.id, search)
             : await topicRepository.getByUser(user.id);
-          if (categoryFilter !== 'Tous') {
-            result = result.filter((t) => t.category === categoryFilter);
-          }
+          if (!search) persistCache(cacheKey, result, 120_000);
+          if (categoryFilter !== 'Tous') result = result.filter((t) => t.category === categoryFilter);
           if (!cancelled) setTopics(result);
         } catch {
           if (!cancelled) setTopics([]);
@@ -79,8 +81,9 @@ export default function TopicsPage() {
         }
       };
       loadTopics();
-    }, search ? 300 : 0); // instant load for initial/filter changes, debounce for typing
+    }, search ? 300 : 0);
     return () => { cancelled = true; clearTimeout(timeout); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, search, categoryFilter]);
 
   const [error, setError] = useState('');
@@ -92,6 +95,7 @@ export default function TopicsPage() {
       setCreating(true);
       setError('');
       const topic = await topicRepository.create(user.id, newTitle.trim(), newCategory || undefined);
+      queryCache.invalidate(`topics:${user.id}`);
       setShowCreateModal(false);
       setNewTitle('');
       setNewCategory('');

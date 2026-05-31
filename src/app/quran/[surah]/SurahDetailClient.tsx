@@ -46,11 +46,16 @@ import type {
   SurahFlashcard,
   HifzPlanResult,
 } from '@/lib/ai/groq';
+import dynamic from 'next/dynamic';
 import { useQuranBookmarks, useQuranMemorization, useQuranPosition, useQuranSettings } from '@/lib/quranStorage';
 import AyahDisplay from '@/components/quran/AyahDisplay';
-import QuranAudioPlayer from '@/components/quran/QuranAudioPlayer';
 import ReciterSelector from '@/components/quran/ReciterSelector';
 import Skeleton from '@/components/ui/Skeleton';
+
+const QuranAudioPlayer = dynamic(() => import('@/components/quran/QuranAudioPlayer'), {
+  ssr: false,
+  loading: () => <div className="skeleton rounded-2xl" style={{ height: '5rem' }} aria-hidden="true" />,
+});
 
 interface SurahDetailClientProps {
   surah: string;

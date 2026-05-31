@@ -14,14 +14,16 @@ import Skeleton from '@/components/ui/Skeleton';
 import AuthGuard from '@/components/layout/AuthGuard';
 import { useAuth } from '@/contexts/AuthContext';
 import { quizRepository } from '@/lib/repositories/quizRepository';
+import { queryCache, getCached, persistCache } from '@/lib/queryCache';
 import { quizQuestions as staticQuestions } from '@/data/quiz';
 import { themes } from '@/data/themes';
 import type { QuizQuestion } from '@/types';
 
 export default function QuizPage() {
   const { user } = useAuth();
-  const [questions, setQuestions] = useState<QuizQuestion[]>([]);
-  const [loading, setLoading] = useState(true);
+  const quizCacheKey = user ? `quiz:questions:${user.id}` : '';
+  const [questions, setQuestions] = useState<QuizQuestion[]>(() => (user ? (getCached<QuizQuestion[]>(quizCacheKey) ?? []) : []));
+  const [loading, setLoading] = useState(() => !(user && getCached(quizCacheKey)));
   const [showAdd, setShowAdd] = useState(false);
   const [newQuestion, setNewQuestion] = useState('');
   const [newOptions, setNewOptions] = useState('');
@@ -33,13 +35,14 @@ export default function QuizPage() {
   const [importing, setImporting] = useState(false);
 
   useEffect(() => {
-    // Data-fetch-on-mount; loading toggle / fallback data is intentional here.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!user) { setLoading(false); return; }
+    const hasCached = getCached(quizCacheKey) !== null;
+    if (!hasCached) setLoading(true);
     quizRepository.getAllQuestions(user.id)
-      .then((q) => setQuestions(q.length > 0 ? q : staticQuestions))
+      .then((q) => { const result = q.length > 0 ? q : staticQuestions; persistCache(quizCacheKey, result, 120_000); setQuestions(result); })
       .catch(() => setQuestions(staticQuestions))
       .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const stats = useMemo(() => {

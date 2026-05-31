@@ -15,6 +15,7 @@ import EmptyState from '@/components/ui/EmptyState';
 import AuthGuard from '@/components/layout/AuthGuard';
 import { useAuth } from '@/contexts/AuthContext';
 import { favoriteRepository } from '@/lib/repositories/favoriteRepository';
+import { queryCache } from '@/lib/queryCache';
 import type { Favorite } from '@/types';
 
 const filterTabs = [
@@ -51,18 +52,19 @@ const hrefForFav = (fav: Favorite): string => {
 export default function FavoritesPage() {
   const { user } = useAuth();
   const [tab, setTab] = useState('all');
-  const [favorites, setFavorites] = useState<Favorite[]>([]);
-  const [loading, setLoading] = useState(true);
+  const favCacheKey = user ? `favorites:${user.id}` : '';
+  const [favorites, setFavorites] = useState<Favorite[]>(() => (user ? (queryCache.get<Favorite[]>(favCacheKey) ?? []) : []));
+  const [loading, setLoading] = useState(() => !(user && queryCache.get(favCacheKey)));
 
   useEffect(() => {
     if (!user) return;
-    // Standard data-fetch-on-mount: loading toggle before an async call is intentional.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLoading(true);
+    const hasCached = queryCache.get(favCacheKey) !== null;
+    if (!hasCached) setLoading(true);
     favoriteRepository.getAll(user.id)
-      .then(setFavorites)
+      .then((d) => { queryCache.set(favCacheKey, d, 120_000); setFavorites(d); })
       .catch(() => {})
       .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const handleRemove = useCallback(async (fav: Favorite) => {

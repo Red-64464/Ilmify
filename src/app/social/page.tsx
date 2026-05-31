@@ -10,6 +10,7 @@ import EmptyState from '@/components/ui/EmptyState';
 import Skeleton from '@/components/ui/Skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import { socialPostRepository } from '@/lib/repositories/socialPostRepository';
+import { queryCache, getCached, persistCache } from '@/lib/queryCache';
 import { platformLabel } from '@/lib/social/platforms';
 import type { SocialPost, SocialPlatform } from '@/types';
 import SocialImportModal from './SocialImportModal';
@@ -34,17 +35,19 @@ export default function SocialPage() {
 
 function SocialPageInner() {
   const { user, isLoading: authLoading } = useAuth();
-  const [posts, setPosts] = useState<SocialPost[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [posts, setPosts] = useState<SocialPost[]>(() => getCached<SocialPost[]>('social:posts') ?? []);
+  const [loading, setLoading] = useState(() => !getCached('social:posts'));
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<'all' | SocialPlatform | 'favorites'>('all');
   const [showImport, setShowImport] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) return;
-    setLoading(true);
+    const hasCached = getCached('social:posts') !== null;
+    if (!hasCached) setLoading(true);
     try {
       const list = await socialPostRepository.list();
+      persistCache('social:posts', list, 120_000);
       setPosts(list);
     } catch (err) {
       console.error('Load social posts failed', err);

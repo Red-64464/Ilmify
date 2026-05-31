@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { parseSocialUrl } from '@/lib/social/platforms';
 import { resolveSocialMedia } from '@/lib/social/resolvers';
+import { checkRateLimit, getRateLimitKey, rateLimitResponse } from '@/lib/rateLimit';
 import type { TranscriptSegment } from '@/types';
 
 export const runtime = 'nodejs';
@@ -14,6 +15,11 @@ const MAX_AUDIO_BYTES = 20 * 1024 * 1024; // 20MB (Groq limit ~25MB)
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  // Strict rate limit: this route downloads up to 20 MB of audio + calls Groq Whisper
+  const rlKey = getRateLimitKey(req, 'transcribe', req.headers.get('authorization'));
+  const rl = checkRateLimit(rlKey, { max: 5, windowMs: 60_000 });
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfter) as NextResponse;
+
   let body: { url?: string };
   try {
     body = await req.json();

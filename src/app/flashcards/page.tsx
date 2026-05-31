@@ -14,6 +14,7 @@ import Skeleton from '@/components/ui/Skeleton';
 import AuthGuard from '@/components/layout/AuthGuard';
 import { useAuth } from '@/contexts/AuthContext';
 import { flashcardRepository } from '@/lib/repositories/flashcardRepository';
+import { queryCache, getCached, persistCache } from '@/lib/queryCache';
 import type { FlashcardDeck } from '@/types';
 
 const DECK_EMOJIS = ['🧠', '📚', '📖', '✨', '🌙', '⭐', '🕌', '🕋', '☪️', '🤲', '📿', '🎓', '💡', '🌟', '🏆', '📝', '🔬', '💎', '🌍', '🎯'];
@@ -61,15 +62,21 @@ export default function FlashcardsPage() {
   const [addingDeck, setAddingDeck] = useState(false);
   const [addingCard, setAddingCard] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [decks, setDecks] = useState<FlashcardDeck[]>([]);
-  const [decksLoading, setDecksLoading] = useState(true);
+  const decksCacheKey = user ? `flashcards:decks:${user.id}` : '';
+  const [decks, setDecks] = useState<FlashcardDeck[]>(() => (user ? (getCached<FlashcardDeck[]>(decksCacheKey) ?? []) : []));
+  const [decksLoading, setDecksLoading] = useState(() => !(user && getCached(decksCacheKey)));
 
   useEffect(() => {
     if (authLoading || !user) return;
     let cancelled = false;
-    setDecksLoading(true);
-    flashcardRepository.getAllDecks(user.id).then(d => { if (!cancelled) setDecks(d); }).catch(() => {}).finally(() => { if (!cancelled) setDecksLoading(false); });
+    const hasCached = getCached(decksCacheKey) !== null;
+    if (!hasCached) setDecksLoading(true);
+    flashcardRepository.getAllDecks(user.id)
+      .then(d => { if (!cancelled) { persistCache(decksCacheKey, d, 120_000); setDecks(d); } })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setDecksLoading(false); });
     return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user]);
 
   const handleAddDeck = useCallback(async () => {

@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import Sidebar from './Sidebar';
 import BottomNav from './BottomNav';
 import { ToastProvider } from '@/components/ui/Toast';
@@ -97,10 +98,26 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
       {showNav && <Sidebar onOpenInstallGuide={openGuide} />}
       <main className={`relative z-10 min-h-screen ${showNav ? 'lg:pl-[280px]' : ''}`}>
         <div className={isAuthRoute ? '' : 'mx-auto max-w-4xl px-5 pb-nav sm:px-8 lg:px-10 lg:py-6'}>
-          {children}
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={pathname}
+              data-page-transition
+              initial={{ opacity: 0, y: 8, scale: 0.99 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -5, scale: 1.005 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              style={{ willChange: 'opacity, transform' }}
+            >
+              {children}
+            </motion.div>
+          </AnimatePresence>
         </div>
       </main>
-      {showNav && <BottomNav />}
+      {showNav && (
+        <div style={{ viewTransitionName: 'bottom-nav' }}>
+          <BottomNav />
+        </div>
+      )}
       <InstallGuide isOpen={showGuide} onClose={closeGuide} />
     </>
   );

@@ -1,6 +1,7 @@
 // Fetches a web article URL, extracts readable text, and returns it for AI analysis
 import { NextRequest, NextResponse } from 'next/server';
 import { safeFetch, SsrfError } from '@/lib/security/ssrf';
+import { checkRateLimit, getRateLimitKey, rateLimitResponse } from '@/lib/rateLimit';
 
 export const runtime = 'nodejs';
 
@@ -49,6 +50,10 @@ function extractMeta(html: string): { description?: string; ogTitle?: string } {
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
+  const rlKey = getRateLimitKey(req, 'extract-article', req.headers.get('authorization'));
+  const rl = checkRateLimit(rlKey, { max: 15, windowMs: 60_000 });
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfter) as NextResponse;
+
   const url = req.nextUrl.searchParams.get('url');
   if (!url) {
     return NextResponse.json({ error: 'URL manquante' }, { status: 400 });

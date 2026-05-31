@@ -11,12 +11,18 @@ import Tabs from '@/components/ui/Tabs';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import { ProgressBar } from '@/components/ui/ProgressBar';
+import dynamic from 'next/dynamic';
 import EmptyState from '@/components/ui/EmptyState';
 import Skeleton from '@/components/ui/Skeleton';
-import ImageCropper from '@/components/ui/ImageCropper';
 import { useAuth } from '@/contexts/AuthContext';
+
+const ImageCropper = dynamic(() => import('@/components/ui/ImageCropper'), {
+  ssr: false,
+  loading: () => <div className="skeleton rounded-2xl" style={{ height: '20rem' }} aria-hidden="true" />,
+});
 import AuthGuard from '@/components/layout/AuthGuard';
 import { bookRepository } from '@/lib/repositories/bookRepository';
+import { queryCache, getCached, persistCache } from '@/lib/queryCache';
 import { useToast } from '@/components/ui/Toast';
 import type { Book } from '@/types';
 import { parseBookImport } from '@/lib/importBooks';
@@ -80,8 +86,9 @@ export default function LibraryPage() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [cropImage, setCropImage] = useState<string | null>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
-  const [books, setBooks] = useState<Book[]>([]);
-  const [booksLoading, setBooksLoading] = useState(true);
+  const booksCacheKey = user ? `books:all:${user.id}` : '';
+  const [books, setBooks] = useState<Book[]>(() => (user ? (getCached<Book[]>(booksCacheKey) ?? []) : []));
+  const [booksLoading, setBooksLoading] = useState(() => !(user && getCached(booksCacheKey)));
   const [addingBook, setAddingBook] = useState(false);
   const { toast } = useToast();
 
@@ -118,9 +125,19 @@ export default function LibraryPage() {
   useEffect(() => {
     if (authLoading || !user) return;
     let cancelled = false;
-    setBooksLoading(true);
-    bookRepository.getAll(user.id).then(b => { if (!cancelled) setBooks(b); }).catch(() => {}).finally(() => { if (!cancelled) setBooksLoading(false); });
+    const hasCached = getCached(booksCacheKey) !== null;
+    if (!hasCached) setBooksLoading(true);
+    bookRepository.getAll(user.id)
+      .then(b => {
+        if (!cancelled) {
+          persistCache(booksCacheKey, b, 120_000);
+          setBooks(b);
+        }
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setBooksLoading(false); });
     return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user]);
 
   const filtered = useMemo(() => books.filter((b) => {

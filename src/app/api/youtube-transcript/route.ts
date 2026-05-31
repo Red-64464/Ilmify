@@ -264,6 +264,8 @@ async function fetchViaWhisper(videoId: string): Promise<{ transcript: string; t
 }
 
 // ── Route handler ──
+const TRANSCRIPT_CACHE_HEADERS = { 'Cache-Control': 'private, max-age=3600, stale-while-revalidate=7200' };
+
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const videoId = req.nextUrl.searchParams.get('videoId');
 
@@ -275,7 +277,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     // Method 1: Try npm lib first (fastest)
     const libResult = await fetchViaLib(videoId);
     if (libResult && libResult.length > 0) {
-      return NextResponse.json({ transcript: libResult, characterCount: libResult.length, method: 'lib' });
+      return NextResponse.json(
+        { transcript: libResult, characterCount: libResult.length, method: 'lib' },
+        { headers: TRANSCRIPT_CACHE_HEADERS },
+      );
     }
 
     const pageData = await fetchYoutubePageData(videoId);
@@ -289,7 +294,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           language: captionResult.language,
           characterCount: captionResult.transcript.length,
           method: 'scraping',
-        });
+        }, { headers: TRANSCRIPT_CACHE_HEADERS });
       }
     }
 
@@ -302,7 +307,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         language: whisperResult.language,
         characterCount: whisperResult.transcript.length,
         method: 'whisper',
-      });
+      }, { headers: TRANSCRIPT_CACHE_HEADERS });
     }
 
     return NextResponse.json(

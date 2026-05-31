@@ -1,10 +1,15 @@
 'use client';
 
-import { useMemo, useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+
+// Persists across navigations within the same session (module-level).
+// Prevents the stagger animation from replaying every time the user returns to home.
+let _homeHasAnimated = false;
+
 import {
   FileText, GraduationCap, BookOpen, Star, Sun,
   ChevronRight, BookMarked, Plus, LogIn, UserPlus,
@@ -21,6 +26,7 @@ import { topicRepository } from '@/lib/repositories/topicRepository';
 import { courseRepository } from '@/lib/repositories/courseRepository';
 import { bookRepository } from '@/lib/repositories/bookRepository';
 import { activityRepository } from '@/lib/repositories/activityRepository';
+import { withCache } from '@/lib/queryCache';
 import { getRootCategories, getHadithsByCategory, getHadithDetail } from '@/lib/api/hadithApi';
 import { getVerseTranslation, getArabicVerse, SURAH_LIST } from '@/lib/api/quranApi';
 
@@ -99,6 +105,9 @@ export default function HomePage() {
   const [dailyLoading, setDailyLoading] = useState(false);
   const [dailyError, setDailyError] = useState(false);
   const [search, setSearch] = useState('');
+  // Skip stagger on return visits — only animate on first load
+  const isFirstLoad = useRef(!_homeHasAnimated);
+  useEffect(() => { _homeHasAnimated = true; }, []);
 
   // Fetch daily reminder from APIs (cached in localStorage by date)
   const loadDaily = useCallback(async (forceRefresh = false) => {
@@ -143,18 +152,17 @@ export default function HomePage() {
   const [featuredCourses, setFeaturedCourses] = useState<{ id: string; title: string; description?: string; icon?: string }[]>([]);
   const [streak, setStreak] = useState(0);
   const [todayStats, setTodayStats] = useState<{ quiz: number; flashcard: number; total: number }>({ quiz: 0, flashcard: 0, total: 0 });
+  const [dashboardLoading, setDashboardLoading] = useState(true);
   const [showFab, setShowFab] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
-    // Batch all dashboard queries with Promise.all for parallel execution
-    // Use lightweight list queries to avoid fetching heavy blocks/content
+    if (!user) { setDashboardLoading(false); return; }
     Promise.all([
-      topicRepository.listByUser(user.id, 4).catch(() => [] as { id: string; title: string; updatedAt: string; icon?: string }[]),
-      bookRepository.listBooks(user.id, { status: 'reading' }).catch(() => [] as { id: string; title: string; author: string; progress?: number }[]),
-      courseRepository.listPages(3).catch(() => [] as { id: string; title: string; description?: string; icon?: string }[]),
-      activityRepository.getStreak(user.id).catch(() => 0),
-      activityRepository.getTodayActivities(user.id).catch(() => [] as { activity_type: string; count: number }[]),
+      withCache(`topics:${user.id}:4`, () => topicRepository.listByUser(user.id, 4), 120_000).catch(() => [] as { id: string; title: string; updatedAt: string; icon?: string }[]),
+      withCache(`books:reading:${user.id}`, () => bookRepository.listBooks(user.id, { status: 'reading' }), 120_000).catch(() => [] as { id: string; title: string; author: string; progress?: number }[]),
+      withCache('courses:featured:3', () => courseRepository.listPages(3), 300_000).catch(() => [] as { id: string; title: string; description?: string; icon?: string }[]),
+      withCache(`streak:${user.id}`, () => activityRepository.getStreak(user.id), 300_000).catch(() => 0),
+      withCache(`today:${user.id}`, () => activityRepository.getTodayActivities(user.id), 60_000).catch(() => [] as { activity_type: string; count: number }[]),
     ]).then(([topics, books, courses, streakVal, acts]) => {
       setRecentTopics(topics.map((t) => ({ id: t.id, title: t.title, updatedAt: t.updatedAt, icon: t.icon })));
       setReadingBooks(books.map((b) => ({ id: b.id, title: b.title, author: b.author, progress: b.progress })));
@@ -164,6 +172,7 @@ export default function HomePage() {
       const quiz = activities.filter((a) => a.activity_type === 'quiz').reduce((s, a) => s + a.count, 0);
       const flashcard = activities.filter((a) => a.activity_type === 'flashcard').reduce((s, a) => s + a.count, 0);
       setTodayStats({ quiz, flashcard, total: quiz + flashcard });
+      setDashboardLoading(false);
     });
   }, [user]);
 
@@ -240,7 +249,7 @@ export default function HomePage() {
     <motion.div
       className="space-y-10 py-6 pb-10"
       variants={stagger}
-      initial="hidden"
+      initial={isFirstLoad.current ? 'hidden' : 'visible'}
       animate="visible"
     >
       {/* ===== Hero ===== */}
@@ -361,41 +370,51 @@ export default function HomePage() {
         <motion.section variants={fadeUp}>
           <SectionHeader title="Mes stats" />
           <div className="grid grid-cols-3 gap-3 mt-5">
-            <div
-              className="rounded-2xl p-4 text-center"
-              style={{
-                background: 'linear-gradient(135deg, rgba(245,158,11,0.08), rgba(245,158,11,0.03))',
-                border: '1px solid rgba(245,158,11,0.1)',
-              }}
-            >
-              <Flame size={22} className="mx-auto mb-2" style={{ color: '#f59e0b' }} />
-              <p className="text-2xl font-bold" style={{ color: '#f59e0b' }}>{streak}</p>
-              <p className="text-[10px] font-medium mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                {streak <= 1 ? 'jour' : 'jours'} de suite
-              </p>
-            </div>
-            <div
-              className="rounded-2xl p-4 text-center"
-              style={{
-                background: 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(99,102,241,0.03))',
-                border: '1px solid rgba(99,102,241,0.1)',
-              }}
-            >
-              <Brain size={22} className="mx-auto mb-2" style={{ color: '#6366f1' }} />
-              <p className="text-2xl font-bold" style={{ color: '#6366f1' }}>{todayStats.quiz}</p>
-              <p className="text-[10px] font-medium mt-0.5" style={{ color: 'var(--text-muted)' }}>Quiz aujourd&apos;hui</p>
-            </div>
-            <div
-              className="rounded-2xl p-4 text-center"
-              style={{
-                background: 'linear-gradient(135deg, rgba(46,158,140,0.08), rgba(46,158,140,0.03))',
-                border: '1px solid rgba(46,158,140,0.1)',
-              }}
-            >
-              <Layers size={22} className="mx-auto mb-2" style={{ color: '#2e9e8c' }} />
-              <p className="text-2xl font-bold" style={{ color: '#2e9e8c' }}>{todayStats.flashcard}</p>
-              <p className="text-[10px] font-medium mt-0.5" style={{ color: 'var(--text-muted)' }}>Cartes révisées</p>
-            </div>
+            {dashboardLoading ? (
+              <>
+                <div className="skeleton rounded-2xl h-24" />
+                <div className="skeleton rounded-2xl h-24" />
+                <div className="skeleton rounded-2xl h-24" />
+              </>
+            ) : (
+              <>
+                <div
+                  className="rounded-2xl p-4 text-center"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(245,158,11,0.08), rgba(245,158,11,0.03))',
+                    border: '1px solid rgba(245,158,11,0.1)',
+                  }}
+                >
+                  <Flame size={22} className="mx-auto mb-2" style={{ color: '#f59e0b' }} />
+                  <p className="text-2xl font-bold" style={{ color: '#f59e0b' }}>{streak}</p>
+                  <p className="text-[10px] font-medium mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                    {streak <= 1 ? 'jour' : 'jours'} de suite
+                  </p>
+                </div>
+                <div
+                  className="rounded-2xl p-4 text-center"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(99,102,241,0.03))',
+                    border: '1px solid rgba(99,102,241,0.1)',
+                  }}
+                >
+                  <Brain size={22} className="mx-auto mb-2" style={{ color: '#6366f1' }} />
+                  <p className="text-2xl font-bold" style={{ color: '#6366f1' }}>{todayStats.quiz}</p>
+                  <p className="text-[10px] font-medium mt-0.5" style={{ color: 'var(--text-muted)' }}>Quiz aujourd&apos;hui</p>
+                </div>
+                <div
+                  className="rounded-2xl p-4 text-center"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(46,158,140,0.08), rgba(46,158,140,0.03))',
+                    border: '1px solid rgba(46,158,140,0.1)',
+                  }}
+                >
+                  <Layers size={22} className="mx-auto mb-2" style={{ color: '#2e9e8c' }} />
+                  <p className="text-2xl font-bold" style={{ color: '#2e9e8c' }}>{todayStats.flashcard}</p>
+                  <p className="text-[10px] font-medium mt-0.5" style={{ color: 'var(--text-muted)' }}>Cartes révisées</p>
+                </div>
+              </>
+            )}
           </div>
         </motion.section>
       )}
@@ -466,15 +485,17 @@ export default function HomePage() {
       )}
 
       {/* ===== Recent Topics ===== */}
-      {recentTopics.length > 0 && (
+      {(dashboardLoading || recentTopics.length > 0) && user && (
         <motion.section variants={fadeUp}>
-          <SectionHeader
-            title="Topics récents"
-            seeAllHref="/topics"
-            seeAllLabel="Voir tout"
-          />
+          <SectionHeader title="Topics récents" seeAllHref="/topics" seeAllLabel="Voir tout" />
           <div className="mt-5 space-y-3">
-            {recentTopics.map((topic) => (
+            {dashboardLoading ? (
+              <>
+                <div className="skeleton rounded-2xl h-14" />
+                <div className="skeleton rounded-2xl h-14" />
+                <div className="skeleton rounded-2xl h-14" />
+              </>
+            ) : recentTopics.map((topic) => (
               <Link key={topic.id} href={`/topics/${topic.id}`}>
                 <Card glowColor="green" className="p-4 mb-3">
                   <div className="flex items-center gap-3">
@@ -497,15 +518,16 @@ export default function HomePage() {
       )}
 
       {/* ===== Featured Courses ===== */}
-      {featuredCourses.length > 0 && (
+      {(dashboardLoading || featuredCourses.length > 0) && user && (
         <motion.section variants={fadeUp}>
-          <SectionHeader
-            title="Cours disponibles"
-            seeAllHref="/courses"
-            seeAllLabel="Voir tout"
-          />
+          <SectionHeader title="Cours disponibles" seeAllHref="/courses" seeAllLabel="Voir tout" />
           <div className="mt-5 space-y-3">
-            {featuredCourses.map((course) => (
+            {dashboardLoading ? (
+              <>
+                <div className="skeleton rounded-2xl h-14" />
+                <div className="skeleton rounded-2xl h-14" />
+              </>
+            ) : featuredCourses.map((course) => (
               <Link key={course.id} href={`/courses/${course.id}`}>
                 <Card glowColor="gold" className="p-4 mb-3">
                   <div className="flex items-center gap-3">
@@ -530,23 +552,22 @@ export default function HomePage() {
       )}
 
       {/* ===== Recent Books ===== */}
-      {readingBooks.length > 0 && (
+      {(dashboardLoading || readingBooks.length > 0) && user && (
         <motion.section variants={fadeUp}>
-          <SectionHeader
-            title="Lectures en cours"
-            seeAllHref="/library"
-            seeAllLabel="Voir tout"
-          />
+          <SectionHeader title="Lectures en cours" seeAllHref="/library" seeAllLabel="Voir tout" />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5">
-            {readingBooks.map((book) => (
+            {dashboardLoading ? (
+              <>
+                <div className="skeleton rounded-2xl h-24" />
+                <div className="skeleton rounded-2xl h-24" />
+              </>
+            ) : readingBooks.map((book) => (
               <Link key={book.id} href={`/library/${book.id}`}>
                 <Card glowColor="gold" className="p-5">
                   <div className="flex items-start gap-4">
                     <div
                       className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
-                      style={{
-                        background: 'linear-gradient(135deg, rgba(196,154,61,0.12), rgba(196,154,61,0.06))',
-                      }}
+                      style={{ background: 'linear-gradient(135deg, rgba(196,154,61,0.12), rgba(196,154,61,0.06))' }}
                     >
                       <BookOpen size={20} style={{ color: '#d4ad4a' }} />
                     </div>

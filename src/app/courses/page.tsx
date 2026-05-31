@@ -19,6 +19,7 @@ import Skeleton from '@/components/ui/Skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthGuard from '@/components/layout/AuthGuard';
 import { courseRepository } from '@/lib/repositories/courseRepository';
+import { queryCache, getCached, persistCache } from '@/lib/queryCache';
 import { generateCoursePlan } from '@/lib/ai/groq';
 import { useToast } from '@/components/ui/Toast';
 import JsonImportModal from '@/components/editor/JsonImportModal';
@@ -76,10 +77,10 @@ export default function CoursesPage() {
   const { isAdmin, user, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const [search, setSearch] = useState('');
-  const [allFolders, setAllFolders] = useState<CourseFolder[]>([]);
-  const [allPages, setAllPages] = useState<CoursePage[]>([]);
+  const [allFolders, setAllFolders] = useState<CourseFolder[]>(() => getCached<CourseFolder[]>('courses:folders') ?? []);
+  const [allPages, setAllPages] = useState<CoursePage[]>(() => getCached<CoursePage[]>('courses:pages') ?? []);
   const [filteredPages, setFilteredPages] = useState<CoursePage[]>([]);
-  const [dataLoading, setDataLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(() => !getCached('courses:folders'));
 
   // Navigation state
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
@@ -201,12 +202,18 @@ export default function CoursesPage() {
   useEffect(() => {
     if (authLoading) return;
     let cancelled = false;
-    setDataLoading(true);
+    const hasCached = queryCache.get('courses:folders') !== null;
+    if (!hasCached) setDataLoading(true);
     Promise.all([
       courseRepository.getAllFolders(),
       courseRepository.getAllPages(),
     ]).then(([f, p]) => {
-      if (!cancelled) { setAllFolders(f); setAllPages(p); }
+      if (!cancelled) {
+        persistCache('courses:folders', f, 300_000);
+        persistCache('courses:pages', p, 300_000);
+        setAllFolders(f);
+        setAllPages(p);
+      }
     }).catch(() => {}).finally(() => { if (!cancelled) setDataLoading(false); });
     return () => { cancelled = true; };
   }, [authLoading, user]);

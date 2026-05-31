@@ -6,11 +6,22 @@ import { motion } from 'framer-motion';
 import {
   ArrowLeft, Edit3, Save, Trash2, GraduationCap, FileDown, Brain, Loader2, Layers, Award, FileText,
 } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
-import BlockEditor from '@/components/editor/BlockEditor';
 import { useAuth } from '@/contexts/AuthContext';
+
+const BlockEditor = dynamic(() => import('@/components/editor/BlockEditor'), {
+  ssr: false,
+  loading: () => (
+    <div className="space-y-4 py-4">
+      {[1, 2, 3].map(i => (
+        <div key={i} className="skeleton rounded-2xl" style={{ height: i === 2 ? '8rem' : '3.5rem' }} aria-hidden="true" />
+      ))}
+    </div>
+  ),
+});
 import { courseRepository } from '@/lib/repositories/courseRepository';
 import { quizRepository } from '@/lib/repositories/quizRepository';
 import { flashcardRepository } from '@/lib/repositories/flashcardRepository';
