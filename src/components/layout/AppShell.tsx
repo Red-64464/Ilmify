@@ -1,13 +1,17 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Sidebar from './Sidebar';
 import BottomNav from './BottomNav';
 import { ToastProvider } from '@/components/ui/Toast';
 import InstallGuide, { useInstallGuide } from '@/components/ui/InstallGuide';
+import SplashScreen from '@/components/ui/SplashScreen';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
+
+// Splash ne s'affiche qu'une seule fois par session navigateur (pas à chaque navigation)
+const SESSION_KEY = 'ilmify-splash-shown';
 
 const AUTH_ROUTES = ['/login', '/signup'];
 // Pages that work without auth
@@ -102,12 +106,29 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
   );
 }
 
+function SplashWrapper({ children }: { children: React.ReactNode }) {
+  const [splashDone, setSplashDone] = useState<boolean>(() => {
+    if (typeof sessionStorage === 'undefined') return true;
+    return sessionStorage.getItem(SESSION_KEY) === '1';
+  });
+
+  const handleDone = useCallback(() => {
+    try { sessionStorage.setItem(SESSION_KEY, '1'); } catch { /* private mode */ }
+    setSplashDone(true);
+  }, []);
+
+  if (!splashDone) return <SplashScreen onDone={handleDone} />;
+  return <>{children}</>;
+}
+
 export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
       <ThemeProvider>
         <ToastProvider>
-          <AppShellInner>{children}</AppShellInner>
+          <SplashWrapper>
+            <AppShellInner>{children}</AppShellInner>
+          </SplashWrapper>
         </ToastProvider>
       </ThemeProvider>
     </AuthProvider>

@@ -1,8 +1,3 @@
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_API_KEY = process.env.NEXT_PUBLIC_GROQ_API_KEY || '';
-
-const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const OPENROUTER_API_KEY = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || '';
 const OPENROUTER_PRIMARY_MODEL = 'nvidia/nemotron-3-super-120b-a12b:free'; // Nemotron 120B — 262K, très fiable, rarement rate-limité
 const OPENROUTER_FALLBACK_MODEL = 'minimax/minimax-m2.5:free';              // MiniMax M2.5 — 197K context, bon fallback
 
@@ -70,8 +65,6 @@ async function callGroq(
   retries = 3,
   maxTokens = 2048,
 ): Promise<string> {
-  if (!GROQ_API_KEY) throw new Error('Clé API Groq non configurée. Ajoutez NEXT_PUBLIC_GROQ_API_KEY dans .env.local');
-
   let lastError: Error | null = null;
   // On json_validate_failed we retry without response_format (model still outputs JSON from prompt)
   let useJsonMode = json;
@@ -86,13 +79,10 @@ async function callGroq(
       };
       if (useJsonMode) body.response_format = { type: 'json_object' };
 
-      const res = await fetch(GROQ_API_URL, {
+      const res = await fetch('/api/ai/chat', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${GROQ_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: 'groq', ...body }),
       });
 
       if (!res.ok) {
@@ -167,8 +157,6 @@ async function callOpenRouter(
   retries = 2,
   maxTokens = 8000,
 ): Promise<string> {
-  if (!OPENROUTER_API_KEY) throw new Error('Clé API OpenRouter non configurée. Ajoutez NEXT_PUBLIC_OPENROUTER_API_KEY dans .env.local');
-
   // Ordre de tentative : modèle demandé → primary → fallback
   const modelsToTry = model
     ? [model]
@@ -187,15 +175,10 @@ async function callOpenRouter(
         };
         if (json) body.response_format = { type: 'json_object' };
 
-        const res = await fetch(OPENROUTER_API_URL, {
+        const res = await fetch('/api/ai/chat', {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://ilmify.app',
-            'X-Title': 'Ilmify',
-          },
-          body: JSON.stringify(body),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ provider: 'openrouter', ...body }),
         });
 
         if (!res.ok) {
@@ -214,7 +197,6 @@ async function callOpenRouter(
 
         const data = await res.json();
         const content = (data.choices as GroqChoice[])[0].message.content;
-        console.log(`[OpenRouter] ✅ ${currentModel} a répondu`);
         if (json) {
           return extractJsonFromText(content);
         }
@@ -539,7 +521,7 @@ export async function generateVideoAnalysis(
 ): Promise<VideoAnalysis> {
   const report = (step: string, partial?: Partial<VideoAnalysis>) => { if (onProgress) onProgress(step, partial); };
 
-  const hasOpenRouter = !!OPENROUTER_API_KEY;
+  const hasOpenRouter = true;
   const isLong = transcript.length > 15000;
 
   // For long transcripts on OpenRouter, we can send much more context
@@ -746,7 +728,7 @@ export async function answerVideoQuestion(
   question: string,
 ): Promise<{ answer: string; citation: string }> {
   const isLong = transcript.length > 15000;
-  const useOR = isLong && !!OPENROUTER_API_KEY;
+  const useOR = isLong;
   const callAI = useOR ? callOpenRouter : callGroq;
   const truncated = useOR ? sampleTranscript(transcript, 20000) : truncateContent(transcript, 8000);
   const prompt = `Tu analyses la transcription d'une vidéo intitulée "${videoTitle}".
@@ -1033,7 +1015,7 @@ Le résumé doit :
 
 Réponds UNIQUEMENT avec le résumé, sans titre ni introduction.`;
 
-  const hasOR = !!OPENROUTER_API_KEY;
+  const hasOR = true;
   if (hasOR && passagesText.length > 8000) {
     return callOpenRouter(
       [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: prompt }],
@@ -1255,7 +1237,7 @@ Réponds en JSON :
 
 Types de blocs disponibles : heading1, heading2, heading3, paragraph, bullet-list, callout, reminder, source, definition, divider, verse, hadith, quote`;
 
-  const hasOR = !!OPENROUTER_API_KEY;
+  const hasOR = true;
   const callAI = (hasOR && transcript.length > 8000) ? callOpenRouter : callGroq;
   const raw = await callAI(
     [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: prompt }],

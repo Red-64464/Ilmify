@@ -9,6 +9,7 @@ export const isSupabaseConfigured =
   supabaseAnonKey !== 'placeholder-anon-key';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  db: { schema: 'ilmify' },
   auth: {
     persistSession: true,
     autoRefreshToken: true,

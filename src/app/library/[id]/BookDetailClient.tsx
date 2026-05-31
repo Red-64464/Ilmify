@@ -325,7 +325,7 @@ export default function BookDetailClient({ id: propId }: { id: string }) {
       console.error('Error creating passage:', err);      setPassageError('Erreur lors de l\'ajout du passage');    } finally {
       setPassageSaving(false);
     }
-  }, [id, passageTitle, passageContent, passagePage, passageReflection, passageImportant, user, passageSaving]);
+  }, [id, passageTitle, passageContent, passagePage, passageReflection, passageImportant, passageImageUrl, passageLink, user, passageSaving]);
 
   const handlePassageImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

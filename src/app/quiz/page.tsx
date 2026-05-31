@@ -33,6 +33,8 @@ export default function QuizPage() {
   const [importing, setImporting] = useState(false);
 
   useEffect(() => {
+    // Data-fetch-on-mount; loading toggle / fallback data is intentional here.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!user) { setLoading(false); return; }
     quizRepository.getAllQuestions(user.id)
       .then((q) => setQuestions(q.length > 0 ? q : staticQuestions))

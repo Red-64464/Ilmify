@@ -5,8 +5,6 @@
  */
 import type { TranscriptSegment, IslamicCitation, KeyPoint, DubiousFlag } from '@/types';
 
-const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_KEY = process.env.NEXT_PUBLIC_GROQ_API_KEY || '';
 const DEFAULT_MODEL = 'llama-3.3-70b-versatile';
 
 interface ChatMsg {
@@ -35,7 +33,6 @@ async function callGroq(
   model = DEFAULT_MODEL,
   maxRetries = 4,
 ): Promise<string> {
-  if (!GROQ_KEY) throw new Error('NEXT_PUBLIC_GROQ_API_KEY manquante.');
   const body: Record<string, unknown> = {
     model,
     messages,
@@ -45,13 +42,10 @@ async function callGroq(
   if (json) body.response_format = { type: 'json_object' };
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    const res = await fetch(GROQ_URL, {
+    const res = await fetch('/api/ai/chat', {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${GROQ_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider: 'groq', ...body }),
     });
 
     if (res.status === 429) {

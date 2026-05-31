@@ -43,5 +43,10 @@ next-env.d.ts
 # temp files
 file_*.png
 
+# yt-dlp / youtube-dl runtime artifacts (player signature scripts)
+*player-script*.js
+*.part
+*.ytdl
+
 # Local Netlify folder
 .netlify

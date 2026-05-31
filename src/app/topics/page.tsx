@@ -101,7 +101,7 @@ export default function TopicsPage() {
     } finally {
       setCreating(false);
     }
-  }, [user, newTitle, newCategory, creating]);
+  }, [user, newTitle, newCategory, creating, router]);
 
   const handleJsonImport = useCallback(async (title: string, blocks: TopicBlock[]) => {
     if (!user || creating) return;

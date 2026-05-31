@@ -1,0 +1,43 @@
+services:
+  ilmify:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+    image: ilmify:latest
+    container_name: ilmify
+    restart: unless-stopped
+    environment:
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      NODE_ENV: production
+    networks:
+      - coolify
+    labels:
+      - traefik.enable=true
+      # HTTPS router (avec SSL Let's Encrypt)
+      - traefik.http.routers.ilmify.rule=Host(`rayan-ilmify.duckdns.org`)
+      - traefik.http.routers.ilmify.entrypoints=https
+      - traefik.http.routers.ilmify.tls=true
+      - traefik.http.routers.ilmify.tls.certresolver=letsencrypt
+      - traefik.http.routers.ilmify.middlewares=ilmify-sec@docker
+      # Redirect HTTP → HTTPS
+      - traefik.http.routers.ilmify-http.rule=Host(`rayan-ilmify.duckdns.org`)
+      - traefik.http.routers.ilmify-http.entrypoints=http
+      - traefik.http.routers.ilmify-http.middlewares=ilmify-https-redirect
+      - traefik.http.middlewares.ilmify-https-redirect.redirectscheme.scheme=https
+      - traefik.http.services.ilmify.loadbalancer.server.port=3000
+      # Security headers
+      - traefik.http.middlewares.ilmify-sec.headers.stsSeconds=31536000
+      - traefik.http.middlewares.ilmify-sec.headers.stsIncludeSubdomains=true
+      - traefik.http.middlewares.ilmify-sec.headers.browserXssFilter=true
+      - traefik.http.middlewares.ilmify-sec.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.ilmify-sec.headers.frameDeny=true
+      - traefik.http.middlewares.ilmify-sec.headers.referrerPolicy=strict-origin-when-cross-origin
+
+networks:
+  coolify:
+    external: true

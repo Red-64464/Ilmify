@@ -2,7 +2,7 @@ import Fuse from 'fuse.js';
 import { themes } from '@/data/themes';
 import { contentItems } from '@/data/content';
 import { quizQuestions } from '@/data/quiz';
-import { flashcardDecks, flashcards } from '@/data/flashcards';
+import { flashcardDecks } from '@/data/flashcards';
 import { books, bookPassages } from '@/data/books';
 import { SearchResult } from '@/types';
 

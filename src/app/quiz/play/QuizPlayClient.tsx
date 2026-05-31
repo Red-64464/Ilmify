@@ -31,6 +31,8 @@ export default function QuizPlayClient() {
 
   useEffect(() => {
     if (!user) {
+      // Fallback to bundled static questions when not logged in — intentional sync setState.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAllQuestions(staticQuestions);
       setLoading(false);
       return;

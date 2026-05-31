@@ -262,20 +262,14 @@ export function useInstallGuide() {
 }
 
 export default function InstallGuide({ isOpen, onClose }: InstallGuideProps) {
-  const [platform, setPlatform] = useState<Platform>('iphone');
-
-  // Auto-detect platform on mount
-  useEffect(() => {
-    if (!isOpen) return;
+  // Auto-detect platform once (SSR-guarded lazy init); user can still switch tabs.
+  const [platform, setPlatform] = useState<Platform>(() => {
+    if (typeof navigator === 'undefined') return 'iphone';
     const ua = navigator.userAgent.toLowerCase();
-    if (/iphone|ipad|ipod/.test(ua)) {
-      setPlatform('iphone');
-    } else if (/android/.test(ua)) {
-      setPlatform('android');
-    } else {
-      setPlatform('desktop');
-    }
-  }, [isOpen]);
+    if (/iphone|ipad|ipod/.test(ua)) return 'iphone';
+    if (/android/.test(ua)) return 'android';
+    return 'desktop';
+  });
 
   return (
     <AnimatePresence>

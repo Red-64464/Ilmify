@@ -51,6 +51,8 @@ function Inner({ postId }: { postId: string }) {
 
   const [working, setWorking] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [videoError, setVideoError] = useState(false);
+  const [refreshingVideo, setRefreshingVideo] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [newAnnotation, setNewAnnotation] = useState('');
@@ -255,6 +257,27 @@ function Inner({ postId }: { postId: string }) {
     }
   };
 
+  const handleRefreshMedia = async () => {
+    if (!post || refreshingVideo) return;
+    setRefreshingVideo(true);
+    setError('');
+    try {
+      const res = await fetch('/api/social/refresh-media', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postId: post.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Impossible de récupérer la vidéo');
+      setPost((prev) => prev ? { ...prev, mediaUrl: data.mediaUrl } : prev);
+      setVideoError(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur lors du refresh vidéo');
+    } finally {
+      setRefreshingVideo(false);
+    }
+  };
+
   const handleAddAnnotation = async () => {
     if (!post || !user || !newAnnotation.trim()) return;
     try {
@@ -391,16 +414,17 @@ function Inner({ postId }: { postId: string }) {
                 allow="accelerated-2d-canvas; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
               />
-            ) : post.mediaUrl ? (
+            ) : post.mediaUrl && !videoError ? (
               <div className="relative w-full h-full">
                 <video
                   ref={videoRef}
-                  src={`/api/social/media-proxy?url=${encodeURIComponent(post.mediaUrl)}&platform=${post.platform}`}
+                  src={`/api/social/media-proxy?url=${encodeURIComponent(post.mediaUrl)}&platform=${post.platform}&postId=${post.id}`}
                   controls
                   playsInline
                   poster={post.thumbnailUrl}
                   className="w-full h-full"
                   onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+                  onError={() => setVideoError(true)}
                 />
                 {activeSubtitleText && (
                   <div
@@ -432,7 +456,19 @@ function Inner({ postId }: { postId: string }) {
                 {post.thumbnailUrl && (
                   <Image src={post.thumbnailUrl} alt={post.title || ''} width={160} height={280} unoptimized className="rounded-xl object-cover" />
                 )}
-                <p className="text-xs">L&apos;URL média directe n&apos;est plus disponible.</p>
+                <p className="text-xs">
+                  {videoError ? 'Le lien vidéo a expiré.' : 'URL média non disponible.'}
+                </p>
+                <button
+                  onClick={handleRefreshMedia}
+                  disabled={refreshingVideo}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-opacity disabled:opacity-50"
+                  style={{ background: 'var(--accent)', color: '#fff' }}
+                >
+                  {refreshingVideo
+                    ? <><Loader2 size={14} className="animate-spin" /> Récupération…</>
+                    : '↻ Récupérer la vidéo'}
+                </button>
                 <a href={post.url} target="_blank" rel="noopener noreferrer" className="text-xs underline" style={{ color: 'var(--accent)' }}>
                   Ouvrir chez {platformLabel(post.platform)}
                 </a>

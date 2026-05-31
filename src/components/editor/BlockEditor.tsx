@@ -1870,8 +1870,9 @@ export default function BlockEditor({ blocks, onChange, readOnly = false }: Bloc
     );
   }
 
-  // Insert line component — appears between blocks on hover (desktop only)
-  const InsertLine = ({ index }: { index: number }) => (
+  // Insert line — appears between blocks on hover (desktop only).
+  // Render helper (not a nested component) so it doesn't remount on every render.
+  const renderInsertLine = (index: number) => (
     <div className="group/insert relative hidden sm:flex items-center justify-center" style={{ height: '12px', margin: '0 -0.5rem', zIndex: 5 }}>
       <div
         className="absolute inset-x-0 flex items-center justify-center cursor-pointer"
@@ -1895,7 +1896,7 @@ export default function BlockEditor({ blocks, onChange, readOnly = false }: Bloc
   return (
     <div className="pl-0 sm:pl-8" onPaste={handlePaste}>
       {/* Insert line before first block */}
-      <InsertLine index={-1} />
+      {renderInsertLine(-1)}
 
       {blocks
         .sort((a, b) => a.order - b.order)
@@ -1915,7 +1916,7 @@ export default function BlockEditor({ blocks, onChange, readOnly = false }: Bloc
               onOpenQuranAIModal={() => setShowQuranAIModal(true)}
             />
             {/* Insert line after each block */}
-            <InsertLine index={index} />
+            {renderInsertLine(index)}
           </React.Fragment>
         ))}
 

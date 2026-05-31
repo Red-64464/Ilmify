@@ -1,5 +1,8 @@
 // Fetches a web article URL, extracts readable text, and returns it for AI analysis
 import { NextRequest, NextResponse } from 'next/server';
+import { safeFetch, SsrfError } from '@/lib/security/ssrf';
+
+export const runtime = 'nodejs';
 
 // Naive HTML-to-text extractor (no external dependency)
 function htmlToText(html: string): string {
@@ -51,28 +54,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'URL manquante' }, { status: 400 });
   }
 
-  // Basic URL validation
-  let parsed: URL;
   try {
-    parsed = new URL(url);
-  } catch {
-    return NextResponse.json({ error: 'URL invalide' }, { status: 400 });
-  }
-
-  // Only allow http/https
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    return NextResponse.json({ error: 'Protocole non supporté' }, { status: 400 });
-  }
-
-  try {
-    const res = await fetch(url, {
+    // SSRF-safe fetch: rejects internal/private hosts and re-validates every redirect hop.
+    const res = await safeFetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; Ilmify/1.0; +https://ilmify.app)',
         'Accept': 'text/html,application/xhtml+xml',
         'Accept-Language': 'fr,ar,en',
       },
-      signal: AbortSignal.timeout(10000),
-      redirect: 'follow',
+      timeoutMs: 10000,
     });
 
     if (!res.ok) {
@@ -108,6 +98,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       characterCount: text.length,
     });
   } catch (err) {
+    if (err instanceof SsrfError) {
+      return NextResponse.json({ error: `URL refusée : ${err.message}` }, { status: 400 });
+    }
     const message = err instanceof Error ? err.message : String(err);
     if (message.includes('timeout') || message.includes('abort')) {
       return NextResponse.json({ error: 'Délai d\'attente dépassé pour cette URL' }, { status: 408 });

@@ -27,29 +27,25 @@ export function useAuth(): AuthContextValue {
 }
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Initialize from in-memory cache for instant navigation (no flash of empty state)
+  // Initialize from in-memory cache for instant navigation (no flash of empty state).
+  // isSupabaseConfigured is a module-level constant, so we derive the initial
+  // loading state from it directly instead of calling setState inside the effect.
   const cached = getCachedAuth();
-  const [user, setUser] = useState<User | null>(cached.user);
-  const [session, setSession] = useState<Session | null>(cached.session);
-  const [isLoading, setIsLoading] = useState(!cached.user);
+  const [user, setUser] = useState<User | null>(isSupabaseConfigured ? cached.user : null);
+  const [session, setSession] = useState<Session | null>(isSupabaseConfigured ? cached.session : null);
+  const [isLoading, setIsLoading] = useState(isSupabaseConfigured ? !cached.user : false);
 
   // Listen to Supabase auth state changes
   useEffect(() => {
-    if (!isSupabaseConfigured) {
-      setUser(null);
-      setSession(null);
-      setCachedAuth(null, null);
-      setIsLoading(false);
-      return;
-    }
+    // Nothing to subscribe to when Supabase isn't configured — initial state is already correct.
+    if (!isSupabaseConfigured) return;
 
     let mounted = true;
 
-    // Safety timeout — never block loading forever (8s for slow mobile connections)
+    // Safety timeout — never block loading forever (8s for slow mobile connections).
+    // setIsLoading(false) is idempotent, so we don't need to read isLoading here.
     const timeout = setTimeout(() => {
-      if (mounted && isLoading) {
-        setIsLoading(false);
-      }
+      if (mounted) setIsLoading(false);
     }, 8000);
 
     const buildUserFromSession = async (supaSession: import('@supabase/supabase-js').Session) => {

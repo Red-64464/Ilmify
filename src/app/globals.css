@@ -49,10 +49,10 @@
   --color-teal-600: #0b8577;
   --color-teal-700: #0c685e;
 
-  /* ---- Fonts ---- */
-  --font-heading: 'Playfair Display', Georgia, serif;
-  --font-body: 'Inter', system-ui, sans-serif;
-  --font-arabic: 'Amiri', serif;
+  /* ---- Fonts (self-hosted via next/font, with system fallbacks) ---- */
+  --font-heading: var(--font-playfair), 'Playfair Display', Georgia, serif;
+  --font-body: var(--font-inter), 'Inter', system-ui, sans-serif;
+  --font-arabic: var(--font-amiri), 'Amiri', serif;
 
   /* ---- Animations ---- */
   --animate-spin: spin 1s linear infinite;
@@ -68,7 +68,7 @@
 video::cue {
   background: rgba(0, 0, 0, 0.75);
   color: #ffffff;
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 1.1rem;
   line-height: 1.5;
   padding: 2px 6px;

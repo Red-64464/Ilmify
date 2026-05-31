@@ -62,6 +62,8 @@ function SearchPageInner() {
   const [dynamicResults, setDynamicResults] = useState<SearchResult[]>([]);
 
   useEffect(() => {
+    // Sync the controlled input from the ?q= URL param (external state → React).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setQuery(searchParams.get('q') || '');
   }, [searchParams]);
 
@@ -69,6 +71,9 @@ function SearchPageInner() {
 
   // Fetch from Supabase when query changes (debounced + race-safe)
   useEffect(() => {
+    // Debounced, race-safe search effect. The synchronous loading/reset toggles
+    // below are intentional UI feedback before the async fetch.
+    /* eslint-disable react-hooks/set-state-in-effect */
     if (!query.trim() || query.trim().length < 2) {
       setDynamicResults([]);
       setSearchLoading(false);
@@ -76,6 +81,7 @@ function SearchPageInner() {
     }
 
     setSearchLoading(true);
+    /* eslint-enable react-hooks/set-state-in-effect */
     const controller = new AbortController();
     const timeout = setTimeout(() => {
       const q = query.trim();

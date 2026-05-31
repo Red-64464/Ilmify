@@ -56,6 +56,8 @@ export default function FavoritesPage() {
 
   useEffect(() => {
     if (!user) return;
+    // Standard data-fetch-on-mount: loading toggle before an async call is intentional.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     favoriteRepository.getAll(user.id)
       .then(setFavorites)

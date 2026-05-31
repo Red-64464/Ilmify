@@ -26,8 +26,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const parsed = parseSocialUrl(url);
   if (!parsed) return NextResponse.json({ error: 'URL non reconnue' }, { status: 400 });
 
-  const groqKey = process.env.NEXT_PUBLIC_GROQ_API_KEY;
-  if (!groqKey) return NextResponse.json({ error: 'NEXT_PUBLIC_GROQ_API_KEY non configurée' }, { status: 500 });
+  const groqKey = process.env.GROQ_API_KEY;
+  if (!groqKey) return NextResponse.json({ error: 'GROQ_API_KEY non configurée' }, { status: 500 });
 
   try {
     // 1. Resolve a direct media/audio URL via public APIs first

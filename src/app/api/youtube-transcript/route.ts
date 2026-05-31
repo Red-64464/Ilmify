@@ -164,8 +164,6 @@ async function getAudioUrl(videoId: string): Promise<{ url: string; title: strin
   try {
     // Use youtube-dl-exec (yt-dlp) — handles all YouTube cipher/signature deobfuscation
     const youtubedl = (await import('youtube-dl-exec')).default;
-    console.log('[whisper] Extracting audio info via yt-dlp...');
-
     const info = await youtubedl(`https://www.youtube.com/watch?v=${videoId}`, {
       dumpSingleJson: true,
       noCheckCertificates: true,
@@ -181,16 +179,11 @@ async function getAudioUrl(videoId: string): Promise<{ url: string; title: strin
       .filter((f) => f.vcodec === 'none' && f.acodec !== 'none' && f.url)
       .sort((a, b) => ((a.filesize as number) || Infinity) - ((b.filesize as number) || Infinity));
 
-    if (audioFormats.length === 0) {
-      console.log('[whisper] No audio formats found by yt-dlp');
-      return null;
-    }
+    if (audioFormats.length === 0) return null;
 
     const chosen = audioFormats[0];
     const ext = (chosen.ext as string) || 'mp4';
     const mime = ext === 'webm' ? 'audio/webm' : ext === 'mp3' ? 'audio/mpeg' : 'audio/mp4';
-    const size = chosen.filesize ? `${((chosen.filesize as number) / 1024 / 1024).toFixed(1)}MB` : 'unknown';
-    console.log(`[whisper] Selected: ${chosen.format_id} ${ext} ${chosen.acodec} ${chosen.abr}kbps (${size})`);
 
     return { url: chosen.url as string, title, mimeType: mime, ext };
   } catch (err) {
@@ -200,22 +193,15 @@ async function getAudioUrl(videoId: string): Promise<{ url: string; title: strin
 }
 
 async function fetchViaWhisper(videoId: string): Promise<{ transcript: string; title: string; language: string } | null> {
-  const GROQ_KEY = process.env.NEXT_PUBLIC_GROQ_API_KEY;
-  if (!GROQ_KEY) {
-    console.log('[whisper] No Groq API key, skipping');
-    return null;
-  }
+  const GROQ_KEY = process.env.GROQ_API_KEY;
+  if (!GROQ_KEY) return null;
 
   try {
     // Step 1: Get audio URL via yt-dlp
     const audioInfo = await getAudioUrl(videoId);
-    if (!audioInfo) {
-      console.log('[whisper] Could not get audio URL from any source');
-      return null;
-    }
+    if (!audioInfo) return null;
 
     // Step 2: Download audio (max 20MB — Groq limit is 25MB, keep margin)
-    console.log('[whisper] Downloading audio...');
     const MAX_AUDIO_BYTES = 20 * 1024 * 1024;
     const audioController = new AbortController();
     const audioTimeout = setTimeout(() => audioController.abort(), 90000);
@@ -229,21 +215,12 @@ async function fetchViaWhisper(videoId: string): Promise<{ transcript: string; t
     });
     clearTimeout(audioTimeout);
 
-    if (!audioRes.ok && audioRes.status !== 206) {
-      console.log(`[whisper] Audio download failed: HTTP ${audioRes.status}`);
-      return null;
-    }
+    if (!audioRes.ok && audioRes.status !== 206) return null;
 
     const audioBuffer = await audioRes.arrayBuffer();
-    console.log(`[whisper] Downloaded ${(audioBuffer.byteLength / 1024 / 1024).toFixed(1)}MB of audio`);
-
-    if (audioBuffer.byteLength < 1000) {
-      console.log('[whisper] Audio too small, skipping');
-      return null;
-    }
+    if (audioBuffer.byteLength < 1000) return null;
 
     // Step 3: Send to Groq Whisper
-    console.log('[whisper] Sending to Groq Whisper (whisper-large-v3-turbo)...');
     const formData = new FormData();
     formData.append('file', new Blob([audioBuffer], { type: audioInfo.mimeType }), `audio.${audioInfo.ext}`);
     formData.append('model', 'whisper-large-v3-turbo');
@@ -269,12 +246,8 @@ async function fetchViaWhisper(videoId: string): Promise<{ transcript: string; t
     const whisperData = await whisperRes.json() as { text?: string; language?: string };
     const transcript = whisperData.text?.trim();
 
-    if (!transcript || transcript.length < 50) {
-      console.log(`[whisper] Transcript too short: ${transcript?.length ?? 0} chars`);
-      return null;
-    }
+    if (!transcript || transcript.length < 50) return null;
 
-    console.log(`[whisper] ✓ Transcribed ${transcript.length} chars (language: ${whisperData.language || 'unknown'})`);
     return {
       transcript,
       title: audioInfo.title,
@@ -302,19 +275,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     // Method 1: Try npm lib first (fastest)
     const libResult = await fetchViaLib(videoId);
     if (libResult && libResult.length > 0) {
-      console.log(`[transcript] Method 1 (lib) succeeded for ${videoId}: ${libResult.length} chars`);
       return NextResponse.json({ transcript: libResult, characterCount: libResult.length, method: 'lib' });
     }
 
-    // Fetch YouTube page once (shared by Method 2 and 3)
-    console.log(`[transcript] Lib failed for ${videoId}, fetching YouTube page...`);
     const pageData = await fetchYoutubePageData(videoId);
 
-    // Method 2: Extract captions from page
     if (pageData) {
       const captionResult = await extractCaptionsFromPage(pageData);
       if (captionResult && captionResult.transcript.length > 0) {
-        console.log(`[transcript] Method 2 (scraping) succeeded for ${videoId}: ${captionResult.transcript.length} chars`);
         return NextResponse.json({
           transcript: captionResult.transcript,
           title: captionResult.title,
@@ -326,10 +294,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }
 
     // Method 3: Audio transcription via Groq Whisper (last resort)
-    console.log(`[transcript] No captions found for ${videoId}, trying Whisper audio transcription...`);
     const whisperResult = await fetchViaWhisper(videoId);
     if (whisperResult && whisperResult.transcript.length > 0) {
-      console.log(`[transcript] Method 3 (whisper) succeeded for ${videoId}: ${whisperResult.transcript.length} chars`);
       return NextResponse.json({
         transcript: whisperResult.transcript,
         title: whisperResult.title,

@@ -58,10 +58,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         })
         .filter(v => v.id);
 
-      return NextResponse.json({
-        playlistTitle: data.name || 'Playlist YouTube',
-        videos,
-      });
+      return NextResponse.json(
+        { playlistTitle: data.name || 'Playlist YouTube', videos },
+        { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' } },
+      );
     } catch {
       // Try next instance
     }

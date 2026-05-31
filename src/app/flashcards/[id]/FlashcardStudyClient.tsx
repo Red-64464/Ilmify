@@ -31,6 +31,8 @@ export default function FlashcardStudyClient({ id: propId }: { id: string }) {
     if (!id || id === '_placeholder') {
       const segments = window.location.pathname.split('/').filter(Boolean);
       const urlId = segments[segments.length - 1];
+      // One-time read of the route id from the URL (static-export fallback).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (urlId && urlId !== '_placeholder') setId(urlId);
     }
   }, [id]);

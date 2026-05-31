@@ -307,18 +307,19 @@ function applyTheme(theme: AppTheme) {
 }
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentTheme, setCurrentTheme] = useState<AppTheme>(APP_THEMES[0]);
-
-  useEffect(() => {
+  // Lazy initializer reads the saved theme synchronously on the client (SSR-guarded).
+  // This avoids the "flash of default theme" on load and the setState-in-effect anti-pattern.
+  const [currentTheme, setCurrentTheme] = useState<AppTheme>(() => {
+    if (typeof window === 'undefined') return APP_THEMES[0];
     const saved = localStorage.getItem('ilmify-theme');
-    if (saved) {
-      const found = APP_THEMES.find((t) => t.id === saved);
-      if (found) {
-        setCurrentTheme(found);
-        applyTheme(found);
-      }
-    }
-  }, []);
+    return APP_THEMES.find((t) => t.id === saved) ?? APP_THEMES[0];
+  });
+
+  // Sync the theme to the DOM (CSS variables) whenever it changes — a legitimate
+  // effect side-effect (updating an external system), not a render-state update.
+  useEffect(() => {
+    applyTheme(currentTheme);
+  }, [currentTheme]);
 
   const setThemeById = useCallback((id: string) => {
     const found = APP_THEMES.find((t) => t.id === id);
